@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment / secrets
+.env
+*.env
+client_secret_*.json
+
+# Runtime data
+~/.multi-gmail-mcp/
+
+# Claude Code local settings (may contain secrets)
+.claude/settings.local.json
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

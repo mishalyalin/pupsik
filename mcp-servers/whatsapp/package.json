@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-mcp-server",
+  "version": "1.0.0",
+  "description": "Read-only WhatsApp chat access via local ChatStorage.sqlite + sync to contacts.db",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.3"
+  }
+}

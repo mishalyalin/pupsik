@@ -1,0 +1,146 @@
+# CLAUDE.md — Working Memory for {{OWNER_FIRST_NAME}}
+
+## Session Start Protocol
+1. Read this file first
+2. Run `python3 ~/Desktop/claude/tools/memory_search.py wake-up` — ~200 tokens of fresh context (recent interactions, active projects, stale contacts)
+3. Based on user's message, detect goal and load relevant memory files
+4. See `skills/second-brain/SKILL.md` (if installed) for full retrieval logic
+
+---
+
+## 🔴 MANDATORY: Always 2+ agents per task
+
+**Every meaningful task requires a minimum of 2 agents.**
+
+- **Worker** — does the work
+- **Checker / Tester** — independently verifies the result
+
+More agents when the task is complex (architect, migrator, reviewer, security auditor, etc.).
+
+**Pattern:**
+- Worker and Checker are **separate agents** run independently.
+- Checker does NOT see Worker's intermediate work — they verify the output cold so they don't inherit the Worker's assumptions.
+- Checker reports `PASS` or `FAIL` + list of issues.
+- On `FAIL` → Worker fixes → Checker re-verifies.
+- Ship only on `PASS`.
+
+**When to spawn 2+ agents (yes):**
+- Any code / script / tool change
+- Any data analysis (email scan, contact import, financial calc)
+- Any system setup (MCP, hooks, workflows, migrations)
+- Any packaging / export / deployable artifact
+- Plans, architecture, research deliverables
+- Emails, contracts, documents being sent to a third party
+
+**When one agent is fine (no):**
+- A single lookup ("find this email", "what's this contact's phone?")
+- A single tool call with no transformation (list events, read file)
+- Direct answer to a question already in memory / DB
+
+**If in doubt — spawn two.** Cost of an error vastly exceeds the cost of a second agent.
+
+Full rule: `memory/feedback_always_two_agents.md`.
+User-facing explanation: `docs/AGENT_TEAM_RULE.md` (in the setup-package).
+
+---
+
+## Compact Instructions
+
+When auto-compact triggers, preserve the following in the summary:
+
+- **Active TODOs** from TodoWrite (names + status)
+- **Last user request** in the current thread
+- **Open loops** — agents running in the background (agentId + what they're doing)
+- **Key files modified this session** (absolute paths)
+- **Decisions made this session** — 1 line per decision
+- **Pending async ops** — email scans, scheduled tasks, background commands
+
+Do NOT preserve: full tool-output dumps, file contents (record path + line range instead), intermediate exploration steps.
+
+After compact: the `PostCompact` hook reminds the assistant to run `memory_search.py wake-up` and read `compact-state/latest.json`. Execute that first, then resume the task.
+
+Full details: `setup-package/docs/COMPACT_SETUP.md`.
+
+---
+
+## Contact DB quick commands
+
+DB: `~/Desktop/claude/data/contacts.db` + ChromaDB `~/Desktop/claude/data/chroma/`. Check before mentioning any person.
+
+```bash
+python3 ~/Desktop/claude/tools/memory_search.py search "query" --top 5       # semantic
+python3 ~/Desktop/claude/tools/contacts_db.py find "Name"                    # direct
+python3 ~/Desktop/claude/tools/contacts_db.py graph "Name" 2                 # graph (depth 2)
+python3 ~/Desktop/claude/tools/contacts_db.py chain "A" "B"                  # intro chain
+python3 ~/Desktop/claude/tools/contacts_db.py stale 7                        # silent > N days
+python3 ~/Desktop/claude/tools/memory_search.py index                        # reindex ChromaDB
+```
+
+Add interaction:
+```bash
+python3 ~/Desktop/claude/tools/contacts_db.py sql \
+  "INSERT INTO interactions (contact_id, date, type, direction, summary, source) \
+   SELECT id, '{{TODAY}}', 'meeting', 'mutual', 'Summary', 'manual' \
+   FROM contacts WHERE name='Name'"
+```
+
+---
+
+## Who is {{OWNER_FIRST_NAME}}
+
+- Full name: {{OWNER_FULL_NAME}}
+- Role: {{ROLE}}
+- Primary email: {{PRIMARY_EMAIL}}
+- Other emails: {{OTHER_EMAILS}}
+- Phone: {{PHONE}}
+- Location: {{LOCATION}}
+- Language: {{LANGUAGES}}
+
+---
+
+## Active Projects
+
+<!-- Fill in the user's active projects here. One per line or a short paragraph each.
+     Example:
+     1. **Project X** — brief status. Next step: ...
+     2. **Project Y** — brief status. Blocker: ...
+-->
+1. _(pending — update on first session)_
+
+---
+
+## Communication Style
+
+<!-- A few lines on how the owner writes, preferred tone, sign-off, etc.
+     Example:
+     - Direct, concise, no bullshit
+     - Prefers short dashes only (never em/en dashes)
+     - Signs emails "{{SIGN_OFF}}"
+-->
+- {{STYLE_LINE_1}}
+- {{STYLE_LINE_2}}
+
+---
+
+## Tools Connected
+
+Gmail (multi-account), Google Calendar (multi-account), WhatsApp (local DB reader) via the local MCP servers installed by `setup-package/install.sh`.
+
+Full reference: `memory/tools_connected.md` (if present).
+
+---
+
+## Memory System
+
+- `memory/people/` — contact profiles
+- `memory/decisions/` — key decisions
+- `memory/learnings/` — lessons learned
+- `memory/projects/` — project-specific context
+- `memory/style/` — writing voice
+- `memory/journal/` — personal notes
+- `memory/feedback_*.md` — MANDATORY rules (load every session)
+
+---
+
+## Last Updated
+{{TODAY}} — initial setup from `setup-package/`.

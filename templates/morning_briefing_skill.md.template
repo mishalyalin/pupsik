@@ -1,0 +1,62 @@
+---
+name: morning-briefing
+description: Generate a 3-lens morning briefing for {{OWNER_FIRST_NAME}} — CEO / PA / Architect perspective, action items for today, open questions. Use when the user says "morning briefing", "brief me", "утренний", or at the start of day.
+---
+
+# Morning Briefing
+
+A daily synthesis of what matters **today**.
+
+## Inputs — scan all of these BEFORE drafting
+
+1. **Email (all {{N_EMAIL_ACCOUNTS}} accounts)** — last 24h inbox + sent. Use `gmail_search_all` with `newer_than:1d`.
+2. **Calendar (all {{N_CAL_ACCOUNTS}} accounts)** — today + tomorrow. Use `gcal_list_all_events`.
+3. **WhatsApp DMs + business groups** — last 24h. Use `whatsapp_list_chats` then `whatsapp_messages_with` for each active chat.
+4. **Wake-up context** — `python3 ~/Desktop/claude/tools/memory_search.py wake-up`
+5. **Active TODOs** — check `TASKS.md` if present, or last session's `compact-state/latest.json`.
+6. **Stale contacts** — `python3 ~/Desktop/claude/tools/contacts_db.py stale 7`
+
+## Output format (3-lens)
+
+```
+# Morning Briefing — {{TODAY}}
+
+## 1. CEO lens — what matters strategically
+- [Top 3-5 items, each 1 line]
+
+## 2. PA lens — what {{OWNER_FIRST_NAME}} needs to DO today
+- [ ] Task 1 (context / deadline)
+- [ ] Task 2 ...
+
+## 3. Architect lens — systems / structural issues
+- [Tech debt, stuck workflows, broken integrations]
+
+## 3 questions for {{OWNER_FIRST_NAME}}
+1. ...
+2. ...
+3. ...
+
+## Options for today
+- **If {{OWNER_FIRST_NAME}} has 2h deep work:** focus on X
+- **If {{OWNER_FIRST_NAME}} is running between meetings:** batch Y
+- **If {{OWNER_FIRST_NAME}} is exhausted:** do only Z
+
+## Silent contacts > 7 days (flag)
+- Name — last contact DATE (topic)
+```
+
+## Rules (what NOT to do)
+
+- Don't invent tasks not grounded in actual emails / calendar / messages.
+- Don't repeat last week's "to do" if it's already done — verify first.
+- Don't re-raise closed items (check project memory for "CLOSED" / "DONE" markers).
+- Don't include weekend/holiday noise — apply a sensible filter.
+
+## Two-agent pattern for this skill
+
+Per `CLAUDE.md` 2+ agent rule:
+- **Agent 1 (Researcher)** — scans inputs, assembles raw findings
+- **Agent 2 (Writer)** — composes the briefing from findings, applies voice
+- **Agent 3 (Checker, optional for high-stakes days)** — verifies no invented facts, no stale items, no missed obvious meeting
+
+For routine daily briefings, Researcher + Writer is usually enough. For Mondays or pre-trip briefings, add the Checker.

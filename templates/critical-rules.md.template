@@ -1,0 +1,52 @@
+# Critical Rules — loaded every session (user-level, applies to all projects)
+
+Pointer-style summary of the user's MANDATORY feedback rules. Full details in `memory/feedback_*.md` (the project memory directory). Each rule is one line + a file reference. Deviating from these = bug, not stylistic choice.
+
+This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Claude Code at the start of every session.
+
+## 🔴 MANDATORY protocols (highest priority)
+
+- **ALWAYS 2+ AGENTS per task** — worker + independent checker. Sole-agent work is banned for meaningful tasks. More agents for complex work (architect / specialist / reviewer / tester). Ship only after the checker reports `PASS`. → `feedback_always_two_agents.md`
+- **Capture knowledge in-flight** — the MOMENT an insight/decision/research emerges → `note.py learning|decision|research` (don't wait to close topic). If it later evolves, re-run with same title — upserts the existing note. → `feedback_capture_knowledge.md`
+- **Verify project state before answering** any status / payment / partner question — fresh email (last 7 days, all accounts) and any relevant chat groups. Update `CLAUDE.md` inline if stale. → `feedback_verify_project_state.md`
+- **Never ignore own rules** — `CLAUDE.md` and `feedback_*.md` are MANDATORY protocols, not suggestions. → `feedback_never_ignore_own_rules.md`
+- **Contact DB first** — before mentioning any person, check the local contact DB (`tools/memory_search.py search`, `tools/contacts_db.py find`). Don't guess. → `feedback_contact_db_first.md`
+- **All configured accounts always** — when the user has multi-account MCPs (Gmail/Calendar), use the `*_all` variants by default. Never ask "which account?". → `feedback_all_accounts_always.md`
+
+## Communication / voice
+
+- **Short dashes only** — when drafting in the user's voice, use "-", never "—" or "–". Sign-offs follow the same rule. → `feedback_short_dashes_only.md`
+- **Verify before showing** — test links / URLs / commands work before presenting them. → `feedback_verify_before_showing.md`
+
+## Workspace / files
+
+- **Default workspace** — `~/Desktop/claude/`, `auto` permission mode. → `feedback_default_workspace.md`
+- **Save outputs** — generated files go to `~/Desktop/claude/outputs/YYYY-MM-DD-<topic>/`. → `feedback_save_outputs.md`
+- **Local MCP only** — prefer locally-installed MCP servers (multi-gmail, multi-gcal, whatsapp). Don't silently fall back to built-in connectors. → `feedback_use_local_mcp.md`
+- **Fix MCP proactively** — a broken MCP = debug the source, not "re-run setup reauth". → `feedback_fix_mcp_proactively.md`
+
+## Time / scheduling
+
+- **Compute weekday from ISO date** — use `date -j -f "%Y-%m-%d" "<date>" "+%A"` (macOS) before writing any "Mon/Tue/.." labels. Never pattern-match from a previous brief. → `feedback_compute_weekday_dont_guess.md`
+
+## Deployment
+
+- **Deploy immediately** when work is ready — don't ask "should I deploy?" if the workflow expects ship-after-pass. → `feedback_deploy_immediately.md`
+
+## How to use this file
+
+1. The file is loaded unconditionally at the start of each session (Claude Code auto-includes `~/.claude/rules/*.md`).
+2. If a rule appears to apply, open the linked `memory/feedback_*.md` for full context (why + how + examples).
+3. If a rule conflicts with `CLAUDE.md` — **follow this rules file**. `CLAUDE.md` may be older / stale. Flag the conflict for an inline `CLAUDE.md` fix.
+4. If you spot a new pattern that recurs — create a new `feedback_*.md` in `memory/` and add a one-line entry here.
+
+## Add your own rules below
+
+Personalize this file by adding rules that are specific to your work. Keep them as one-liners; full context goes in `memory/feedback_<rulename>.md`. Examples (uncomment / customize):
+
+<!--
+## Project-specific
+
+- **Project X — branch policy** — never push to `main` directly; PRs only. → `feedback_project_x_branch_policy.md`
+- **Vendor Y SLAs** — escalate at 24h not 48h; legal copies all. → `feedback_vendor_y_sla.md`
+-->
