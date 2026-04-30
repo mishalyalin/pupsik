@@ -20,7 +20,7 @@ Today I'm open-sourcing the workspace I built to keep it stateful:
 
 MIT, macOS, local-first.
 
-github.com/mishalyalin/claude-code-toolkit
+github.com/mishalyalin/pupsik
 ```
 
 ## Twitter / X — single tweet (under 280)
@@ -30,7 +30,7 @@ Open-sourcing the Claude Code workspace I run my whole business on:
 persistent memory, multi-account inbox, rule discipline, auto-capture
 knowledge base. MIT.
 
-github.com/mishalyalin/claude-code-toolkit
+github.com/mishalyalin/pupsik
 ```
 
 ## LinkedIn — story version
@@ -53,7 +53,7 @@ Today I'm open-sourcing it. MIT licensed. Generic, no personal data.
 If you're a solo operator getting leverage out of Claude Code and feel the
 same friction — fork it, take what you need.
 
-→ github.com/mishalyalin/claude-code-toolkit
+→ github.com/mishalyalin/pupsik
 ```
 
 ## Hacker News — title
@@ -79,7 +79,7 @@ worker-plus-checker rule, and a `note.py` capture-on-emergence tool.
 
 Open-sourcing it today, MIT.
 
-Repo: https://github.com/mishalyalin/claude-code-toolkit
+Repo: https://github.com/mishalyalin/pupsik
 ```
 
 ## Reddit — r/ClaudeAI, r/LocalLLaMA, r/selfhosted
@@ -113,7 +113,7 @@ What's in it:
 
 Local-first. MIT. macOS for the WhatsApp piece, the rest is portable.
 
-Repo: https://github.com/mishalyalin/claude-code-toolkit
+Repo: https://github.com/mishalyalin/pupsik
 ```
 
 ## Dev.to — title

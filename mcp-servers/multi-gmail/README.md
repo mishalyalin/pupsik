@@ -39,7 +39,7 @@ MCP server that connects **multiple Gmail accounts** and lets Claude search and 
 
 ## Step 2 — Install & Build
 
-This server is bundled inside the parent setup-package; it builds automatically when you run `install_mcps.sh`. To build manually from this directory:
+This server is bundled inside the parent Pupsik repo; it builds automatically when you run `install_mcps.sh`. To build manually from this directory:
 
 ```bash
 npm install

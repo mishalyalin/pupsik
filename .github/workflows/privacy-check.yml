@@ -1,0 +1,20 @@
+name: Privacy Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  privacy:
+    name: Paranoid privacy scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run privacy patterns
+        run: |
+          chmod +x .github/scripts/privacy-check.sh
+          bash .github/scripts/privacy-check.sh

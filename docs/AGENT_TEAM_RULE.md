@@ -78,7 +78,7 @@ If Claude says "what rule?" — the `CLAUDE.md` or `memory/feedback_always_two_a
 
 ## The agents you may see
 
-See `setup-package/agents/` for the role prompts.
+See `pupsik/agents/` for the role prompts.
 
 - **Architect** — plans the work before anyone touches files
 - **Discoverer** — inventories existing source material

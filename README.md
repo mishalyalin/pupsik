@@ -1,17 +1,22 @@
-# Claude Code Workspace Toolkit
+# Pupsik
+
+> The Claude Code workspace that doesn't lose context between sessions.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for: Claude Code](https://img.shields.io/badge/Built_for-Claude_Code-blueviolet)](https://claude.com/claude-code)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-green)](#)
+[![Auto-update: enabled](https://img.shields.io/badge/Auto--update-enabled-blue)](#staying-up-to-date)
+[![Privacy-checked: CI](https://img.shields.io/badge/Privacy--checked-CI-green)](.github/workflows/privacy-check.yml)
 
-> "I run my entire business through Claude Code. This is the workspace I built
-> so it doesn't lose context between sessions."
+> "I run my entire business through Claude Code. Pupsik is the workspace I
+> built so it doesn't lose context between sessions."
 
-A drop-in toolkit that turns Claude Code into a stateful collaborator:
-persistent contact graph, semantic memory search across 9 ChromaDB collections,
-multi-account Gmail / Calendar / WhatsApp via local MCP servers, mandatory rule
-discipline pinned to every session, auto-compact hooks that survive context
-compression, and a 2-agent worker-plus-checker workflow.
+Pupsik is a drop-in toolkit that turns Claude Code into a stateful
+collaborator: persistent contact graph, semantic memory search across 9
+ChromaDB collections, multi-account Gmail / Calendar / WhatsApp via local
+MCP servers, mandatory rule discipline pinned to every session, auto-compact
+hooks that survive context compression, and a 2-agent worker-plus-checker
+workflow.
 
 Most people use Claude Code for code. If you're using it for everything else
 too — sales, ops, finance, customer success, scheduling — this is the missing
@@ -20,8 +25,8 @@ layer. MIT licensed, macOS-friendly, runs entirely local.
 ## Quick Start
 
 ```bash
-git clone https://github.com/mishalyalin/claude-code-toolkit.git
-cd claude-code-toolkit/setup-package
+git clone https://github.com/mishalyalin/pupsik.git
+cd pupsik
 bash install.sh             # base setup: dirs, Python deps, CLAUDE.md, hooks, memory
 bash install_mcps.sh        # builds multi-gmail, multi-gcal, whatsapp
 bash register_mcps.sh       # registers the three MCPs with Claude Code
@@ -115,6 +120,67 @@ If you'd rather have Claude do the install for you with review at each step:
 3. Claude spawns a team of 5 agents (architect, discoverer, packager,
    migrator, tester) and installs step-by-step, showing diffs and asking for
    approval.
+
+## Staying up to date
+
+Pupsik ships an in-repo updater. From inside your clone:
+
+```bash
+bash tools/update.sh
+```
+
+What it does:
+
+1. `git fetch` from `origin/main`. If you're already up to date, exits silently.
+2. Shows the new commits and the file-level diff before touching anything.
+3. Refuses to update if you have uncommitted local edits (pass `--force` to
+   stash + update + restore).
+4. Fast-forward only — never rewrites your local commits.
+5. Re-runs `bash install.sh --update-only` to apply new tools, hooks,
+   templates, and rule files.
+
+### What `update.sh` updates
+
+- `tools/{contacts_db,memory_search,note}.py` (with backup of any prior version)
+- `~/.claude/rules/critical-rules.md` (with backup)
+- `~/Desktop/claude/.claude/hooks/{pre,post}-compact.sh`
+- `memory_templates/feedback_*.md` — copied **only if missing** in your
+  project memory directory. Existing rule files are left alone (you may
+  have edited them).
+
+### What `update.sh` never touches
+
+- Your `CLAUDE.md`
+- Your `data/contacts.db`
+- `memory/learnings/`, `memory/decisions/`, `memory/journal/`,
+  `memory/people/`, `memory/projects/`
+- `briefings/`, `outputs/`, `research/`
+- Any feedback rule you've personalised in your project memory dir
+
+In short: **all your data is safe**. Only the tooling layer is replaced.
+
+### Optional: weekly auto-update via cron
+
+Add to `crontab -e`:
+
+```
+# Pull latest pupsik every Monday at 09:00 local time
+0 9 * * 1 cd ~/Desktop/claude/pupsik && bash tools/update.sh >> ~/Desktop/claude/outputs/pupsik-update.log 2>&1
+```
+
+(Adjust path if you cloned somewhere other than `~/Desktop/claude/pupsik`.)
+
+### Privacy-checked at the source
+
+Every push to `mishalyalin/pupsik` runs the
+[Privacy Check workflow](.github/workflows/privacy-check.yml) — a
+multi-pattern grep that fails the build if any privacy-sensitive content
+lands in the public diff (real names, emails, phone numbers, government
+IDs, project codenames, API tokens, oversize blobs). The script lives at
+[`.github/scripts/privacy-check.sh`](.github/scripts/privacy-check.sh) and
+runs locally too.
+
+If you fork and self-host, the same workflow runs on your fork.
 
 ## After installation
 

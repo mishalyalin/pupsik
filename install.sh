@@ -21,9 +21,52 @@
 
 set -euo pipefail
 
+# ---------- Flags ----------
+UPDATE_ONLY=0
+POSITIONAL_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --update-only)
+      UPDATE_ONLY=1
+      ;;
+    --help|-h)
+      cat <<USAGE
+install.sh — Pupsik base installer.
+
+Usage:
+  bash install.sh [WORKSPACE] [--update-only]
+
+Modes:
+  (default)        Full install: dirs, deps, CLAUDE.md scaffold, contacts.db init,
+                   tools, rules, hooks, templates.
+  --update-only    Idempotent re-sync of tools, rules, hooks, and feedback templates.
+                   Skips first-time-only steps:
+                     - CLAUDE.md scaffold (kept if it already exists)
+                     - contacts.db init (kept if it already exists)
+                     - wakeup_l0.txt scaffold (kept if it already exists)
+                     - chromadb pip install (only if missing)
+                   Existing tool files are backed up before overwrite.
+                   Existing feedback rules are LEFT ALONE (you may have edits).
+
+Arguments:
+  WORKSPACE        Defaults to \$HOME/Desktop/claude. Pass an absolute path to
+                   install elsewhere.
+USAGE
+      exit 0
+      ;;
+    -*)
+      printf "[install] unknown flag: %s (try --help)\n" "$arg" >&2
+      exit 64
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$arg")
+      ;;
+  esac
+done
+
 # ---------- Paths ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE="${1:-$HOME/Desktop/claude}"
+WORKSPACE="${POSITIONAL_ARGS[0]:-$HOME/Desktop/claude}"
 PROJECT_SLUG="$(echo "$WORKSPACE" | sed 's|/|-|g')"
 PROJECT_MEMORY_DIR="$HOME/.claude/projects/$PROJECT_SLUG/memory"
 
@@ -53,6 +96,12 @@ ask() {
   fi
   printf "%s" "$reply"
 }
+
+# ---------- Step 0: announce mode ----------
+if [ "$UPDATE_ONLY" = "1" ]; then
+  printf "\033[1;36m[setup]\033[0m Running in --update-only mode.\n"
+  printf "\033[1;36m[setup]\033[0m First-time-only steps (CLAUDE.md scaffold, DB init, wakeup_l0) will be skipped.\n"
+fi
 
 # ---------- Step 1: dependency check ----------
 say "Checking dependencies..."
@@ -132,8 +181,18 @@ render_template() {
 
 # Gather placeholder values interactively (only if we're going to render CLAUDE.md)
 NEED_VALUES=n
-[ ! -f "$WORKSPACE/CLAUDE.md" ] && NEED_VALUES=y
-[ "$NEED_VALUES" = "y" ] || confirm "  $WORKSPACE/CLAUDE.md already exists. Re-render from template?" n && NEED_VALUES=y || NEED_VALUES=n
+if [ "$UPDATE_ONLY" = "1" ]; then
+  if [ -f "$WORKSPACE/CLAUDE.md" ]; then
+    say "  --update-only: CLAUDE.md exists, leaving it alone."
+    NEED_VALUES=n
+  else
+    say "  --update-only: CLAUDE.md missing — running first-time scaffold."
+    NEED_VALUES=y
+  fi
+else
+  [ ! -f "$WORKSPACE/CLAUDE.md" ] && NEED_VALUES=y
+  [ "$NEED_VALUES" = "y" ] || confirm "  $WORKSPACE/CLAUDE.md already exists. Re-render from template?" n && NEED_VALUES=y || NEED_VALUES=n
+fi
 
 if [ "$NEED_VALUES" = "y" ]; then
   say "Rendering CLAUDE.md template — need some values..."
@@ -231,6 +290,9 @@ chmod +x "$WORKSPACE/.claude/hooks/pre-compact.sh" "$WORKSPACE/.claude/hooks/pos
 say "  hooks copied to $WORKSPACE/.claude/hooks/"
 
 # ---------- Step 8: print settings.json hook snippet ----------
+if [ "$UPDATE_ONLY" = "1" ]; then
+  say "  --update-only: hooks refreshed (you've already registered them in settings.json)."
+else
 cat <<EOF
 
 ===============================================================================
@@ -306,24 +368,52 @@ See docs/COMPACT_SETUP.md for step-by-step merging guidance.
 ===============================================================================
 
 EOF
+fi
 
 # ---------- Step 9: Python deps ----------
-say "Installing Python packages (chromadb)..."
-if command -v pip3 >/dev/null 2>&1; then
-  pip3 install --user --quiet chromadb || warn "pip3 install chromadb failed — install manually with: pip3 install --user chromadb"
+if [ "$UPDATE_ONLY" = "1" ]; then
+  if python3 -c "import chromadb" 2>/dev/null; then
+    say "  --update-only: chromadb already importable, skipping pip install."
+  else
+    say "Installing Python packages (chromadb)..."
+    if command -v pip3 >/dev/null 2>&1; then
+      pip3 install --user --quiet chromadb || warn "pip3 install chromadb failed — install manually with: pip3 install --user chromadb"
+    else
+      warn "pip3 not found. Install chromadb manually: python3 -m pip install --user chromadb"
+    fi
+  fi
 else
-  warn "pip3 not found. Install chromadb manually: python3 -m pip install --user chromadb"
+  say "Installing Python packages (chromadb)..."
+  if command -v pip3 >/dev/null 2>&1; then
+    pip3 install --user --quiet chromadb || warn "pip3 install chromadb failed — install manually with: pip3 install --user chromadb"
+  else
+    warn "pip3 not found. Install chromadb manually: python3 -m pip install --user chromadb"
+  fi
 fi
 
 # ---------- Step 10: init contacts DB ----------
-if [ ! -f "$WORKSPACE/data/contacts.db" ]; then
-  say "Initializing contacts DB..."
-  python3 "$WORKSPACE/tools/contacts_db.py" init || warn "contacts_db.py init returned non-zero — check Python deps"
+if [ "$UPDATE_ONLY" = "1" ]; then
+  if [ -f "$WORKSPACE/data/contacts.db" ]; then
+    say "  --update-only: contacts.db exists, leaving it alone."
+  else
+    say "  --update-only: contacts.db missing — running first-time init."
+    python3 "$WORKSPACE/tools/contacts_db.py" init || warn "contacts_db.py init returned non-zero — check Python deps"
+  fi
 else
-  say "contacts.db already exists — leaving it alone."
+  if [ ! -f "$WORKSPACE/data/contacts.db" ]; then
+    say "Initializing contacts DB..."
+    python3 "$WORKSPACE/tools/contacts_db.py" init || warn "contacts_db.py init returned non-zero — check Python deps"
+  else
+    say "contacts.db already exists — leaving it alone."
+  fi
 fi
 
 # ---------- Done ----------
+if [ "$UPDATE_ONLY" = "1" ]; then
+  say "Update complete. Open a fresh Claude Code session to pick up changes."
+  exit 0
+fi
+
 DEFAULT_WORKSPACE="$HOME/Desktop/claude"
 NON_DEFAULT_NOTE=""
 if [ "$WORKSPACE" != "$DEFAULT_WORKSPACE" ]; then

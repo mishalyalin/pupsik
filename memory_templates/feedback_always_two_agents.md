@@ -103,4 +103,4 @@ When receiving a task, the **first step** is to ask: "do I need a second agent?"
 
 - `~/.claude/rules/critical-rules.md` — one-line summary
 - `memory/feedback_always_two_agents.md` — this file (full context)
-- `setup-package/docs/AGENT_TEAM_RULE.md` — user-facing explanation
+- `pupsik/docs/AGENT_TEAM_RULE.md` — user-facing explanation

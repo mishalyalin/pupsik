@@ -4,16 +4,16 @@ Copy everything below the `---` line into a new Claude Code conversation. Claude
 
 ---
 
-You are the **Setup Orchestrator**. I am handing you a `setup-package/` directory with installers, tools, MCP servers, memory templates, and agent prompts. Your job is to install it onto my machine.
+You are the **Setup Orchestrator**. I am handing you a `pupsik/` directory with installers, tools, MCP servers, memory templates, and agent prompts. Your job is to install it onto my machine.
 
 ## Ground rules (non-negotiable)
 
 1. **Use a team of 5 agents.** Every meaningful step — not just coding — uses Worker + Checker pairs. Specifically:
-   - **Architect** (plans) → see `setup-package/agents/architect.md`
-   - **Discoverer** (inventories source + existing state) → `setup-package/agents/discoverer.md`
-   - **Packager** (installs files) → `setup-package/agents/packager.md`
-   - **Migrator** (any DB / config migration) → `setup-package/agents/migrator.md`
-   - **Tester** (independently verifies each step passes) → `setup-package/agents/tester.md`
+   - **Architect** (plans) → see `pupsik/agents/architect.md`
+   - **Discoverer** (inventories source + existing state) → `pupsik/agents/discoverer.md`
+   - **Packager** (installs files) → `pupsik/agents/packager.md`
+   - **Migrator** (any DB / config migration) → `pupsik/agents/migrator.md`
+   - **Tester** (independently verifies each step passes) → `pupsik/agents/tester.md`
 2. **Never rubber-stamp.** The Tester is not optional. Every install step must be independently verified before the next one runs.
 3. **Show me diffs** before overwriting any file in my home directory. If something already exists at the target path (`~/Desktop/claude/CLAUDE.md`, `~/.claude/settings.json`, etc.), stop and show me the old vs. new.
 4. **Ask me before installing anything that modifies a shared location.** OAuth credentials, MCP registrations, shell profile edits — pause for approval.
@@ -25,19 +25,19 @@ You are the **Setup Orchestrator**. I am handing you a `setup-package/` director
 Spawn the **Discoverer** agent. Inputs: my current `~/Desktop/claude/` state (if any), my `~/.claude/settings.json` (if any). Output: a manifest of what's already there vs. what the package will install. Flag every overwrite or conflict.
 
 ### Phase 2 — Plan
-Spawn the **Architect**. Input: the discovery manifest + the `setup-package/` README. Output: `.architect-plan.md` in `setup-package/` with the file-by-file install order, conflicts resolved, acceptance criteria for each step.
+Spawn the **Architect**. Input: the discovery manifest + the `pupsik/` README. Output: `.architect-plan.md` in `pupsik/` with the file-by-file install order, conflicts resolved, acceptance criteria for each step.
 
 **Stop. Show me the plan. I approve before anything else runs.**
 
 ### Phase 3 — Install base (tools, CLAUDE.md, memory)
 Spawn **Packager** (Worker) and **Tester** (Checker) in parallel.
 
-- Packager runs `bash setup-package/install.sh`.
+- Packager runs `bash pupsik/install.sh`.
 - Tester independently verifies: Python deps installed, `tools/contacts_db.py init` ran, `CLAUDE.md` has the 2-agent section + Compact section, `memory/` populated with all 12 `feedback_*.md` files, `~/.claude/rules/critical-rules.md` installed, `hooks/` installed in `~/Desktop/claude/.claude/hooks/` and chmod +x.
 - Tester writes `.tester-report.md`. On FAIL → Packager fixes → Tester re-verifies.
 
 ### Phase 4 — Install MCP servers
-Packager runs `bash setup-package/install_mcps.sh`. This builds multi-gmail, multi-gcal, whatsapp in `~/Desktop/claude/mcp-servers/` (or wherever install.sh placed them). **Does not** wire OAuth tokens yet.
+Packager runs `bash pupsik/install_mcps.sh`. This builds multi-gmail, multi-gcal, whatsapp in `~/Desktop/claude/mcp-servers/` (or wherever install.sh placed them). **Does not** wire OAuth tokens yet.
 
 Tester verifies: each `dist/index.js` exists, `node dist/index.js --help` (if supported) doesn't crash, `package.json` version matches source.
 
@@ -85,4 +85,4 @@ Phase N complete.
 
 ---
 
-**Start with Phase 1.** Spawn the Discoverer. Set `setup-package/` as the package root. Working dir for the install target is `~/Desktop/claude/`.
+**Start with Phase 1.** Spawn the Discoverer. Set `pupsik/` as the package root. Working dir for the install target is `~/Desktop/claude/`.

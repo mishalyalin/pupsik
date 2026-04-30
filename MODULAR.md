@@ -24,8 +24,8 @@ Each component below is described with: **what it does**, **what files it consis
 
   ```bash
   mkdir -p ~/.claude/rules ~/.claude/projects/$(basename "$PWD")/memory
-  cp setup-package/templates/critical-rules.md.template ~/.claude/rules/critical-rules.md
-  cp setup-package/memory_templates/feedback_*.md ~/.claude/projects/$(basename "$PWD")/memory/
+  cp pupsik/templates/critical-rules.md.template ~/.claude/rules/critical-rules.md
+  cp pupsik/memory_templates/feedback_*.md ~/.claude/projects/$(basename "$PWD")/memory/
   ```
 
 ### b) Knowledge capture
@@ -38,8 +38,8 @@ Each component below is described with: **what it does**, **what files it consis
 
   ```bash
   mkdir -p ~/Desktop/claude/tools ~/Desktop/claude/memory/{learnings,decisions,research}
-  cp setup-package/tools/note.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/note.py
-  cp setup-package/memory_templates/feedback_capture_knowledge.md ~/.claude/projects/$(basename "$PWD")/memory/
+  cp pupsik/tools/note.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/note.py
+  cp pupsik/memory_templates/feedback_capture_knowledge.md ~/.claude/projects/$(basename "$PWD")/memory/
   ```
 
 ### c) Contact DB
@@ -52,7 +52,7 @@ Each component below is described with: **what it does**, **what files it consis
 
   ```bash
   mkdir -p ~/Desktop/claude/{tools,data}
-  cp setup-package/tools/contacts_db.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/contacts_db.py
+  cp pupsik/tools/contacts_db.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/contacts_db.py
   python3 ~/Desktop/claude/tools/contacts_db.py init
   ```
 
@@ -66,7 +66,7 @@ Each component below is described with: **what it does**, **what files it consis
 
   ```bash
   pip install chromadb
-  cp setup-package/tools/memory_search.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/memory_search.py
+  cp pupsik/tools/memory_search.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/memory_search.py
   python3 ~/Desktop/claude/tools/memory_search.py index
   ```
 
@@ -80,7 +80,7 @@ Each component below is described with: **what it does**, **what files it consis
 
   ```bash
   mkdir -p ~/Desktop/claude/.claude/hooks
-  cp setup-package/hooks/{pre-compact,post-compact}.sh ~/Desktop/claude/.claude/hooks/
+  cp pupsik/hooks/{pre-compact,post-compact}.sh ~/Desktop/claude/.claude/hooks/
   chmod +x ~/Desktop/claude/.claude/hooks/*.sh
   # then register them in ~/.claude/settings.json (see hooks/README in the package for the JSON snippet)
   ```
@@ -94,7 +94,7 @@ Each component below is described with: **what it does**, **what files it consis
 - **Install (Gmail only as an example):**
 
   ```bash
-  cd setup-package/mcp-servers/multi-gmail && npm install && npm run build
+  cd pupsik/mcp-servers/multi-gmail && npm install && npm run build
   claude mcp add multi-gmail node $(pwd)/dist/index.js
   # then follow docs/GOOGLE_CLOUD_SETUP.md once for OAuth
   ```

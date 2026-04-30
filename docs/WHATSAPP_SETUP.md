@@ -16,7 +16,7 @@ The WhatsApp MCP server reads your local WhatsApp for Mac database to give Claud
 
 ## Step 1 — Install the MCP server
 
-This happens automatically when you run `install_mcps.sh` from the setup-package. To do it manually:
+This happens automatically when you run `install_mcps.sh` from the Pupsik repo. To do it manually:
 
 ```bash
 cd ~/Desktop/claude/mcp-servers/whatsapp

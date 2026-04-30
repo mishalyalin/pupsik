@@ -32,8 +32,8 @@ If you run `bash install.sh`, the hooks are installed automatically (see step 8 
 
 ```bash
 mkdir -p ~/Desktop/claude/.claude/hooks
-cp setup-package/hooks/pre-compact.sh ~/Desktop/claude/.claude/hooks/
-cp setup-package/hooks/post-compact.sh ~/Desktop/claude/.claude/hooks/
+cp pupsik/hooks/pre-compact.sh ~/Desktop/claude/.claude/hooks/
+cp pupsik/hooks/post-compact.sh ~/Desktop/claude/.claude/hooks/
 chmod +x ~/Desktop/claude/.claude/hooks/*.sh
 ```
 

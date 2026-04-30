@@ -1,12 +1,12 @@
 ---
 name: Use local MCP servers, not built-in connectors
-description: 🔴 Always use the locally installed multi-gmail / multi-gcal / whatsapp MCP servers (from setup-package/mcp-servers/). Never fall back to built-in Gmail/Calendar connectors, even if a tool call fails.
+description: 🔴 Always use the locally installed multi-gmail / multi-gcal / whatsapp MCP servers (from pupsik/mcp-servers/). Never fall back to built-in Gmail/Calendar connectors, even if a tool call fails.
 type: feedback
 ---
 
 # 🔴 Local MCP only
 
-The user has locally installed MCP servers at `~/Desktop/claude/mcp-servers/` (or wherever `setup-package/install.sh` placed them). **Use those.**
+The user has locally installed MCP servers at `~/Desktop/claude/mcp-servers/` (or wherever `pupsik/install.sh` placed them). **Use those.**
 
 ## Tools to prefer
 

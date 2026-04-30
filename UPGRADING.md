@@ -47,7 +47,7 @@ The installer overwrites a small, known set of files. Each replaced file is back
 1. **Run the installer.** From the unpacked package directory:
 
    ```bash
-   bash setup-package/install.sh
+   bash pupsik/install.sh
    ```
 
    The installer detects an existing workspace, backs up files it intends to overwrite (`tools/memory_search.py.bak.YYYYMMDD-HHMMSS` and so on), and then writes the new versions.
