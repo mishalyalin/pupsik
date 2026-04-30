@@ -41,6 +41,14 @@ A good issue includes:
 5. Run the privacy grep before opening the PR (see above).
 6. Open the PR with a short description: what changed, why, and any caveats.
 
+### Maintainer note: how upstream sync handles contributor commits
+
+The maintainer's local publish flow refuses to push if `origin/main` has
+commits ahead of the local clone. That means once your PR merges into
+`main`, the maintainer pulls (or rebases on) your work before pushing
+their next round of changes — your commits aren't accidentally rolled
+back by an automated re-publish.
+
 ## Code style
 
 - **Python:** PEP 8. The existing tools target Python 3.10+. Use type hints

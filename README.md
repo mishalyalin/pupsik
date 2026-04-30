@@ -141,12 +141,10 @@ What it does:
 
 ### What `update.sh` updates
 
-- `tools/{contacts_db,memory_search,note}.py` (with backup of any prior version)
-- `~/.claude/rules/critical-rules.md` (with backup)
-- `~/Desktop/claude/.claude/hooks/{pre,post}-compact.sh`
-- `memory_templates/feedback_*.md` — copied **only if missing** in your
-  project memory directory. Existing rule files are left alone (you may
-  have edited them).
+- `tools/{contacts_db,memory_search,note}.py` (smart-merge — see below)
+- `~/.claude/rules/critical-rules.md` (append-only smart merge — see below)
+- `~/Desktop/claude/.claude/hooks/{pre,post}-compact.sh` (smart-merge)
+- `memory_templates/feedback_*.md` (smart-merge in your project memory dir)
 
 ### What `update.sh` never touches
 
@@ -158,6 +156,38 @@ What it does:
 - Any feedback rule you've personalised in your project memory dir
 
 In short: **all your data is safe**. Only the tooling layer is replaced.
+
+### What happens if I customized files
+
+`update.sh` is conservative — it never silently overwrites your edits.
+
+For each managed file (tools, hooks, feedback rules):
+
+- If the file is **identical to the upstream version** → nothing happens.
+- If you **haven't modified it** since the previous install → it's safely
+  updated to the new version (your old copy is backed up as
+  `<file>.bak.<timestamp>`).
+- If you **have modified it** → the new upstream version is installed
+  side-by-side as `<file>.new`. Your version stays untouched. You diff
+  and merge manually:
+
+  ```bash
+  diff ~/Desktop/claude/tools/memory_search.py{,.new}
+  # ...resolve, then either rm the .new file or replace the original
+  ```
+
+After an update, `update.sh` prints a summary line listing every `.new`
+file awaiting your attention.
+
+Detection works by comparing the installed file against the latest
+`<file>.bak.<timestamp>` from the previous install. If they match, you
+haven't touched it; if they differ (or no `.bak` exists), the file is
+treated as user-modified.
+
+`~/.claude/rules/critical-rules.md` is special: it is **never replaced**.
+New rule references in the upstream template are appended at the bottom
+of your file under a `## Updates from upstream <date>` header. Existing
+content is left alone, including any rules you've added yourself.
 
 ### Optional: weekly auto-update via cron
 

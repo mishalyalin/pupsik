@@ -5,11 +5,22 @@
 #   bash tools/update.sh           # safe update (refuses if you have local edits)
 #   bash tools/update.sh --force   # stash uncommitted changes, then update
 #
-# What this DOES touch:
+# What this DOES touch (smart-merge — never clobbers your edits):
 #   - tools/{contacts_db,memory_search,note}.py   in ~/Desktop/claude/tools/
 #   - hooks/{pre,post}-compact.sh                 in ~/Desktop/claude/.claude/hooks/
-#   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (with backup)
-#   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/ (only if missing — never clobbers existing)
+#   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
+#   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
+#
+# Smart-merge per file:
+#   - Identical to upstream → nothing happens.
+#   - You haven't modified it (matches the latest .bak) → safely overwritten,
+#     a new .bak.<timestamp> backup is kept.
+#   - You modified it → upstream version is dropped side-by-side as <file>.new.
+#     Your edits stay untouched. Diff and merge manually.
+#
+# critical-rules.md is append-only: new rule references from the upstream
+# template are appended under a "## Updates from upstream <date>" header.
+# Your existing file is never replaced.
 #
 # What this does NOT touch:
 #   - your CLAUDE.md, contacts.db, memory/learnings/, memory/decisions/,
@@ -111,6 +122,33 @@ if [ "$STASHED" = "1" ]; then
     echo "[pupsik]   stash pop hit conflicts — resolve manually with 'git status'."
     echo "          Your changes are still in the stash list ('git stash list')."
   fi
+fi
+
+# ---------- Smart-merge tally ----------
+# install.sh writes its per-file actions to $HOME/Desktop/claude/.pupsik-update.log
+# Format: "<category>\t<path>" per line. Categories: new, updated, unchanged, new_sidecar.
+SMART_LOG="$HOME/Desktop/claude/.pupsik-update.log"
+echo
+echo "[pupsik] update summary:"
+if [ -f "$SMART_LOG" ]; then
+  # grep -c returns exit 1 when there are zero matches. "|| true" lets the
+  # script continue under set -e; the "0" stdout from grep -c is captured as-is.
+  updated_count=$(grep   -c '^updated	'    "$SMART_LOG" || true)
+  new_count=$(grep       -c '^new	'         "$SMART_LOG" || true)
+  unchanged_count=$(grep -c '^unchanged	'   "$SMART_LOG" || true)
+  sidecar_count=$(grep   -c '^new_sidecar	' "$SMART_LOG" || true)
+  echo "  $updated_count files updated to new version"
+  echo "  $new_count files installed for the first time"
+  echo "  $unchanged_count files unchanged (already up to date)"
+  if [ "${sidecar_count:-0}" -gt 0 ]; then
+    echo "  $sidecar_count files have .new versions awaiting merge:"
+    grep '^new_sidecar	' "$SMART_LOG" | cut -f2 | sed 's/^/    - /'
+    echo
+    echo "  Inspect with: diff <file> <file>.new"
+    echo "  When done:    rm <file>.new   (or replace the original)"
+  fi
+else
+  echo "  (no smart-merge log found; install.sh may have failed before writing one)"
 fi
 
 echo

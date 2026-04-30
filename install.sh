@@ -84,6 +84,78 @@ confirm() {
   [[ "$yn" =~ ^[Yy]$ ]]
 }
 
+# ---------- Smart-merge counters + log ----------
+# Track each managed-file action so update.sh can print a tally at the end.
+SMART_NEW=0           # files installed for the first time
+SMART_UPDATED=0       # files safely overwritten (user hadn't touched them)
+SMART_UNCHANGED=0     # files identical to upstream
+SMART_NEW_FILES=()    # paths where a .new sidecar was written
+SMART_LOG="$HOME/Desktop/claude/.pupsik-update.log"
+mkdir -p "$(dirname "$SMART_LOG")"
+: > "$SMART_LOG"      # truncate at start of each run
+
+log_smart() {
+  # $1=category (new/updated/unchanged/new_sidecar), $2=path
+  printf "%s\t%s\n" "$1" "$2" >> "$SMART_LOG"
+}
+
+# smart_merge_file SRC DST
+#
+# 3-case logic for files we manage:
+#   a) DST does not exist → copy src → dst, mark `new`.
+#   b) src and dst are identical → do nothing, mark `unchanged`.
+#   c) src and dst differ → check whether the user touched dst.
+#       Find the latest .bak.<ts> sibling. If the installed dst still matches
+#       that .bak (i.e. the user hasn't touched it since the last install),
+#       it's safe to overwrite — back up current as a fresh .bak and copy.
+#       Otherwise the user has modified it: drop the new version side-by-side
+#       as DST.new, leave the user's version alone, and warn.
+#
+# Caller may set MAKE_EXECUTABLE=1 to chmod +x the destination after a copy.
+smart_merge_file() {
+  local src="$1"
+  local dst="$2"
+  local label="${3:-$(basename "$dst")}"
+
+  if [ ! -f "$dst" ]; then
+    cp "$src" "$dst"
+    [ "${MAKE_EXECUTABLE:-0}" = "1" ] && chmod +x "$dst"
+    SMART_NEW=$((SMART_NEW + 1))
+    log_smart new "$dst"
+    say "  new: $label"
+    return
+  fi
+
+  if cmp -s "$src" "$dst"; then
+    SMART_UNCHANGED=$((SMART_UNCHANGED + 1))
+    log_smart unchanged "$dst"
+    return
+  fi
+
+  # src differs from dst. Find the latest .bak.<timestamp> sibling.
+  local latest_bak
+  latest_bak=$(ls -t "${dst}.bak."* 2>/dev/null | head -1 || true)
+
+  if [ -n "$latest_bak" ] && cmp -s "$dst" "$latest_bak"; then
+    # User hasn't touched dst since last install — safe to overwrite.
+    cp "$dst" "${dst}.bak.$(date +%Y%m%d-%H%M%S)"
+    cp "$src" "$dst"
+    [ "${MAKE_EXECUTABLE:-0}" = "1" ] && chmod +x "$dst"
+    SMART_UPDATED=$((SMART_UPDATED + 1))
+    log_smart updated "$dst"
+    say "  updated: $label"
+    return
+  fi
+
+  # User modified the file (or there's no .bak to compare). Don't clobber.
+  cp "$src" "${dst}.new"
+  [ "${MAKE_EXECUTABLE:-0}" = "1" ] && chmod +x "${dst}.new"
+  SMART_NEW_FILES+=("${dst}.new")
+  log_smart new_sidecar "${dst}.new"
+  warn "  $label was modified locally; new version saved to ${dst}.new"
+  warn "    diff $dst ${dst}.new   # then merge manually"
+}
+
 ask() {
   local prompt="$1"
   local default="$2"
@@ -140,22 +212,11 @@ mkdir -p "$WORKSPACE"/memory/{learnings,decisions,journal,people,projects}
 mkdir -p "$WORKSPACE"/{briefings,research}
 mkdir -p "$PROJECT_MEMORY_DIR"
 
-# ---------- Step 3: copy tools ----------
+# ---------- Step 3: copy tools (smart-merge) ----------
 say "Copying tools..."
-copy_tool() {
-  local src="$1"
-  local dst="$2"
-  if [ -f "$dst" ]; then
-    local bak="${dst}.bak.$(date +%Y%m%d-%H%M%S)"
-    cp "$dst" "$bak"
-    warn "  $(basename "$dst") existed; backed up to $bak"
-  fi
-  cp "$src" "$dst"
-  chmod +x "$dst"
-}
-copy_tool "$SCRIPT_DIR/tools/contacts_db.py"   "$WORKSPACE/tools/contacts_db.py"
-copy_tool "$SCRIPT_DIR/tools/memory_search.py" "$WORKSPACE/tools/memory_search.py"
-copy_tool "$SCRIPT_DIR/tools/note.py"          "$WORKSPACE/tools/note.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"   "$WORKSPACE/tools/contacts_db.py"   "tools/contacts_db.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py" "$WORKSPACE/tools/memory_search.py" "tools/memory_search.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"          "$WORKSPACE/tools/note.py"          "tools/note.py"
 
 # ---------- Step 4 + 5: render templates ----------
 render_template() {
@@ -246,33 +307,80 @@ if [ "$NEED_VALUES" = "y" ]; then
   say "  Wrote $WORKSPACE/memory/wakeup_l0.txt"
 fi
 
-# ---------- Step 6: memory feedback rules ----------
+# ---------- Step 6: memory feedback rules (smart-merge) ----------
 say "Installing memory feedback rules..."
 for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
   name=$(basename "$f")
   target="$PROJECT_MEMORY_DIR/$name"
-  if [ -f "$target" ]; then
-    warn "  $name exists, keeping existing"
-  else
-    cp "$f" "$target"
-    say "  installed $name"
-  fi
+  smart_merge_file "$f" "$target" "$name"
 done
 
-# ---------- Step 6.5: critical-rules.md (auto-loaded user-level rules) ----------
+# ---------- Step 6.5: critical-rules.md (smart append-only merge) ----------
 say "Installing critical-rules.md..."
 RULES_DIR="$HOME/.claude/rules"
 mkdir -p "$RULES_DIR"
 RULES_TARGET="$RULES_DIR/critical-rules.md"
 RULES_SRC="$SCRIPT_DIR/templates/critical-rules.md.template"
+
+# Append-only merge for critical-rules.md.
+#
+# Rule lines in the template look like:
+#   - **NAME** — short summary. → `feedback_X.md`
+#
+# We use the right-hand `→ feedback_X.md` filename as the matching key.
+# For each rule line in the template, if no line in the user's file
+# references the same `feedback_*.md`, append it under a new
+# "## Updates from upstream <date>" section.
+critical_rules_smart_append() {
+  local src="$1"
+  local dst="$2"
+  local missing
+  missing=$(awk -v src="$src" -v dst="$dst" '
+    BEGIN {
+      # Build a set of feedback refs already present in the user file.
+      while ((getline line < dst) > 0) {
+        if (match(line, /feedback_[A-Za-z0-9_]+\.md/)) {
+          ref = substr(line, RSTART, RLENGTH)
+          have[ref] = 1
+        }
+      }
+      close(dst)
+    }
+    {
+      # For each line in src that contains a feedback_X.md ref AND
+      # starts with a list marker, emit the line if the ref is missing.
+      if ((match($0, /feedback_[A-Za-z0-9_]+\.md/)) && ($0 ~ /^[[:space:]]*-/)) {
+        ref = substr($0, RSTART, RLENGTH)
+        if (!(ref in have)) {
+          print $0
+          have[ref] = 1   # avoid duplicating the same ref if the template repeats it
+        }
+      }
+    }
+  ' "$src")
+
+  if [ -z "$missing" ]; then
+    return 0  # nothing to append
+  fi
+
+  # Backup the current file and append the new rules under a dated header.
+  cp "$dst" "${dst}.bak.$(date +%Y%m%d-%H%M%S)"
+  {
+    printf "\n## Updates from upstream %s\n\n" "$(date +%Y-%m-%d)"
+    printf "%s\n" "$missing"
+  } >> "$dst"
+
+  local count
+  count=$(printf "%s\n" "$missing" | grep -c '^') || count=0
+  say "  critical-rules.md: appended $count new rule(s) from upstream"
+}
+
 if [ -f "$RULES_SRC" ]; then
   if [ -f "$RULES_TARGET" ]; then
-    if confirm "  $RULES_TARGET already exists. Overwrite (a backup is kept)?" n; then
-      cp "$RULES_TARGET" "${RULES_TARGET}.bak.$(date +%Y%m%d-%H%M%S)"
-      cp "$RULES_SRC" "$RULES_TARGET"
-      say "  installed critical-rules.md (existing backed up)"
+    if cmp -s "$RULES_SRC" "$RULES_TARGET"; then
+      say "  critical-rules.md: unchanged (identical to upstream template)"
     else
-      warn "  Keeping existing $RULES_TARGET. Manual merge: diff $RULES_TARGET $RULES_SRC"
+      critical_rules_smart_append "$RULES_SRC" "$RULES_TARGET"
     fi
   else
     cp "$RULES_SRC" "$RULES_TARGET"
@@ -282,12 +390,10 @@ else
   warn "  $RULES_SRC missing, skipping"
 fi
 
-# ---------- Step 7: compact hooks ----------
+# ---------- Step 7: compact hooks (smart-merge) ----------
 say "Installing compact hooks..."
-cp "$SCRIPT_DIR/hooks/pre-compact.sh"  "$WORKSPACE/.claude/hooks/pre-compact.sh"
-cp "$SCRIPT_DIR/hooks/post-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh"
-chmod +x "$WORKSPACE/.claude/hooks/pre-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh"
-say "  hooks copied to $WORKSPACE/.claude/hooks/"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/pre-compact.sh"  "$WORKSPACE/.claude/hooks/pre-compact.sh"  "hooks/pre-compact.sh"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/post-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh" "hooks/post-compact.sh"
 
 # ---------- Step 8: print settings.json hook snippet ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
@@ -410,6 +516,20 @@ fi
 
 # ---------- Done ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
+  # Print smart-merge tally; update.sh also reads $SMART_LOG.
+  printf "\n[install] update summary:\n"
+  printf "  %d file(s) updated to new version\n"   "$SMART_UPDATED"
+  printf "  %d file(s) installed for the first time\n" "$SMART_NEW"
+  printf "  %d file(s) unchanged (already up to date)\n" "$SMART_UNCHANGED"
+  if [ "${#SMART_NEW_FILES[@]}" -gt 0 ]; then
+    printf "  %d file(s) have .new versions awaiting your merge:\n" "${#SMART_NEW_FILES[@]}"
+    for nf in "${SMART_NEW_FILES[@]}"; do
+      printf "    - %s\n" "$nf"
+    done
+    printf "\n  Inspect with: diff <orig> <orig>.new\n"
+    printf "  When done:    rm <orig>.new   (or replace the original)\n"
+  fi
+  printf "\n"
   say "Update complete. Open a fresh Claude Code session to pick up changes."
   exit 0
 fi
