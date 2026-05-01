@@ -194,11 +194,9 @@ content is left alone, including any rules you've added yourself.
 Add to `crontab -e`:
 
 ```
-# Pull latest pupsik every Monday at 09:00 local time
-0 9 * * 1 cd ~/Desktop/claude/pupsik && bash tools/update.sh >> ~/Desktop/claude/outputs/pupsik-update.log 2>&1
+# Pull latest pupsik every Monday at 09:00 local time. Adjust path to wherever you cloned.
+0 9 * * 1 cd ~/pupsik && bash tools/update.sh >> ~/pupsik/.update.log 2>&1
 ```
-
-(Adjust path if you cloned somewhere other than `~/Desktop/claude/pupsik`.)
 
 ### Privacy-checked at the source
 
