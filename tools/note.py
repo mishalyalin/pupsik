@@ -2,7 +2,7 @@
 """
 note.py — One-shot atomic capture CLI for learnings, decisions, and research.
 
-Phase 2 of Misha's knowledge-capture system. Writes a dated MD file with YAML
+Phase 2 of the knowledge-capture system. Writes a dated MD file with YAML
 frontmatter to the right ~/Desktop/claude/memory/<subdir>/ (or ~/Desktop/claude/research/),
 then triggers a ChromaDB reindex via memory_search.py so the new note is
 immediately findable by `memory_search.py search`.
@@ -43,7 +43,7 @@ target subdir (regardless of date prefix), it is opened and rewritten:
   - frontmatter `created:` preserved from existing file (or `date:` migrated)
   - frontmatter `updated:` set to today
   - tags MERGED (union, deduped, order-preserved)
-  - body REPLACED (clean overwrite — Misha's correction was about latest state
+  - body REPLACED (clean overwrite — user feedback was that latest state
     being current, not history-keeping). Use --append for evolving research.
 Filename keeps the ORIGINAL date prefix (captures when the topic first emerged).
 """
@@ -357,7 +357,7 @@ def write_note(
         final_project = project if project else fm.get("project") or None
 
         # Type drift guard: if existing file's type differs from current call,
-        # we honor the new type but warn. Misha will rarely change type.
+        # we honor the new type but warn. Type changes are rare in normal use.
         if fm.get("type") and fm.get("type") != note_type:
             print(
                 f"warn: type changed {fm['type']} -> {note_type} for {existing.name}",

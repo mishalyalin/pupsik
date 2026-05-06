@@ -1,11 +1,12 @@
 ---
 name: Short dashes only, never em-dashes
-description: Misha uses only short hyphens "-", never em-dashes "—" or en-dashes "–". Applies to all writing in his voice, especially drafted emails/messages he'll send as himself.
+description: When drafting text the user will send as themselves, use only short hyphens "-". Never em-dashes "—" or en-dashes "–". Applies to emails, messaging, signatures.
 type: feedback
-originSessionId: 56a1b5d2-f871-4cd5-8112-a126af4411ce
 ---
-Never use em-dashes (—) or en-dashes (–) when writing in Misha's voice or drafting text he'll send. Only short hyphens "-".
+Never use em-dashes (—) or en-dashes (–) when writing in the user's voice or drafting text they will send. Only short hyphens "-".
 
-**Why:** Misha 20 Apr 2026 explicitly: "не ставь просто длинные тире, я заебался, я так не пишу никогда, я ставлю только короткие". He never types em-dashes, and spotting them everywhere means I'm not matching his voice.
+**Why:** Most users do not type em-dashes naturally. When Claude scatters them through drafted text, the result reads as machine-generated, not as the user. Matching the user's typical punctuation is part of voice fidelity.
 
-**How to apply:** When drafting emails, Telegram messages, or any text Misha will send as himself, use "-" everywhere. Sign-offs: "-misha" not "—misha". This contradicts the older CLAUDE.md line that said he signs "—misha" (lowercase em dash) - that was wrong, update it if it comes up. Applies to Russian and English.
+**How to apply:** When drafting emails, chat messages, or any text the user will send as themselves, use "-" everywhere. Sign-offs follow the same rule: "-handle" not "—handle". Applies across languages (Russian, English, others). If a CLAUDE.md or older style note specifies em-dashes for a sign-off, treat it as stale and prefer the short hyphen.
+
+**Detection:** When reviewing your own draft before showing it to the user, grep for em-dashes (—) and en-dashes (–). If any appear in user-voice content, replace with "-" before presenting.

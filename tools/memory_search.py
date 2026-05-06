@@ -8,7 +8,7 @@ Indexes:
   - memory_files      — CLAUDE.md, MEMORY.md, memory/*.md (feedback rules, project docs)
   - chat_archives     — WhatsApp / Telegram exports
   - briefings         — daily morning briefings (~/Desktop/claude/briefings/*.md)
-  - outputs           — everything Claude+Misha produced (~/Desktop/claude/outputs/**/*.md)
+  - outputs           — everything Claude has produced (~/Desktop/claude/outputs/**/*.md)
   - journal           — daily journal entries (~/Desktop/claude/memory/journal/*.md)
   - knowledge         — atomic learnings + decisions (memory/learnings + memory/decisions)
   - research          — long-form research notes (~/Desktop/claude/research/**/*.md)
