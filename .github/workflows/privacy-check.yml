@@ -10,6 +10,16 @@ jobs:
   privacy:
     name: Paranoid privacy scan
     runs-on: ubuntu-latest
+    env:
+      # Patterns are loaded from GitHub Actions secrets. Each is OPTIONAL.
+      # Forks without these secrets get the public-safe fallback (Pass 1
+      # byline only; other sensitive passes skipped). To enable full scan
+      # in your fork: gh secret set NAME_PATTERN_PRIVATE etc.
+      NAME_PATTERN_PRIVATE: ${{ secrets.NAME_PATTERN_PRIVATE }}
+      EMAIL_DOMAINS_PRIVATE: ${{ secrets.EMAIL_DOMAINS_PRIVATE }}
+      REGISTRY_IDS_PRIVATE: ${{ secrets.REGISTRY_IDS_PRIVATE }}
+      ADDRESSES_PRIVATE: ${{ secrets.ADDRESSES_PRIVATE }}
+      BUSINESSES_PRIVATE: ${{ secrets.BUSINESSES_PRIVATE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

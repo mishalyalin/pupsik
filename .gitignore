@@ -86,3 +86,6 @@ ehthumbs.db
 Desktop.ini
 .tmp/
 tmp/
+
+# Privacy: real patterns never committed (template is .env.example)
+.github/scripts/private-patterns.env

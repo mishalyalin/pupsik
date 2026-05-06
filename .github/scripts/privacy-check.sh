@@ -50,6 +50,35 @@ for arg in "$@"; do
 done
 ROOT="$(cd "$ROOT" && pwd)"
 
+# ============================================================================
+# Private patterns - data-free public script, real patterns loaded externally
+# ============================================================================
+#
+# This script ships WITHOUT specific personal/business patterns. The
+# maintainer (and forkers) load their own one of two ways:
+#   1. Local: source .github/scripts/private-patterns.env (gitignored).
+#      See private-patterns.env.example for the template.
+#   2. CI: GitHub Actions secrets injected as env vars via the workflow.
+# Public fallback for Pass 1 (names): byline only ("Misha Lyalin"/"mishalyalin").
+# Other sensitive passes SKIP if their env var is unset (warning, not failure).
+
+if [ -f "$ROOT/.github/scripts/private-patterns.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.github/scripts/private-patterns.env"
+  set +a
+fi
+
+NAME_PATTERN_FALLBACK='(\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b)'
+NAME_PATTERN="${NAME_PATTERN_PRIVATE:-$NAME_PATTERN_FALLBACK}"
+
+EMAIL_DOMAINS_PATTERN="${EMAIL_DOMAINS_PRIVATE:-}"
+REGISTRY_IDS_FALLBACK='(\bKVK[:[:space:]]*[0-9]{8}\b|\bNL[0-9]{9}B[0-9]{2}\b|\bEIN[:[:space:]]*[0-9]{2}-[0-9]{7}\b|\bNVWA[:[:space:]]*[0-9]{6,8}\b|\bUTR[:[:space:]]*[0-9 ]{8,12}\b|\bNI[:[:space:]]*[A-Z]{2}[0-9]{6}[A-Z]\b)'
+REGISTRY_IDS_PATTERN="${REGISTRY_IDS_PRIVATE:-$REGISTRY_IDS_FALLBACK}"
+ADDRESSES_PATTERN="${ADDRESSES_PRIVATE:-}"
+BUSINESSES_PATTERN="${BUSINESSES_PRIVATE:-}"
+
+
 red()    { printf "\033[1;31m%s\033[0m\n" "$*"; }
 green()  { printf "\033[1;32m%s\033[0m\n" "$*"; }
 yellow() { printf "\033[1;33m%s\033[0m\n" "$*"; }
@@ -214,16 +243,20 @@ run_pass() {
 #     verbatim quotes, supplier deals) are caught by Pass 6 and adjacent
 #     content rules instead.
 #
-NAME_PATTERN='(\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b|\bMikhail[[:space:]]+Lyalin\b|\bDasha[[:space:]]+(Lyalin|Bondarev)|\bTimofey[[:space:]]+Braslavets\b|\bIlya[[:space:]]+Torgovnikov\b|\bNikolay[[:space:]]+Bezborodov\b|\bAsif\b|\bIvan[[:space:]]+Gordeev\b|\bValentina\b|\bMarco\b|\bHans\b|\bNout\b|\bWiktor\b|\bSteve[[:space:]]+Aylott\b|\bRobert[[:space:]]+Marini\b|\bVoinov\b|\bGordeev\b|\bGrayver\b|\bPratap\b|\bAndrew[[:space:]]+Pirumov\b|\bGal[[:space:]]+Cohavy\b)'
+# NAME_PATTERN loaded from $NAME_PATTERN_PRIVATE above (private-patterns.env or CI secret)
 run_pass "real personal names" "$NAME_PATTERN" 1
 
 # ============================================================================
 # Pass 2 — Real email addresses (aside from documented placeholders)
 # ============================================================================
 PLACEHOLDER_EMAILS='(alice@example\.com|bob@example\.com|john@gmail\.com|test@example\.com|user@example\.com|personal@gmail\.com|work@company\.com|kids@gmail\.com|your\.email@gmail\.com|name@example\.com|noreply@example\.com|me@example\.com|misha@example\.com|owner@example\.com|founder@example\.com|email@example\.com|school@gmail\.com|problematic@gmail\.com|first@gmail\.com|second@gmail\.com|account[12]?@gmail\.com|other@gmail\.com|user[12]@gmail\.com|me@gmail\.com|primary@gmail\.com|secondary@gmail\.com|sample@gmail\.com|example@gmail\.com)'
-run_pass "real email addresses" \
-  '\b[A-Za-z0-9._%+-]+@(pranasalt\.com|zeptolab\.com|mercury\.com|stop-spices\.|stopspices\.|tupak\.|viv-?\.|genofoods\.|shiva-?center\.|dalesman\.|allright\.|hopsiq\.|healf\.|metida\.|ipnote\.|hmlg\.|lanstone\.)\b' \
-  0
+if [ -n "$EMAIL_DOMAINS_PATTERN" ]; then
+  run_pass "real email addresses" \
+    "\b[A-Za-z0-9._%+-]+@$EMAIL_DOMAINS_PATTERN\b" \
+    0
+else
+  yellow "[pass 2] real email addresses ... SKIPPED (set EMAIL_DOMAINS_PRIVATE to enable)"
+fi
 
 # Generic catch: any @gmail.com address other than the documented placeholders.
 run_pass "real gmail addresses" \
@@ -245,21 +278,25 @@ run_pass "phone numbers" \
 # Pass 4 — Government / registry IDs
 # ============================================================================
 # Specific known IDs from the live workspace.
-run_pass "registry IDs (KVK / VAT / EIN / NI / UTR / NVWA)" \
-  '(\bKVK[:[:space:]]*[0-9]{8}\b|\bNL[0-9]{9}B[0-9]{2}\b|\bEIN[:[:space:]]*[0-9]{2}-[0-9]{7}\b|\bNVWA[:[:space:]]*[0-9]{6,8}\b|\bUTR[:[:space:]]*[0-9 ]{8,12}\b|\bNI[:[:space:]]*[A-Z]{2}[0-9]{6}[A-Z]\b|\b42016445\b|\b39-4385463\b|\bNL869305736B01\b|\b20525048\b|\b0514378\b|\b1979928145\b)'
+run_pass "registry IDs (KVK / VAT / EIN / NI / UTR / NVWA)" "$REGISTRY_IDS_PATTERN"
 
 # ============================================================================
 # Pass 5 — Specific addresses
 # ============================================================================
-run_pass "specific home/office addresses" \
-  '(Craven[[:space:]]+Hill[[:space:]]+Gardens|Princedale[[:space:]]+Road|Finchley[[:space:]]+Road|Herengracht[[:space:]]+584|Paul[[:space:]]+Street|EC2A[[:space:]]?4NE|W2[[:space:]]?3ES|W11[[:space:]]?4NL|NW3[[:space:]]?7AA|1017CJ)'
+if [ -n "$ADDRESSES_PATTERN" ]; then
+  run_pass "specific home/office addresses" "$ADDRESSES_PATTERN"
+else
+  yellow "[pass 5] specific home/office addresses ... SKIPPED (set ADDRESSES_PRIVATE to enable)"
+fi
 
 # ============================================================================
 # Pass 6 — Project / supplier / business specifics
 # ============================================================================
-run_pass "project codenames + supplier/business specifics" \
-  '(\bPranaSalt\b|\bPranasalt\b|\bprana\.salt\b|\bZeptoLab\b|\bGenofoods\b|\bTupak\b|\bSTOP[[:space:]]?Spices\b|\bShiva[[:space:]]?Center\b|\bDalesman\b|\bShipBob\b|\bSendcloud\b|\bZendbox\b|\bAllright\b|\bHopsiq\b|\bHealf\b|\bSouthbank[[:space:]]+International|\bSylvia[[:space:]]+Young|\bLava[[:space:]]+Cacao\b|\bDKB[[:space:]]+orange|\bVIV2603037\b)' \
-  1
+if [ -n "$BUSINESSES_PATTERN" ]; then
+  run_pass "project codenames + supplier/business specifics" "$BUSINESSES_PATTERN" 1
+else
+  yellow "[pass 6] project codenames + supplier/business specifics ... SKIPPED (set BUSINESSES_PRIVATE to enable)"
+fi
 
 # ============================================================================
 # Pass 7 — API tokens / secrets / OAuth
