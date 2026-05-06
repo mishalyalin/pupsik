@@ -201,7 +201,20 @@ run_pass() {
 # ============================================================================
 # Pass 1 — Real personal names (the byline is allowlisted in select files only)
 # ============================================================================
-NAME_PATTERN='(\bMisha\b|\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b|\bMikhail[[:space:]]+Lyalin\b|\bDasha[[:space:]]+(Lyalin|Bondarev)|\bTimofey[[:space:]]+Braslavets\b|\bIlya[[:space:]]+Torgovnikov\b|\bNikolay[[:space:]]+Bezborodov\b|\bAsif\b|\bIvan[[:space:]]+Gordeev\b|\bValentina\b|\bMarco\b|\bHans\b|\bNout\b|\bWiktor\b|\bSteve[[:space:]]+Aylott\b|\bRobert[[:space:]]+Marini\b|\bVoinov\b|\bGordeev\b|\bGrayver\b|\bPratap\b|\bAndrew[[:space:]]+Pirumov\b|\bGal[[:space:]]+Cohavy\b)'
+#
+# Philosophy: author attribution is fine. The maintainer's name appearing
+# in docstrings, comments, "produced by" lines, etc. is normal for any OSS
+# project. We only flag:
+#   - Full names of OTHER people in the maintainer's network (suppliers,
+#     investors, family) — those identify relationships and should not leak.
+#   - The maintainer's full name "Misha Lyalin" outside the byline-allowed
+#     files (LICENSE, README, MARKETING) — the byline files are intentional.
+#   - Bare first names like "Misha" alone are NOT flagged here. Author
+#     attribution is a feature, not a leak. Process leaks (specific dates,
+#     verbatim quotes, supplier deals) are caught by Pass 6 and adjacent
+#     content rules instead.
+#
+NAME_PATTERN='(\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b|\bMikhail[[:space:]]+Lyalin\b|\bDasha[[:space:]]+(Lyalin|Bondarev)|\bTimofey[[:space:]]+Braslavets\b|\bIlya[[:space:]]+Torgovnikov\b|\bNikolay[[:space:]]+Bezborodov\b|\bAsif\b|\bIvan[[:space:]]+Gordeev\b|\bValentina\b|\bMarco\b|\bHans\b|\bNout\b|\bWiktor\b|\bSteve[[:space:]]+Aylott\b|\bRobert[[:space:]]+Marini\b|\bVoinov\b|\bGordeev\b|\bGrayver\b|\bPratap\b|\bAndrew[[:space:]]+Pirumov\b|\bGal[[:space:]]+Cohavy\b)'
 run_pass "real personal names" "$NAME_PATTERN" 1
 
 # ============================================================================
