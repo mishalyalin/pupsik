@@ -7,7 +7,8 @@ This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Cla
 ## 🔴 MANDATORY protocols (highest priority)
 
 - **ALWAYS 2+ AGENTS per task** — worker + independent checker. Sole-agent work is banned for meaningful tasks. More agents for complex work (architect / specialist / reviewer / tester). Ship only after the checker reports `PASS`. → `feedback_always_two_agents.md`
-- **Capture knowledge in-flight** — the MOMENT an insight/decision/research emerges → `note.py learning|decision|research` (don't wait to close topic). If it later evolves, re-run with same title — upserts the existing note. → `feedback_capture_knowledge.md`
+- **Capture knowledge in-flight** — the MOMENT an insight/decision/research emerges → `note.py learning|decision|research`. **NEVER ask the user "should I capture this?" — just capture.** Default = capture; user deletes if mistake. (Re-run same title to upsert. Use `--body-stdin` or `--body-file` for bodies with apostrophes/quotes.) → `feedback_capture_knowledge.md`
+- **Save email attachments to Drive** — useful attachments (PDFs, docs, certificates, invoices) auto-route to the corresponding `Workspace/<folder>/` on Google Drive. Don't ask, save. Pick folder from email context; propose new folder if ambiguous. → `feedback_email_attachments_to_drive.md`
 - **Verify project state before answering** any status / payment / partner question — fresh email (last 7 days, all accounts) and any relevant chat groups. Update `CLAUDE.md` inline if stale. → `feedback_verify_project_state.md`
 - **Never ignore own rules** — `CLAUDE.md` and `feedback_*.md` are MANDATORY protocols, not suggestions. → `feedback_never_ignore_own_rules.md`
 - **Contact DB first** — before mentioning any person, check the local contact DB (`tools/memory_search.py search`, `tools/contacts_db.py find`). Don't guess. → `feedback_contact_db_first.md`
