@@ -201,7 +201,7 @@ run_pass() {
 # ============================================================================
 # Pass 1 — Real personal names (the byline is allowlisted in select files only)
 # ============================================================================
-NAME_PATTERN='(\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b|\bMikhail[[:space:]]+Lyalin\b|\bDasha[[:space:]]+(Lyalin|Bondarev)|\bTimofey[[:space:]]+Braslavets\b|\bIlya[[:space:]]+Torgovnikov\b|\bNikolay[[:space:]]+Bezborodov\b|\bAsif\b|\bIvan[[:space:]]+Gordeev\b|\bValentina\b|\bMarco\b|\bHans\b|\bNout\b|\bWiktor\b|\bSteve[[:space:]]+Aylott\b|\bRobert[[:space:]]+Marini\b|\bVoinov\b|\bGordeev\b|\bGrayver\b|\bPratap\b|\bAndrew[[:space:]]+Pirumov\b|\bGal[[:space:]]+Cohavy\b)'
+NAME_PATTERN='(\bMisha\b|\bMisha[[:space:]]+Lyalin\b|\bmishalyalin\b|\bMikhail[[:space:]]+Lyalin\b|\bDasha[[:space:]]+(Lyalin|Bondarev)|\bTimofey[[:space:]]+Braslavets\b|\bIlya[[:space:]]+Torgovnikov\b|\bNikolay[[:space:]]+Bezborodov\b|\bAsif\b|\bIvan[[:space:]]+Gordeev\b|\bValentina\b|\bMarco\b|\bHans\b|\bNout\b|\bWiktor\b|\bSteve[[:space:]]+Aylott\b|\bRobert[[:space:]]+Marini\b|\bVoinov\b|\bGordeev\b|\bGrayver\b|\bPratap\b|\bAndrew[[:space:]]+Pirumov\b|\bGal[[:space:]]+Cohavy\b)'
 run_pass "real personal names" "$NAME_PATTERN" 1
 
 # ============================================================================
