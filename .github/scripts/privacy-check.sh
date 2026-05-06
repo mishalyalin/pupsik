@@ -28,10 +28,26 @@
 #   8. Hidden / large / suspicious files (.env, *.key, *.pem, .DS_Store, >500KB).
 #   9. Compiled bytecode that may carry source paths (.pyc).
 
+
+# Scan scope:
+#   Files reported by `git ls-files` (TRACKED only). Untracked files are NOT scanned
+#   by default. For local pre-commit runs where you have edits not yet `git add`ed,
+#   pass `--include-untracked` (or `git add` your changes first so they show up).
+#   CI runs without --include-untracked — only tracked content reaches the public repo.
 set -uo pipefail
 # (NOT -e — we want to keep going through all 9 passes and aggregate failures.)
 
-ROOT="${1:-.}"
+INCLUDE_UNTRACKED=0
+ROOT="."
+for arg in "$@"; do
+  case "$arg" in
+    --include-untracked) INCLUDE_UNTRACKED=1 ;;
+    --help|-h)
+      sed -n '1,30p' "$0"
+      exit 0 ;;
+    *) ROOT="$arg" ;;
+  esac
+done
 ROOT="$(cd "$ROOT" && pwd)"
 
 red()    { printf "\033[1;31m%s\033[0m\n" "$*"; }
@@ -84,6 +100,9 @@ is_byline_allowlisted() {
 list_files() {
   if (cd "$ROOT" && git rev-parse --git-dir >/dev/null 2>&1); then
     (cd "$ROOT" && git ls-files)
+    if [ "$INCLUDE_UNTRACKED" -eq 1 ]; then
+      (cd "$ROOT" && git ls-files --others --exclude-standard)
+    fi
   else
     (cd "$ROOT" && find . -type f \
       -not -path '*/\.git/*' \
