@@ -1,13 +1,8 @@
 #!/bin/bash
 # PreCompact hook — runs right before Claude Code compacts the conversation.
 # Saves session state so Claude can recover context after compacting.
-#
-# Workspace resolution: CLAUDE_WORKSPACE env var takes precedence over default.
-# Set CLAUDE_WORKSPACE in your shell profile if you installed to a non-default
-# location (e.g. export CLAUDE_WORKSPACE="$HOME/Work/claude").
 
-WORKSPACE="${CLAUDE_WORKSPACE:-$HOME/Desktop/claude}"
-STATE_DIR="$WORKSPACE/.claude/compact-state"
+STATE_DIR="$HOME/Desktop/claude/.claude/compact-state"
 mkdir -p "$STATE_DIR"
 
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
@@ -37,9 +32,9 @@ cat <<EOF
 Session state snapshot written to $STATE_FILE.
 
 After compaction, Claude MUST run the following to recover context:
-1. python3 $WORKSPACE/tools/memory_search.py wake-up
+1. python3 ~/Desktop/claude/tools/memory_search.py wake-up
 2. cat $STATE_FILE | head -50
-3. Re-read $WORKSPACE/CLAUDE.md if the current task needs it
+3. Re-read ~/Desktop/claude/CLAUDE.md if the current task needs it
 
 This ensures no active work state is lost across compact boundaries.
 === END PRE-COMPACT ===

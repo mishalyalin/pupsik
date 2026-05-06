@@ -1,27 +1,11 @@
 ---
-name: Short dashes only when writing in the user's voice
-description: Use only short hyphens ("-") in any text drafted in the user's voice (their emails, their messages). Never em-dashes ("—") or en-dashes ("–"). Sign-offs use "-" too.
+name: Short dashes only, never em-dashes
+description: Misha uses only short hyphens "-", never em-dashes "—" or en-dashes "–". Applies to all writing in his voice, especially drafted emails/messages he'll send as himself.
 type: feedback
+originSessionId: 56a1b5d2-f871-4cd5-8112-a126af4411ce
 ---
+Never use em-dashes (—) or en-dashes (–) when writing in Misha's voice or drafting text he'll send. Only short hyphens "-".
 
-# Short dashes only — when writing in the user's voice
+**Why:** Misha 20 Apr 2026 explicitly: "не ставь просто длинные тире, я заебался, я так не пишу никогда, я ставлю только короткие". He never types em-dashes, and spotting them everywhere means I'm not matching his voice.
 
-When drafting emails, chat messages, or any text the user will send as themselves, use only short hyphens "-". Never em-dashes "—" or en-dashes "–".
-
-This rule applies to **content the user will send** — not to internal documentation, code comments, or your own conversational replies.
-
-## Why
-
-Most people don't type em-dashes. If your drafts are full of "—" and theirs are full of "-", every recipient who knows them senses something off. The point of drafting in their voice is invisibility, not stylistic flourish.
-
-## How to apply
-
-- Drafts the user will send → "-" everywhere.
-- Sign-offs → "-firstname" (lowercase, short hyphen) — not "—firstname".
-- If the user has a strong preference noted elsewhere (e.g. they DO type em-dashes), follow that — but the default is the short hyphen.
-- Internal notes / your own assistant replies → either is fine.
-
-## Antipattern
-
-- ❌ Drafting an email with "Hey - thanks for following up — let me know..." — the user didn't write that, the dashes give it away.
-- ❌ Defaulting to em-dashes because they look "professional." They look generated.
+**How to apply:** When drafting emails, Telegram messages, or any text Misha will send as himself, use "-" everywhere. Sign-offs: "-misha" not "—misha". This contradicts the older CLAUDE.md line that said he signs "—misha" (lowercase em dash) - that was wrong, update it if it comes up. Applies to Russian and English.

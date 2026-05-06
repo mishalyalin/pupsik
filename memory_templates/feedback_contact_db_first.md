@@ -1,40 +1,22 @@
 ---
-name: Check contact DB before mentioning any person
-description: 🔴 MANDATORY — before mentioning any contact (name, email, company, last-seen, relationship), query `data/contacts.db` + ChromaDB. Never guess from general knowledge.
+name: Always check contact DB before mentioning people
+description: CRITICAL rule — before ANY mention of a person, check the SQLite contact DB + ChromaDB semantic search. Never guess who someone is.
 type: feedback
+originSessionId: af402a5d-8e5c-4048-8728-ad458ef2ad9e
 ---
+ВСЕГДА проверять `~/Desktop/claude/data/contacts.db` и ChromaDB семантический поиск ПЕРЕД тем как:
+- Называть, характеризовать или упоминать любого человека в ответе
+- Писать письмо / сообщение кому-то
+- Готовить call prep или morning briefing
+- Отвечать на "кто такой X" / "через кого выйти на Y"
 
-# 🔴 Contact DB first — never guess
+**Why:** Миша 14 Apr 2026 построил SQLite базу (205 контактов, 163 взаимодействия, 98 связей) + ChromaDB семантический поиск (470 документов) + граф связей. Сказал дословно: "ты каждый раз будешь проверять эту базу перед тем, как упоминаются какие-то люди". Без дисциплинированной проверки база превращается в мёртвый груз — смысл её существования в том, что я её использую.
 
-Before mentioning any person by name, email, or company in a response:
+**How to apply:**
+1. Первая команда при упоминании человека: `python3 ~/Desktop/claude/tools/memory_search.py search "Name or context" --top 5`
+2. Если нужен полный профиль: `python3 ~/Desktop/claude/tools/contacts_db.py find "Name"`
+3. Если нужны связи: `python3 ~/Desktop/claude/tools/contacts_db.py graph "Name"` или `chain "A" "B"`
+4. НЕ гадать. Если в базе нет — спросить Мишу.
+5. После новых важных взаимодействий — обновить interactions в БД и раз в несколько дней переиндексировать ChromaDB (`memory_search.py index`).
 
-1. Run `python3 ~/Desktop/claude/tools/memory_search.py search "<name or topic>" --top 5`
-2. Or direct: `python3 ~/Desktop/claude/tools/contacts_db.py find "<name>"`
-3. If nothing found → say so explicitly ("no record in contacts DB"), don't invent.
-
-## Why
-
-- The contacts DB is authoritative for the user's network.
-- General knowledge is wrong in private contexts (different people share a name, the user knows them differently than the internet does).
-- Guessing creates a false impression of memory continuity.
-
-## When this applies
-
-- Any answer that references a person by name
-- Drafting emails / messages where a recipient is implied
-- Timeline questions ("when did we last talk to X")
-- Relationship questions ("who introduced us to Y")
-
-## When it does NOT apply
-
-- Pure lookup of public figures (company founders, authors of cited papers, public officials) — use web search.
-- The user asks about themselves.
-
-## Pattern
-
-```
-User: "What did I last say to <Name>?"
-  ├─ Query contacts_db.py find "<Name>"
-  ├─ If found: show last interaction + source (email / WA / calendar)
-  └─ If not found: "No record in contacts DB for <Name> — should I search email?"
-```
+Полные инструкции — в CLAUDE.md секция "🔴 MANDATORY: Contact Database Protocol".

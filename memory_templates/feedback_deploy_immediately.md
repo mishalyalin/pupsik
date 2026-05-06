@@ -1,47 +1,11 @@
 ---
-name: When the user says deploy — deploy
-description: For projects where shipping is expected (e.g., small tools, scripts, bots), don't ask "should I deploy this?" after changes — just ship. Confirm-after, not confirm-before.
+name: Always deploy immediately after changes
+description: Commit and deploy ticket-hunter changes to VPS right away, never leave changes local-only
 type: feedback
 ---
 
-# Deploy immediately — don't ask
+Always commit and deploy ticket-hunter changes to the VPS immediately after making them. Never ask "should I deploy?" — just do it.
 
-For projects where the deploy pipeline is already set up and the user expects shipping to be part of the flow:
+**Why:** The user tests changes via the live Telegram bot on their phone (e.g. while walking the dog). If changes are only local, they test the old version and waste time. They don't need local verification — deploy straight to production.
 
-- Make the change
-- Build / test locally
-- Push / deploy
-- Report what you did
-
-**Don't ask** "should I deploy this?" after every change. That doubles the round-trips.
-
-## When this applies
-
-- The user has said "just ship it" or similar at the start of the project
-- The deploy process is automated (git push → auto-deploy, or `deploy.sh`)
-- Changes are bounded and reversible
-
-## When it does NOT apply
-
-- Breaking changes to a production system with users
-- Database migrations that are hard to roll back
-- Changes to external-facing APIs / contracts
-- First-ever deploy of a new system (get sign-off on the initial shape)
-
-## Pattern
-
-```
-User: "Fix the timezone bug"
-  ├─ Fix it
-  ├─ Run tests
-  ├─ Commit + push (auto-deploy triggers)
-  └─ Reply: "Fixed and shipped. Deployed commit abc123 at 14:22."
-```
-
-Not:
-
-```
-User: "Fix the timezone bug"
-  ├─ Fix it locally
-  └─ Reply: "Fixed locally. Want me to deploy?"
-```
+**How to apply:** After editing ticket-hunter code, immediately: git add → git commit → git push → ssh to VPS → git pull → systemctl restart tickethunter. No confirmation needed.

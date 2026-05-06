@@ -1,27 +1,27 @@
 ---
 name: Never ignore own rules
-description: 🔴 CRITICAL. Rules in `CLAUDE.md` and `memory/feedback_*.md` are MANDATORY protocols, not "suggestions". Ignoring an own rule = bug, not a stylistic choice.
+description: 🔴 CRITICAL. Правила в CLAUDE.md и memory/*.md — MANDATORY, не "предложения". Игнорирование собственного правила — баг, не стилистический выбор.
 type: feedback
+originSessionId: 803b68f6-26d0-46d0-8bfd-59d31802cf6d
 ---
+**Правила из CLAUDE.md (особенно секции "🔴 MANDATORY") и из `memory/feedback_*.md` — не советы, а обязательные протоколы. Выполняй их каждый раз, без исключений.**
 
-# 🔴 Never ignore own rules
+**Why:** 17 Apr 2026. Миша спросил план по FLEX. В CLAUDE.md чёрным по белому написаны правила:
+- "🔴 MANDATORY: Contact Database Protocol" — проверять базу перед упоминанием людей
+- "🔴 MANDATORY: ALL 3 ACCOUNTS — ALWAYS" — проверять все 3 gmail при любом обращении к почте
+- "Fact-Checking & Data Verification" — проверять факты, не выдумывать
+- Session Start Protocol — читать CLAUDE.md и memory_search.py wake-up
 
-**Rules in `CLAUDE.md` (especially "🔴 MANDATORY" sections) and in `memory/feedback_*.md` are not advice — they are required protocols. Execute them every time, no exceptions.**
+Я забил на "проверять свежую почту перед утверждениями о статусе проекта" и построил план на устаревшем CLAUDE.md. Это при том что в почте лежали явные свежие факты: Revolut Business открыт 13 Apr (transfers идут с 14 Apr), Shiva оплачена 13 Apr и отгружена 16 Apr с трекингом Delamode Baltics 3951377. Миша разозлился — справедливо. Смысл моей памяти пропадает, если я её игнорирую.
 
-## Why this exists
+**How to apply:**
 
-The whole point of the persistent memory + critical-rules system is to remove repeat mistakes. If the rules are loaded but ignored, the user is paying for a feedback loop that produces zero learning. That is worse than not having the rules at all — it creates a false sense of safety.
+1. **Перед любым утверждением о статусе проекта / платежа / партнёра** — проверить свежую почту (последние 7 дней) по всем 3 аккаунтам + WA группы + CLAUDE.md. Искать изменения vs моё представление.
 
-A real failure: the user asked for a project plan. Two rules in `CLAUDE.md` said "verify state from fresh email before answering any project status question" and "check the contact DB before mentioning anyone by name." The agent skipped both, built the plan on a stale `CLAUDE.md` snapshot, and contradicted facts that were sitting in the inbox unread. Every wrong claim was traceable to a rule that was loaded but unused.
+2. **Если свежий факт противоречит CLAUDE.md** — это баг в CLAUDE.md. Обнови inline СЕЙЧАС, до ответа пользователю. Не жди следующего briefing-а.
 
-## How to apply
+3. **Если пользователь раскрыл факт который лежал в почте** — это двойная ошибка: (а) я не проверил, (б) теперь факт в контексте, но ещё не в памяти. Сохрани СРАЗУ в CLAUDE.md + соответствующий `memory/project_*.md`, плюс отдельный feedback если это паттерн.
 
-1. **Before any claim about a status / payment / partner** — verify against fresh data (last 7 days of email, all relevant accounts, any mentioned chat groups). Don't trust `CLAUDE.md` alone — it is a snapshot, not live state.
+4. **Ни одно "🔴 MANDATORY" не отменяется из-за "кажется я помню".** Проверяй даже то, что ты "помнишь" — память может быть stale.
 
-2. **If a fresh fact contradicts `CLAUDE.md`** — that's a bug in `CLAUDE.md`. Update inline NOW, before answering. Don't defer to "next briefing."
-
-3. **If the user reveals a fact that was already in their inbox** — that's a double error: (a) you didn't check, (b) the fact is now in conversation context but not in memory. Persist it immediately to `CLAUDE.md` + the relevant `memory/project_*.md`. If the omission reveals a pattern, add a new `feedback_*.md` rule.
-
-4. **No "🔴 MANDATORY" rule is overridable by intuition.** "I think I remember" is not a verification step — memory can be stale, the rule said "check anyway" for a reason.
-
-5. **If you broke a rule** — name it in your reply ("I missed the verify-before-claim rule on this one"). Don't paper over with apologies. The user is paying for the system to work, not for graceful error handling.
+5. Если я нарушил правило — честно это зафиксировать как баг (feedback memory), не отмазываться. Миша платит за то чтобы система работала, не за красивые извинения.

@@ -2,7 +2,7 @@
 """
 note.py — One-shot atomic capture CLI for learnings, decisions, and research.
 
-Phase 2 of the knowledge-capture system. Writes a dated MD file with YAML
+Phase 2 of Misha's knowledge-capture system. Writes a dated MD file with YAML
 frontmatter to the right ~/Desktop/claude/memory/<subdir>/ (or ~/Desktop/claude/research/),
 then triggers a ChromaDB reindex via memory_search.py so the new note is
 immediately findable by `memory_search.py search`.
@@ -13,11 +13,23 @@ re-run with the SAME title — it UPSERTS the existing note (one note per topic,
 kept current). Threshold: "would this matter 3 weeks from now?" Yes → run note.py.
 
 Usage:
-    note.py learning "Title" "Body" [--tags "tag1,tag2"] [--project "ProjectName"]
-    note.py decision "Title" "Body" [--alternatives "A,B,C"] [--rationale "..."] [--project "ProjectName"]
+    note.py learning "Title" "Body" [--tags "tag1,tag2"] [--project "FLEX"]
+    note.py learning "Title" --body-file /tmp/body.md [--tags "..."]
+    note.py learning "Title" --body-stdin <<'EOF'
+    Body with apostrophes don't break.
+    Multi-line works.
+    EOF
+    note.py decision "Title" "Body" [--alternatives "A,B,C"] [--rationale "..."] [--project "FLEX"]
     note.py research "Title" "Body" [--sources "url1,url2"] [--query "what we searched"] [--tags "..."]
     note.py list [--type learning|decision|research] [--days 7]
     note.py reindex
+
+Body source (exactly one required):
+    Positional BODY  Inline string. Cleanest for short bodies without quoting hell.
+    --body-file PATH Read body from a file. Avoids shell-escape pain on long/complex bodies.
+    --body-stdin     Read body from stdin (pipe-friendly + heredoc-friendly).
+                     Use this if your body contains apostrophes, mixed quotes, or unicode.
+    If multiple are given, --body-stdin > --body-file > positional (with a warning).
 
 Flags applicable to learning/decision/research:
     --no-reindex     Skip the ChromaDB reindex step.
@@ -31,8 +43,8 @@ target subdir (regardless of date prefix), it is opened and rewritten:
   - frontmatter `created:` preserved from existing file (or `date:` migrated)
   - frontmatter `updated:` set to today
   - tags MERGED (union, deduped, order-preserved)
-  - body REPLACED (clean overwrite — latest state is what matters, not history.
-    Use --append for evolving research where prior context should be preserved).
+  - body REPLACED (clean overwrite — Misha's correction was about latest state
+    being current, not history-keeping). Use --append for evolving research.
 Filename keeps the ORIGINAL date prefix (captures when the topic first emerged).
 """
 
@@ -271,7 +283,7 @@ def reindex(file_path: Path | None = None, background: bool = True) -> None:
 
     If `file_path` is given, do a surgical single-file upsert (fast, ~1s).
     Otherwise full rebuild of all 9 collections (slow). By default
-    fire-and-forget via Popen so the caller doesn't block.
+    fire-and-forget via Popen so the caller (Claude) doesn't block.
     """
     if not MEMORY_SEARCH.exists():
         print(f"warn: {MEMORY_SEARCH} not found — skipping reindex", file=sys.stderr)
@@ -345,7 +357,7 @@ def write_note(
         final_project = project if project else fm.get("project") or None
 
         # Type drift guard: if existing file's type differs from current call,
-        # honor the new type but warn. Type changes are rare in practice.
+        # we honor the new type but warn. Misha will rarely change type.
         if fm.get("type") and fm.get("type") != note_type:
             print(
                 f"warn: type changed {fm['type']} -> {note_type} for {existing.name}",
@@ -436,13 +448,66 @@ def list_notes(note_type: str | None, days: int) -> list[tuple[Path, datetime, s
     return rows
 
 
+def resolve_body(args) -> str:
+    """Resolve note body from one of three sources:
+        1. --body-stdin  (highest precedence — pipe / heredoc / interactive)
+        2. --body-file PATH
+        3. positional BODY argument
+
+    If multiple sources are given, higher precedence wins and a warning is
+    printed to stderr. If none are given, ValueError is raised.
+
+    Designed to fix the shell-escape pain that made apostrophe/quote-heavy
+    bodies fail (5 May 2026 precedent: session gave up on capture after
+    `python3 note.py learning "T" "body with 'inside'"` broke the shell quote).
+    """
+    sources_provided = []
+    if getattr(args, "body_stdin", False):
+        sources_provided.append("--body-stdin")
+    if getattr(args, "body_file", None):
+        sources_provided.append("--body-file")
+    if getattr(args, "body", None):
+        sources_provided.append("positional")
+
+    if not sources_provided:
+        raise ValueError(
+            "no body source given. Provide one of: positional BODY, "
+            "--body-file PATH, or --body-stdin (pipe/heredoc)."
+        )
+
+    if len(sources_provided) > 1:
+        winner = sources_provided[0]  # list order = precedence order
+        losers = ", ".join(sources_provided[1:])
+        print(
+            f"warn: multiple body sources given ({', '.join(sources_provided)}); "
+            f"using {winner}, ignoring {losers}",
+            file=sys.stderr,
+        )
+
+    if getattr(args, "body_stdin", False):
+        body = sys.stdin.read()
+    elif getattr(args, "body_file", None):
+        body_path = Path(args.body_file).expanduser()
+        if not body_path.exists():
+            raise ValueError(f"--body-file path does not exist: {body_path}")
+        body = body_path.read_text(encoding="utf-8")
+    else:
+        body = args.body
+
+    if not body or not body.strip():
+        raise ValueError("body is empty after reading from chosen source")
+
+    return body
+
+
 def cmd_capture(args, note_type: str) -> int:
     """Shared handler for learning/decision/research subcommands."""
     try:
+        body = resolve_body(args)
         path, action = write_note(
             note_type=note_type,
             title=args.title,
-            body=args.body,
+            body=body,
             tags=csv_to_list(getattr(args, "tags", None)),
             project=getattr(args, "project", None),
             sources=csv_to_list(getattr(args, "sources", None)),
@@ -489,7 +554,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_common(parser):
         parser.add_argument("title", help="Short title for the note (slug = upsert key).")
-        parser.add_argument("body", help="Body text (2-5 sentences ideal).")
+        parser.add_argument(
+            "body",
+            nargs="?",
+            default=None,
+            help="Body text (2-5 sentences ideal). Optional if --body-file or "
+                 "--body-stdin is used. Positional is cleanest for short bodies "
+                 "without quoting hell; switch to --body-stdin / --body-file when "
+                 "the body contains apostrophes, mixed quotes, or unicode.",
+        )
+        parser.add_argument(
+            "--body-file",
+            dest="body_file",
+            metavar="PATH",
+            help="Read body from a file instead of the positional argument. "
+                 "Avoids shell-escape pain on long/complex bodies.",
+        )
+        parser.add_argument(
+            "--body-stdin",
+            dest="body_stdin",
+            action="store_true",
+            help="Read body from stdin (pipe-friendly + heredoc-friendly). "
+                 "Apostrophes, quotes, unicode all pass through cleanly.",
+        )
         parser.add_argument("--no-reindex", action="store_true", help="Skip ChromaDB reindex.")
         parser.add_argument(
             "--new",
