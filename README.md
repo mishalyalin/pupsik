@@ -62,13 +62,28 @@ the `CLAUDE.md` isn't loading — see Troubleshooting below.
   `PostCompact` reminds Claude to restore it, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50`
   fires compaction at half-context instead of waiting until 95%. No more
   losing the plot mid-session.
+- **`tools/doctor.py` health-check + safe auto-fix** - deterministic
+  diagnostics across 13 checks (broken symlinks, stale locks, ChromaDB
+  orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers,
+  dead scheduled-task dirs, unindexed recent notes). `check` is read-only,
+  `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe),
+  `orphans` lists unlinked entities for human review.
+- **Friction protocol** - `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y`
+  captures repeat-correction patterns. Upsert by `(phase, severity)` increments
+  a counter so the third recurrence of the same friction surfaces escalated.
+  `friction summary --days 7 --top 3` aggregates for morning briefing.
 - **2+ agent rule** — every real task runs a worker plus an independent
   checker. Catches the bugs a single-agent pass would miss.
 - **Critical-rules file** — `~/.claude/rules/critical-rules.md` auto-loads
   every session. MANDATORY behaviour rules pinned to every project.
-- **13 generic feedback rules** — contact-DB-first, save-outputs,
+- **15 generic feedback rules** — contact-DB-first, save-outputs,
   verify-before-showing, never-ignore-own-rules, capture-knowledge,
-  short-dashes-only, compute-weekday-don't-guess, and more.
+  short-dashes-only, no-office-files, compute-weekday-don't-guess, and more.
+- **Third-party attribution discipline** - `THIRD_PARTY_ATTRIBUTIONS.md` at
+  the repo root tracks every pattern adapted from external OSS projects
+  (currently: gbrain by Garry Tan, MIT). Source URL + author + license +
+  adaptation type + honest delta of what was taken verbatim vs adapted vs
+  added. License compatibility verified at import time.
 - **5 pre-written agent prompts** — Architect / Discoverer / Packager /
   Migrator / Tester. Use them when the task warrants a team.
 - **`auto` permission mode by default** — accepts safe ops automatically,
@@ -87,6 +102,9 @@ the `CLAUDE.md` isn't loading — see Troubleshooting below.
   snippet, and mix-and-match recipes.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, how to PR,
   privacy guarantee.
+- [`THIRD_PARTY_ATTRIBUTIONS.md`](THIRD_PARTY_ATTRIBUTIONS.md) — patterns,
+  code, conventions adapted from external OSS projects. Source URL, author,
+  license, adaptation type, and what was changed vs taken verbatim.
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes.
 
 ## Requirements
@@ -286,7 +304,42 @@ real account numbers — never lands in this repo. See
 
 For full release notes, see [`CHANGELOG.md`](CHANGELOG.md).
 
-### What's new in this release (2026-04-29)
+### What's new in this release (2026-05-07: gbrain pattern imports + privacy)
+
+1. **`tools/doctor.py` - deterministic health-check + safe-auto-fix.**
+   Three subcommands: `check` (read-only), `fix-safe` (safe auto-repairs),
+   `orphans` (read-only orphan listing). Thirteen specific checks across
+   broken symlinks, stale lock files, ChromaDB orphan rows, dangling memory
+   pointers, dead scheduled-task directories, and oversized CLAUDE.md /
+   MEMORY.md. Auto-fix is restricted to safe ops only - never LLM content
+   rewrites - so the tool is cron-safe and won't clobber your prose.
+2. **`note.py friction` subcommand.** Capture severity-tagged friction events
+   (`blocker` / `error` / `confused` / `nit`) with phase + message + optional
+   hint. Upsert by `(phase, severity)` increments a counter for repeat-pattern
+   detection. `friction summary --days 7 --top 3` aggregates the loudest
+   recurring friction for embedding in morning briefings.
+3. **Output Rules adapted from gbrain.** Four cross-cutting quality rules
+   (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality)
+   referenced in `THIRD_PARTY_ATTRIBUTIONS.md`. The consolidated public
+   feedback file is on the follow-up backlog; for now they live in the
+   attribution tracker as a reading guide.
+4. **`THIRD_PARTY_ATTRIBUTIONS.md` at repo root.** New central tracker for
+   patterns adapted from external OSS projects. Per-pattern source URL,
+   author, license, adaptation type, and an honest delta of what was taken
+   verbatim vs adapted vs added on top.
+5. **Privacy hardening.** Five `memory_templates/feedback_*.md` files
+   re-generalised after the privacy-pattern catalogue tightened over the
+   previous weeks. The previously-missing `feedback_no_office.md` was
+   added in pre-scrubbed form. `bash .github/scripts/privacy-check.sh
+   --include-untracked` now passes 10/10 across the full repo.
+6. **Em-dash style consistency.** The toolkit ships `feedback_short_dashes_only.md`
+   as a MANDATORY rule. Mass sed-pass cleaned 90 em-dashes lurking in template
+   prose and tooling docstrings, including in the rule files themselves.
+
+For full detail and the upgrade pointer, see
+[`CHANGELOG.md`](CHANGELOG.md#2026-05-07---gbrain-pattern-imports--privacy-fix).
+
+### What's new in the previous release (2026-04-29)
 
 1. **9-collection ChromaDB indexer** — `tools/memory_search.py` now indexes 9
    collections (briefings, outputs, journal, knowledge, research added on top
