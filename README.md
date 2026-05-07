@@ -58,7 +58,7 @@ the `CLAUDE.md` isn't loading — see Troubleshooting below.
   accounts in a single call.
 - **WhatsApp chat reader MCP** (macOS only, read-only) — search, list, sync
   business contacts to the contact DB.
-- **Auto-compact hooks + 50% threshold** — `PreCompact` saves session state,
+- **Auto-compact hooks + 50% threshold** - `PreCompact` saves session state,
   `PostCompact` reminds Claude to restore it, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50`
   fires compaction at half-context instead of waiting until 95%. No more
   losing the plot mid-session.
