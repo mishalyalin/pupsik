@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-note.py — One-shot atomic capture CLI for learnings, decisions, research, friction.
+note.py - One-shot atomic capture CLI for learnings, decisions, research, friction.
 
 Phase 2 of Misha's knowledge-capture system. Writes a dated MD file with YAML
 frontmatter to the right ~/Desktop/claude/memory/<subdir>/ (or ~/Desktop/claude/research/),
@@ -8,8 +8,8 @@ then triggers a ChromaDB reindex via memory_search.py so the new note is
 immediately findable by `memory_search.py search`.
 
 Rule: `feedback_capture_knowledge.md`. Trigger: the MOMENT a learning / decision /
-research finding emerges — even mid-investigation. If understanding evolves later,
-re-run with the SAME title — it UPSERTS the existing note (one note per topic,
+research finding emerges - even mid-investigation. If understanding evolves later,
+re-run with the SAME title - it UPSERTS the existing note (one note per topic,
 kept current). Threshold: "would this matter 3 weeks from now?" Yes → run note.py.
 
 Friction subcommand: see `feedback_friction_protocol.md` and
@@ -43,7 +43,7 @@ Body source (exactly one required):
 
 Flags applicable to learning/decision/research:
     --no-reindex     Skip the ChromaDB reindex step.
-    --new            Force NEW file (bypass upsert). Rare — only for genuinely
+    --new            Force NEW file (bypass upsert). Rare - only for genuinely
                      unrelated topic that happens to slug-collide with an existing note.
     --append         Append body to existing note instead of overwriting it.
                      Adds a dated "## Update <today>" section above existing body.
@@ -53,7 +53,7 @@ target subdir (regardless of date prefix), it is opened and rewritten:
   - frontmatter `created:` preserved from existing file (or `date:` migrated)
   - frontmatter `updated:` set to today
   - tags MERGED (union, deduped, order-preserved)
-  - body REPLACED (clean overwrite — Misha's correction was about latest state
+  - body REPLACED (clean overwrite - Misha's correction was about latest state
     being current, not history-keeping). Use --append for evolving research.
 Filename keeps the ORIGINAL date prefix (captures when the topic first emerged).
 """
@@ -92,7 +92,7 @@ FRICTION_SEVERITY_BADGE = {
     "nit":     "⚪️ NIT",
 }
 
-# gbrain provenance — repeated on every friction file per Misha's
+# gbrain provenance - repeated on every friction file per Misha's
 # attribution rule (set 2026-05-07, see learnings/2026-05-07-open-source-...md).
 # We embed in the per-file frontmatter rather than only _PROTOCOL.md so any
 # friction file pulled out of context (PR snippet, ChromaDB result, copy/paste
@@ -164,7 +164,7 @@ def unique_path(target: Path) -> Path:
 def find_existing_by_slug(target_dir: Path, slug: str) -> Path | None:
     """Find an existing note with the same slug in the subdir, regardless of
     date prefix. Returns the path or None. If multiple match, picks the oldest
-    (by filename date prefix lex sort) — that's the "first emergence" file we
+    (by filename date prefix lex sort) - that's the "first emergence" file we
     want to keep updating. Skips files with -2/-3 etc suffixes (those came
     from pre-upsert era; we don't want to clobber them).
     """
@@ -188,7 +188,7 @@ def find_existing_by_slug(target_dir: Path, slug: str) -> Path | None:
     if not candidates:
         return None
     # Sort by filename (lex sort = chronological, since prefix is YYYY-MM-DD).
-    # Pick the OLDEST — that's the canonical "first emergence" note.
+    # Pick the OLDEST - that's the canonical "first emergence" note.
     candidates.sort(key=lambda p: p.name)
     return candidates[0]
 
@@ -198,7 +198,7 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
 
     Returns (frontmatter_dict, body_text). If no frontmatter present, returns
     ({}, content). Hand-rolls a minimal YAML reader sufficient for note.py's
-    scalar/list keys — does NOT support nested structures.
+    scalar/list keys - does NOT support nested structures.
     """
     if not content.startswith("---\n"):
         return {}, content
@@ -320,7 +320,7 @@ def reindex(file_path: Path | None = None, background: bool = True) -> None:
     fire-and-forget via Popen so the caller (Claude) doesn't block.
     """
     if not MEMORY_SEARCH.exists():
-        print(f"warn: {MEMORY_SEARCH} not found — skipping reindex", file=sys.stderr)
+        print(f"warn: {MEMORY_SEARCH} not found - skipping reindex", file=sys.stderr)
         return
     cmd = [sys.executable, str(MEMORY_SEARCH), "index"]
     if file_path is not None:
@@ -328,7 +328,7 @@ def reindex(file_path: Path | None = None, background: bool = True) -> None:
     try:
         if background:
             # Fire-and-forget. Surgical upsert is fast; full reindex can take
-            # >30s on large corpora — caller does not need to wait either way.
+            # >30s on large corpora - caller does not need to wait either way.
             subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
@@ -484,7 +484,7 @@ def list_notes(note_type: str | None, days: int) -> list[tuple[Path, datetime, s
 
 def resolve_body(args) -> str:
     """Resolve note body from one of three sources:
-        1. --body-stdin  (highest precedence — pipe / heredoc / interactive)
+        1. --body-stdin  (highest precedence - pipe / heredoc / interactive)
         2. --body-file PATH
         3. positional BODY argument
 
@@ -579,7 +579,7 @@ def cmd_reindex(args) -> int:
 
 
 # =============================================================================
-# Friction protocol (adapted from gbrain by Garry Tan, MIT — 2026-05-07)
+# Friction protocol (adapted from gbrain by Garry Tan, MIT - 2026-05-07)
 # =============================================================================
 #
 # Schema differs from learning/decision/research:
@@ -598,7 +598,7 @@ def friction_filename(date_str: str, severity: str, phase: str) -> str:
 
 
 def find_existing_friction(severity: str, phase: str) -> Path | None:
-    """Find an existing friction file by (severity, phase) — the upsert key.
+    """Find an existing friction file by (severity, phase) - the upsert key.
 
     Filename always begins with `<date>-<severity>-`, followed by the slugged
     phase. We strip the date+severity prefix and compare slugs. Skips `-2/-3`
@@ -661,7 +661,7 @@ def build_friction_frontmatter(
     lines.append(f"created: {created}")
     lines.append(f"updated: {updated}")
     lines.append(f"tags: {yaml_list(tags)}")
-    # Provenance — see FRICTION_PROVENANCE rationale.
+    # Provenance - see FRICTION_PROVENANCE rationale.
     for k, v in FRICTION_PROVENANCE.items():
         lines.append(f"{k}: {yaml_str(v)}")
     lines.append("---")

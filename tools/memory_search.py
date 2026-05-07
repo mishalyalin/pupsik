@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Semantic Memory Search — ChromaDB layer over your knowledge base.
+Semantic Memory Search - ChromaDB layer over your knowledge base.
 
 Indexes:
-  - contacts          — contact DB (contacts, companies, relationships)
-  - interactions      — emails/meetings logged in contacts.db
-  - memory_files      — CLAUDE.md, MEMORY.md, memory/*.md (feedback rules, project docs)
-  - chat_archives     — WhatsApp / Telegram exports
-  - briefings         — daily morning briefings (~/Desktop/claude/briefings/*.md)
-  - outputs           — everything Claude+Misha produced (~/Desktop/claude/outputs/**/*.md)
-  - journal           — daily journal entries (~/Desktop/claude/memory/journal/*.md)
-  - knowledge         — atomic learnings + decisions (memory/learnings + memory/decisions)
-  - research          — long-form research notes (~/Desktop/claude/research/**/*.md)
+  - contacts          - contact DB (contacts, companies, relationships)
+  - interactions      - emails/meetings logged in contacts.db
+  - memory_files      - CLAUDE.md, MEMORY.md, memory/*.md (feedback rules, project docs)
+  - chat_archives     - WhatsApp / Telegram exports
+  - briefings         - daily morning briefings (~/Desktop/claude/briefings/*.md)
+  - outputs           - everything Claude+Misha produced (~/Desktop/claude/outputs/**/*.md)
+  - journal           - daily journal entries (~/Desktop/claude/memory/journal/*.md)
+  - knowledge         - atomic learnings + decisions (memory/learnings + memory/decisions)
+  - research          - long-form research notes (~/Desktop/claude/research/**/*.md)
 
 Usage:
     python3 memory_search.py index                       # (Re)build all indexes
@@ -35,7 +35,7 @@ from datetime import datetime
 import chromadb
 from chromadb.config import Settings
 
-# Paths — derived from $HOME so this works for any user
+# Paths - derived from $HOME so this works for any user
 HOME = Path(os.path.expanduser("~"))
 BASE_DIR = HOME / "Desktop" / "claude"
 DB_PATH = BASE_DIR / "data" / "contacts.db"
@@ -123,7 +123,7 @@ def acquire_lock(force: bool = False) -> bool:
             return False
         else:
             print(
-                f"warn: stale lock at {LOCK_PATH} (age {int(age)}s) — overwriting",
+                f"warn: stale lock at {LOCK_PATH} (age {int(age)}s) - overwriting",
                 file=sys.stderr,
             )
     payload = json.dumps({"pid": os.getpid(), "started_at": time.time()})
@@ -618,7 +618,7 @@ def index_briefings(client):
 
 
 def index_outputs(client):
-    """Index everything we produced — ~/Desktop/claude/outputs/**/*.md (recursive).
+    """Index everything we produced - ~/Desktop/claude/outputs/**/*.md (recursive).
 
     Subdirectory becomes `category` so search can filter by topic.
     """
@@ -867,12 +867,12 @@ def wake_up():
     exists (a 2-5 line identity seed describing the user). If missing,
     falls back to a short generic placeholder.
     """
-    # L0: Identity — read from wakeup_l0.txt template if present
+    # L0: Identity - read from wakeup_l0.txt template if present
     l0_path = BASE_DIR / "memory" / "wakeup_l0.txt"
     if l0_path.exists():
         l0 = l0_path.read_text().strip()
     else:
-        l0 = "(No L0 identity configured — see memory/wakeup_l0.txt)"
+        l0 = "(No L0 identity configured - see memory/wakeup_l0.txt)"
 
     # L1: Top importance items (from contacts DB)
     db = sqlite3.connect(str(DB_PATH))
@@ -889,7 +889,7 @@ def wake_up():
     # Active projects
     projects = db.execute("SELECT name, status FROM projects WHERE status='active'").fetchall()
 
-    # Stale contacts (>14 days) — exclude personal, team, events (focus on
+    # Stale contacts (>14 days) - exclude personal, team, events (focus on
     # external business contacts). "Self" rows should be tagged category='self'
     # in the DB so they're automatically excluded.
     stale = db.execute("""
@@ -907,14 +907,14 @@ def wake_up():
 
     l1_parts = ["\nRecent:"]
     for r in recent:
-        l1_parts.append(f"- {r['date']}: {r['name']} ({r['company'] or '?'}) — {r['summary']}")
+        l1_parts.append(f"- {r['date']}: {r['name']} ({r['company'] or '?'}) - {r['summary']}")
 
     l1_parts.append("\nActive projects: " + ", ".join(p['name'] for p in projects))
 
     if stale:
         l1_parts.append("\nStale (>14d): " + ", ".join(f"{s['name']}({s['days']}d)" for s in stale))
 
-    # L1+: latest knowledge (decisions/learnings) and journal — file-system
+    # L1+: latest knowledge (decisions/learnings) and journal - file-system
     # backed, no Chroma roundtrip. Token-cheap: just titles, max 3 each.
     def _latest(dir_path, n=3):
         if not dir_path.exists():
@@ -980,7 +980,7 @@ def main():
                 i += 1
 
         if file_arg:
-            # Surgical path — no lock (single-doc upsert is fast and cheap)
+            # Surgical path - no lock (single-doc upsert is fast and cheap)
             client = get_chroma()
             path = Path(file_arg).expanduser().resolve()
             coll_name, n = index_single_file(client, path)
@@ -988,12 +988,12 @@ def main():
                 print(f"upserted: {coll_name}/{path.name} ({n} doc{'s' if n != 1 else ''})")
                 sys.exit(0)
             elif coll_name and n == 0:
-                print(f"upserted: {coll_name}/{path.name} (0 docs — file too small or empty)")
+                print(f"upserted: {coll_name}/{path.name} (0 docs - file too small or empty)")
                 sys.exit(0)
             else:
                 sys.exit(1)
         else:
-            # Full reindex — take the lock
+            # Full reindex - take the lock
             if not acquire_lock(force=force):
                 sys.exit(2)
             try:

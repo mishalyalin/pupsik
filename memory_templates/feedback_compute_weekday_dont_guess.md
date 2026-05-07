@@ -13,5 +13,5 @@ When generating any morning briefing, calendar table, or "this week" view:
 **How to apply:**
 1. Before writing the briefing title, run `date` via Bash or compute weekday from the ISO date in CLAUDE.md's `currentDate`. One Bash call: `date -j -f "%Y-%m-%d" "2026-04-26" "+%A"` (macOS) or `date -d 2026-04-26 +%A` (Linux).
 2. For the week table, generate ALL 7 days from today's date arithmetic, don't reuse last brief's table.
-3. When matching calendar events to days: the API returns ISO dates — match against your computed weekday list, don't trust prior labels.
+3. When matching calendar events to days: the API returns ISO dates - match against your computed weekday list, don't trust prior labels.
 4. Saturday vs Sunday matters operationally: weekend rule batches B2B pings to Mon. If today=Sun, "Mon batch" = TOMORROW not "in 2 days". Wrong day → wrong urgency.
