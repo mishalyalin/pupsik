@@ -414,6 +414,9 @@ with: $HOME
   "permissions": {
     "defaultMode": "auto"
   },
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50"
+  },
   "hooks": {
     "PreCompact": [
       {
@@ -463,11 +466,20 @@ with: $HOME
   }
 }
 
-The "defaultMode": "auto" line is the recommended default — it auto-accepts
+The "defaultMode": "auto" line is the recommended default - it auto-accepts
 safe operations (read, search, plan) and prompts on writes/shell/risky calls.
 The "model" pin is set to the most capable Claude model at release time
 (claude-opus-4-7); update it when a newer Opus ships, or replace with the
 "opus" alias if your Claude Code build resolves it to the latest.
+
+The "env" block sets CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50, which lowers the
+auto-compact threshold from the default (~95%) to 50% of context. Compacting
+earlier means the PreCompact hook fires on a smaller, fresher window - state
+snapshots are cleaner and the post-compact summary has more headroom to
+preserve. Tune up (60-70) if you want fewer compacts, down (40) if you want
+state captured more aggressively. Removing the env block reverts to the
+built-in heuristic.
+
 See feedback_default_workspace.md for the full rationale and alternatives.
 
 See docs/COMPACT_SETUP.md for step-by-step merging guidance.
