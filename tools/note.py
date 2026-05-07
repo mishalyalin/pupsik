@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-note.py — One-shot atomic capture CLI for learnings, decisions, and research.
+note.py — One-shot atomic capture CLI for learnings, decisions, research, friction.
 
-Phase 2 of the knowledge-capture system. Writes a dated MD file with YAML
+Phase 2 of Misha's knowledge-capture system. Writes a dated MD file with YAML
 frontmatter to the right ~/Desktop/claude/memory/<subdir>/ (or ~/Desktop/claude/research/),
 then triggers a ChromaDB reindex via memory_search.py so the new note is
 immediately findable by `memory_search.py search`.
@@ -11,6 +11,12 @@ Rule: `feedback_capture_knowledge.md`. Trigger: the MOMENT a learning / decision
 research finding emerges — even mid-investigation. If understanding evolves later,
 re-run with the SAME title — it UPSERTS the existing note (one note per topic,
 kept current). Threshold: "would this matter 3 weeks from now?" Yes → run note.py.
+
+Friction subcommand: see `feedback_friction_protocol.md` and
+`memory/friction/_PROTOCOL.md`. Adapted from gbrain by Garry Tan (MIT, 2026-05-07).
+Captures friction events (severity + phase + message + hint) for surfacing in
+morning briefing AI Architect Lens. Upsert key = phase + severity (counter
+increments on recurring pattern; counter >= 3 = bold/red briefing surface).
 
 Usage:
     note.py learning "Title" "Body" [--tags "tag1,tag2"] [--project "FLEX"]
@@ -21,7 +27,11 @@ Usage:
     EOF
     note.py decision "Title" "Body" [--alternatives "A,B,C"] [--rationale "..."] [--project "FLEX"]
     note.py research "Title" "Body" [--sources "url1,url2"] [--query "what we searched"] [--tags "..."]
-    note.py list [--type learning|decision|research] [--days 7]
+    note.py friction --severity {blocker|error|confused|nit} --phase "<phase>" --message "<msg>" \
+                     [--hint "<hint>"] [--entity "<entity>"] [BODY] [--body-file] [--body-stdin] \
+                     [--tags "..."]
+    note.py friction summary [--days 7] [--severity X] [--top 3]
+    note.py list [--type learning|decision|research|friction] [--days 7]
     note.py reindex
 
 Body source (exactly one required):
@@ -43,7 +53,7 @@ target subdir (regardless of date prefix), it is opened and rewritten:
   - frontmatter `created:` preserved from existing file (or `date:` migrated)
   - frontmatter `updated:` set to today
   - tags MERGED (union, deduped, order-preserved)
-  - body REPLACED (clean overwrite — user feedback was that latest state
+  - body REPLACED (clean overwrite — Misha's correction was about latest state
     being current, not history-keeping). Use --append for evolving research.
 Filename keeps the ORIGINAL date prefix (captures when the topic first emerged).
 """
@@ -62,12 +72,36 @@ BASE_DIR = HOME / "Desktop" / "claude"
 LEARNINGS_DIR = BASE_DIR / "memory" / "learnings"
 DECISIONS_DIR = BASE_DIR / "memory" / "decisions"
 RESEARCH_DIR = BASE_DIR / "research"
+FRICTION_DIR = BASE_DIR / "memory" / "friction"
 MEMORY_SEARCH = BASE_DIR / "tools" / "memory_search.py"
 
 TYPE_DIRS = {
     "learning": LEARNINGS_DIR,
     "decision": DECISIONS_DIR,
     "research": RESEARCH_DIR,
+    "friction": FRICTION_DIR,
+}
+
+# Severity ordering (low -> high) used for sort/aggregation.
+FRICTION_SEVERITIES = ("nit", "confused", "error", "blocker")
+FRICTION_SEVERITY_RANK = {s: i for i, s in enumerate(FRICTION_SEVERITIES)}
+FRICTION_SEVERITY_BADGE = {
+    "blocker": "🔴 BLOCKER",
+    "error":   "🟠 ERROR",
+    "confused": "🟡 CONFUSED",
+    "nit":     "⚪️ NIT",
+}
+
+# gbrain provenance — repeated on every friction file per Misha's
+# attribution rule (set 2026-05-07, see learnings/2026-05-07-open-source-...md).
+# We embed in the per-file frontmatter rather than only _PROTOCOL.md so any
+# friction file pulled out of context (PR snippet, ChromaDB result, copy/paste
+# into a doc) carries its own credit. _PROTOCOL.md holds the long-form notes.
+FRICTION_PROVENANCE = {
+    "adapted-from": "gbrain",
+    "source-url":   "https://github.com/garrytan/gbrain/blob/master/skills/_friction-protocol.md",
+    "source-license": "MIT",
+    "adaptation-type": "adapted",
 }
 
 # YYYY-MM-DD- prefix on filenames
@@ -357,7 +391,7 @@ def write_note(
         final_project = project if project else fm.get("project") or None
 
         # Type drift guard: if existing file's type differs from current call,
-        # we honor the new type but warn. Type changes are rare in normal use.
+        # we honor the new type but warn. Misha will rarely change type.
         if fm.get("type") and fm.get("type") != note_type:
             print(
                 f"warn: type changed {fm['type']} -> {note_type} for {existing.name}",
@@ -544,6 +578,343 @@ def cmd_reindex(args) -> int:
     return 0
 
 
+# =============================================================================
+# Friction protocol (adapted from gbrain by Garry Tan, MIT — 2026-05-07)
+# =============================================================================
+#
+# Schema differs from learning/decision/research:
+#   - Upsert key = phase + severity (NOT title-slug). Same phase + severity
+#     re-run = counter++. Different severity for the same phase = separate file
+#     (escalation pattern: confused -> error -> blocker can sit side-by-side).
+#   - Filename = <YYYY-MM-DD>-<severity>-<slug>.md, slug from --phase.
+#   - Frontmatter has counter / status / entity / hint / message in addition
+#     to standard fields.
+
+
+def friction_filename(date_str: str, severity: str, phase: str) -> str:
+    """Filename = <date>-<severity>-<slug-of-phase>.md."""
+    slug = slugify(phase or severity)
+    return f"{date_str}-{severity}-{slug}.md"
+
+
+def find_existing_friction(severity: str, phase: str) -> Path | None:
+    """Find an existing friction file by (severity, phase) — the upsert key.
+
+    Filename always begins with `<date>-<severity>-`, followed by the slugged
+    phase. We strip the date+severity prefix and compare slugs. Skips `-2/-3`
+    legacy duplicates so re-running with a slug-collision does not clobber an
+    unrelated old file.
+    """
+    if not FRICTION_DIR.exists():
+        return None
+    target_slug = slugify(phase)
+    sev_prefix = f"{severity}-"
+    candidates: list[Path] = []
+    for p in FRICTION_DIR.glob("*.md"):
+        if not DATE_PREFIX_RE.match(p.name):
+            continue
+        rest = p.name[11:]  # strip "YYYY-MM-DD-"
+        if not rest.startswith(sev_prefix):
+            continue
+        stem = rest[len(sev_prefix):]
+        stem = stem[:-3] if stem.endswith(".md") else stem
+        if re.search(r"-\d+$", stem):
+            base = re.sub(r"-\d+$", "", stem)
+            if base == target_slug:
+                continue  # legacy dupe
+        if stem == target_slug:
+            candidates.append(p)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.name)  # oldest first = canonical
+    return candidates[0]
+
+
+def build_friction_frontmatter(
+    *,
+    severity: str,
+    phase: str,
+    message: str,
+    hint: str | None,
+    entity: str | None,
+    status: str,
+    counter: int,
+    created: str,
+    updated: str,
+    tags: list[str],
+) -> str:
+    """Build the YAML frontmatter for a friction file.
+
+    Embeds gbrain provenance per the open-source attribution rule.
+    """
+    lines = ["---"]
+    lines.append("type: friction")
+    lines.append(f"severity: {severity}")
+    lines.append(f"phase: {yaml_str(phase)}")
+    lines.append(f"message: {yaml_str(message)}")
+    if hint:
+        lines.append(f"hint: {yaml_str(hint)}")
+    if entity:
+        lines.append(f"entity: {yaml_str(entity)}")
+    lines.append(f"status: {status}")
+    lines.append(f"counter: {counter}")
+    lines.append(f"created: {created}")
+    lines.append(f"updated: {updated}")
+    lines.append(f"tags: {yaml_list(tags)}")
+    # Provenance — see FRICTION_PROVENANCE rationale.
+    for k, v in FRICTION_PROVENANCE.items():
+        lines.append(f"{k}: {yaml_str(v)}")
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def write_friction(
+    *,
+    severity: str,
+    phase: str,
+    message: str,
+    hint: str | None,
+    entity: str | None,
+    body: str | None,
+    tags: list[str],
+    do_reindex: bool,
+    force_new: bool,
+    append: bool,
+) -> tuple[Path, str, int]:
+    """Write or upsert a friction event. Returns (path, action, counter).
+
+    Action: "wrote" | "updated" | "appended".
+    """
+    if severity not in FRICTION_SEVERITIES:
+        raise ValueError(
+            f"unknown severity: {severity!r}. "
+            f"must be one of {', '.join(FRICTION_SEVERITIES)}"
+        )
+    if not phase or not phase.strip():
+        raise ValueError("--phase is required and cannot be empty")
+    if not message or not message.strip():
+        raise ValueError("--message is required and cannot be empty")
+
+    FRICTION_DIR.mkdir(parents=True, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    existing = None if force_new else find_existing_friction(severity, phase)
+
+    if existing is not None:
+        action = "appended" if append else "updated"
+        existing_content = existing.read_text(encoding="utf-8")
+        fm, existing_body = parse_frontmatter(existing_content)
+
+        created_date = fm.get("created") or today
+        # Counter increments on every upsert call (it's the recurrence signal).
+        try:
+            prev_counter = int(fm.get("counter", 1))
+        except (ValueError, TypeError):
+            prev_counter = 1
+        new_counter = prev_counter + 1
+
+        existing_tags = fm.get("tags") if isinstance(fm.get("tags"), list) else []
+        merged_tags = merge_tags(existing_tags, tags)
+
+        # Status: never silently flip resolved -> open. If user re-fires with
+        # same severity + phase the issue is recurring, so reopen acknowledged
+        # but leave resolved alone (caller can edit manually).
+        prev_status = fm.get("status") or "open"
+        new_status = "open" if prev_status in ("acknowledged",) else prev_status
+        if prev_status == "resolved":
+            new_status = "open"  # recurrence reopens
+
+        # Honor caller's hint/entity if given, else preserve existing.
+        final_hint = hint if hint is not None else fm.get("hint")
+        final_entity = entity if entity is not None else fm.get("entity")
+        # message = always latest call (this is "what happened THIS time").
+        final_message = message
+
+        # Body composition: dated update section if --append, replace otherwise.
+        body_block = ""
+        if body and body.strip():
+            if append:
+                body_block = f"## Update {today}\n\n{body.strip()}\n\n" + existing_body.lstrip("\n")
+            else:
+                body_block = body.strip() + "\n"
+        else:
+            # No body provided: keep existing body untouched on upsert.
+            body_block = existing_body.lstrip("\n")
+
+        new_fm = build_friction_frontmatter(
+            severity=severity,
+            phase=phase,
+            message=final_message,
+            hint=final_hint,
+            entity=final_entity,
+            status=new_status,
+            counter=new_counter,
+            created=created_date,
+            updated=today,
+            tags=merged_tags,
+        )
+        existing.write_text(new_fm + "\n\n" + body_block, encoding="utf-8")
+        target_path = existing
+        final_counter = new_counter
+    else:
+        action = "wrote"
+        filename = friction_filename(today, severity, phase)
+        target_path = unique_path(FRICTION_DIR / filename)
+
+        new_counter = 1
+        body_block = (body.strip() + "\n") if (body and body.strip()) else ""
+
+        new_fm = build_friction_frontmatter(
+            severity=severity,
+            phase=phase,
+            message=message,
+            hint=hint,
+            entity=entity,
+            status="open",
+            counter=new_counter,
+            created=today,
+            updated=today,
+            tags=tags,
+        )
+        target_path.write_text(new_fm + "\n\n" + body_block, encoding="utf-8")
+        final_counter = new_counter
+
+    if do_reindex:
+        reindex(file_path=target_path, background=True)
+
+    return target_path, action, final_counter
+
+
+def cmd_friction_log(args) -> int:
+    """Handler for `note.py friction ...` (logging a friction event)."""
+    # Body is OPTIONAL for friction (one-line message often suffices). We only
+    # call resolve_body if the user actually provided one of the three sources.
+    body: str | None = None
+    has_body_source = (
+        getattr(args, "body_stdin", False)
+        or getattr(args, "body_file", None)
+        or getattr(args, "body", None)
+    )
+    if has_body_source:
+        try:
+            body = resolve_body(args)
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+
+    try:
+        path, action, counter = write_friction(
+            severity=args.severity,
+            phase=args.phase,
+            message=args.message,
+            hint=getattr(args, "hint", None),
+            entity=getattr(args, "entity", None),
+            body=body,
+            tags=csv_to_list(getattr(args, "tags", None)),
+            do_reindex=not args.no_reindex,
+            force_new=getattr(args, "new", False),
+            append=getattr(args, "append", False),
+        )
+    except Exception as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"{action}: {path} (counter={counter})")
+    return 0
+
+
+def load_friction_files(days: int | None = None) -> list[dict]:
+    """Load all friction files into dicts. Optionally filter by `updated` age."""
+    out: list[dict] = []
+    if not FRICTION_DIR.exists():
+        return out
+    cutoff_date: str | None = None
+    if days is not None and days > 0:
+        cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    for p in FRICTION_DIR.glob("*.md"):
+        if p.name.startswith("_"):
+            continue  # skip _PROTOCOL.md and friends
+        if not DATE_PREFIX_RE.match(p.name):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fm, _ = parse_frontmatter(text)
+        if fm.get("type") != "friction":
+            continue
+        # Apply --days window on `updated` (recurrence relevance).
+        updated = (fm.get("updated") or fm.get("created") or "")
+        if cutoff_date and updated and updated < cutoff_date:
+            continue
+        try:
+            counter = int(fm.get("counter", 1))
+        except (ValueError, TypeError):
+            counter = 1
+        out.append({
+            "path": p,
+            "severity": fm.get("severity") or "nit",
+            "phase": fm.get("phase") or "",
+            "message": fm.get("message") or "",
+            "hint": fm.get("hint") or "",
+            "entity": fm.get("entity") or "",
+            "status": fm.get("status") or "open",
+            "counter": counter,
+            "updated": updated,
+            "created": fm.get("created") or "",
+            "tags": fm.get("tags") if isinstance(fm.get("tags"), list) else [],
+        })
+    return out
+
+
+def cmd_friction_summary(args) -> int:
+    """Briefing-consumable summary: top-N open friction by counter desc.
+
+    Output format is plain markdown so the morning-briefing skill can embed
+    it under the AI Architect Lens directly.
+    """
+    items = load_friction_files(days=args.days)
+    items = [it for it in items if it["status"] != "resolved"]
+    if args.severity:
+        if args.severity not in FRICTION_SEVERITIES:
+            print(f"error: --severity must be one of {', '.join(FRICTION_SEVERITIES)}", file=sys.stderr)
+            return 1
+        items = [it for it in items if it["severity"] == args.severity]
+
+    # Sort: counter desc (recurrence weight) -> severity rank desc -> updated desc.
+    items.sort(
+        key=lambda it: (
+            it["counter"],
+            FRICTION_SEVERITY_RANK.get(it["severity"], 0),
+            it["updated"],
+        ),
+        reverse=True,
+    )
+    top = items[: max(1, args.top)]
+
+    if not top:
+        print(f"No open friction in last {args.days}d"
+              + (f" with severity={args.severity}" if args.severity else "")
+              + ".")
+        return 0
+
+    print(f"## Top {len(top)} open friction (last {args.days}d)\n")
+    for it in top:
+        badge = FRICTION_SEVERITY_BADGE.get(it["severity"], it["severity"])
+        # counter >= 3 = bold/red emphasis (matches existing 🚨 ESCALATED block convention)
+        prefix = "**🚨 " if it["counter"] >= 3 else "- "
+        suffix = "**" if it["counter"] >= 3 else ""
+        line = f"{prefix}{badge} `{it['phase']}` x{it['counter']}"
+        if it["entity"]:
+            line += f" ({it['entity']})"
+        line += f" - last {it['updated']}{suffix}"
+        print(line)
+        print(f"    msg: {it['message']}")
+        if it["hint"]:
+            print(f"    hint: {it['hint']}")
+        print()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="note.py",
@@ -616,6 +987,101 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--project", help="Optional project name.")
     pr.set_defaults(func=lambda a: cmd_capture(a, "research"))
 
+    # friction (sub-sub-commands: default = log a new event; summary = aggregate)
+    pf = sub.add_parser(
+        "friction",
+        help="Capture or summarize friction events (adapted from gbrain).",
+        description="Capture friction events for surfacing in morning briefing. "
+                    "Adapted from gbrain by Garry Tan (MIT). "
+                    "See memory/friction/_PROTOCOL.md.",
+    )
+    pf_sub = pf.add_subparsers(dest="friction_cmd")  # not required: bare `friction` defaults to log
+
+    # `friction log` (also the default when no sub-sub-command given)
+    def add_friction_log_args(parser):
+        parser.add_argument(
+            "--severity",
+            required=True,
+            choices=list(FRICTION_SEVERITIES),
+            help="Severity: blocker (hard stop) | error (unexpected fail) | "
+                 "confused (docs/tool mismatch) | nit (polish).",
+        )
+        parser.add_argument(
+            "--phase",
+            required=True,
+            help="One-line phase/context (e.g. 'morning briefing', 'tupak production confirm'). "
+                 "This + severity is the upsert key.",
+        )
+        parser.add_argument(
+            "--message",
+            required=True,
+            help="One-line concrete description of what happened.",
+        )
+        parser.add_argument(
+            "--hint",
+            help="Optional one-line suggestion of what could be better.",
+        )
+        parser.add_argument(
+            "--entity",
+            help="Optional person/company/system involved (e.g. 'appointment-system', 'vendor-name').",
+        )
+        # Body source: optional for friction (the one-line --message often suffices,
+        # but --body-* allows longer narrative if user wants one).
+        parser.add_argument(
+            "body",
+            nargs="?",
+            default=None,
+            help="Optional longer narrative body. Most friction events need only --message.",
+        )
+        parser.add_argument(
+            "--body-file",
+            dest="body_file",
+            metavar="PATH",
+            help="Read body from a file (avoids shell-escape pain).",
+        )
+        parser.add_argument(
+            "--body-stdin",
+            dest="body_stdin",
+            action="store_true",
+            help="Read body from stdin (heredoc-friendly).",
+        )
+        parser.add_argument("--tags", help="Comma-separated tags (merged on upsert).")
+        parser.add_argument("--no-reindex", action="store_true", help="Skip ChromaDB reindex.")
+        parser.add_argument(
+            "--new",
+            action="store_true",
+            help="Force NEW file (bypass upsert by phase+severity). Rare.",
+        )
+        parser.add_argument(
+            "--append",
+            action="store_true",
+            help="Append body to existing note as dated '## Update <today>' section.",
+        )
+
+    pf_log = pf_sub.add_parser(
+        "log",
+        help="Log a friction event. Note: bare `friction ...` (without 'log') "
+             "is also accepted as a shorthand and routed here.",
+    )
+    add_friction_log_args(pf_log)
+    pf_log.set_defaults(func=cmd_friction_log)
+
+    # `friction summary`
+    pf_sum = pf_sub.add_parser("summary", help="Top-N open friction (briefing-consumable).")
+    pf_sum.add_argument("--days", type=int, default=7, help="Window in days (default 7).")
+    pf_sum.add_argument(
+        "--severity",
+        choices=list(FRICTION_SEVERITIES),
+        help="Filter by single severity.",
+    )
+    pf_sum.add_argument("--top", type=int, default=3, help="Top N results (default 3).")
+    pf_sum.set_defaults(func=cmd_friction_summary)
+
+    # Default action when bare `friction` (no sub-sub-cmd) is invoked: route to
+    # cmd_friction_log via the argv rewrite in main(). If we got here without
+    # one of {log, summary} the rewrite already happened in main().
+    pf.set_defaults(func=cmd_friction_log)
+
     # list
     pls = sub.add_parser("list", help="List recent captures.")
     pls.add_argument("--type", choices=list(TYPE_DIRS.keys()), help="Filter by type.")
@@ -631,7 +1097,54 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _rewrite_friction_argv(argv: list[str]) -> list[str]:
+    """If user invokes `note.py friction --severity ...` (gbrain bare form),
+    rewrite to `note.py friction log --severity ...` so the sub-sub-parser
+    routes correctly. Idempotent if user already typed `friction log` or
+    `friction summary` (or any other recognized sub-sub-cmd).
+
+    IMPORTANT: only rewrite when `friction` is the SUBCOMMAND position (i.e.
+    the first non-flag positional). Otherwise we'd corrupt e.g.
+    `note.py list --type friction --days 7`.
+    """
+    # Find the first positional arg (skipping option flags + their values).
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
+        if tok.startswith("-"):
+            # Skip a value if present and this isn't a known boolean flag.
+            # We don't know note.py's full flag schema here; the safest
+            # heuristic is "skip flag, skip next token only if it doesn't
+            # start with -". This mirrors how argparse walks short flags
+            # with values.
+            if "=" in tok:
+                i += 1
+                continue
+            i += 1
+            if i < len(argv) and not argv[i].startswith("-"):
+                # Could be a flag value OR could be the subcommand. We can't
+                # distinguish at this level, so be conservative: don't skip.
+                # The top-level parser only has -h/--help as options anyway,
+                # so the first positional here IS the subcommand.
+                continue
+            continue
+        break
+
+    if i >= len(argv) or argv[i] != "friction":
+        return argv  # not a friction invocation
+    next_idx = i + 1
+    if next_idx >= len(argv):
+        return argv  # `note.py friction` alone - argparse handles
+    next_tok = argv[next_idx]
+    if next_tok in {"log", "summary", "-h", "--help"}:
+        return argv
+    return argv[: next_idx] + ["log"] + argv[next_idx:]
+
+
 def main(argv: list[str] | None = None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+    argv = _rewrite_friction_argv(list(argv))
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

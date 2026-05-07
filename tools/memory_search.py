@@ -8,7 +8,7 @@ Indexes:
   - memory_files      — CLAUDE.md, MEMORY.md, memory/*.md (feedback rules, project docs)
   - chat_archives     — WhatsApp / Telegram exports
   - briefings         — daily morning briefings (~/Desktop/claude/briefings/*.md)
-  - outputs           — everything Claude has produced (~/Desktop/claude/outputs/**/*.md)
+  - outputs           — everything Claude+Misha produced (~/Desktop/claude/outputs/**/*.md)
   - journal           — daily journal entries (~/Desktop/claude/memory/journal/*.md)
   - knowledge         — atomic learnings + decisions (memory/learnings + memory/decisions)
   - research          — long-form research notes (~/Desktop/claude/research/**/*.md)
@@ -56,6 +56,7 @@ JOURNAL_DIR = BASE_DIR / "memory" / "journal"
 LEARNINGS_DIR = BASE_DIR / "memory" / "learnings"
 DECISIONS_DIR = BASE_DIR / "memory" / "decisions"
 RESEARCH_DIR = BASE_DIR / "research"
+FRICTION_DIR = BASE_DIR / "memory" / "friction"
 
 # Collections
 COLL_CONTACTS = "contacts"
@@ -253,9 +254,13 @@ def _memory_md_chunks(md_file: Path):
         return
     chunks = chunk_text(text, 800, 100)
     fname = md_file.name
+    # Detect friction by parent dir (memory/friction/) since file names like
+    # `2026-05-07-blocker-foo.md` don't carry "friction" as a substring.
+    parent_name = md_file.parent.name if md_file.parent else ""
     for i, chunk in enumerate(chunks):
         cat = "general"
-        if "feedback" in fname: cat = "feedback"
+        if parent_name == "friction" or "friction" in fname: cat = "friction"
+        elif "feedback" in fname: cat = "feedback"
         elif "project" in fname: cat = "project"
         elif "travel" in fname: cat = "travel"
         elif "shopify" in fname: cat = "shopify"
@@ -313,6 +318,18 @@ def index_memory_files(client):
             docs.append(chunk)
             metas.append(meta)
             ids.append(cid)
+
+    # Index ~/Desktop/claude/memory/friction/*.md (friction events get folded
+    # into memory_files collection with category=friction so they cross-search
+    # alongside feedback rules).
+    if FRICTION_DIR.exists():
+        for md_file in FRICTION_DIR.glob("*.md"):
+            if md_file.name.startswith("_") and md_file.name != "_PROTOCOL.md":
+                continue
+            for cid, chunk, meta in _memory_md_chunks(md_file):
+                docs.append(chunk)
+                metas.append(meta)
+                ids.append(cid)
 
     if docs:
         coll.upsert(documents=docs, metadatas=metas, ids=ids)
@@ -678,6 +695,10 @@ def _detect_collection_for(path: Path) -> str | None:
         return COLL_KNOWLEDGE
     if RESEARCH_DIR in parents and path.suffix == ".md":
         return COLL_RESEARCH
+    if FRICTION_DIR in parents and path.suffix == ".md":
+        # Friction events live in memory_files collection with category=friction.
+        # Per spec: keep changes minimal, don't add a new collection.
+        return COLL_MEMORY
     if MEMORY_DIR in parents and path.suffix == ".md":
         return COLL_MEMORY
     return None

@@ -5,6 +5,22 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-07] - gbrain pattern imports + privacy fix
+
+### Added
+- **`tools/doctor.py`** - deterministic health-check + safe-auto-fix tool. 13 checks across two subcommands: `check` (read-only diagnostics) and `fix-safe` (safe auto-repairs only - no LLM content rewrites). Plus `orphans` for read-only orphan listing. Catches stale lock files, broken symlinks, ChromaDB orphan rows, dangling memory-file pointers, dead scheduled-task directories, oversized CLAUDE.md / MEMORY.md. Adapted from gbrain (Garry Tan, MIT) `gbrain doctor` / `gbrain orphans` / `gbrain repair-jsonb` command suite.
+- **`note.py friction` subcommand** - capture friction events (anything confusing, missing, surprising, or wrong) with severity tagging (`blocker` / `error` / `confused` / `nit`). Upsert by `(phase, severity)` increments a counter for repeat-pattern detection. `note.py friction summary --days 7 --top 3` aggregates for briefing surfaces. Adapted from gbrain `skills/_friction-protocol.md`.
+- **Output Rules** - 4 cross-cutting quality rules added (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality), referenced alongside the 7 existing per-rule feedback files. Adapted from gbrain `skills/_output-rules.md`.
+- **`memory_search.py`** - friction-files routing in `_memory_md_chunks` so `memory/friction/*.md` is correctly indexed in the existing memory-files ChromaDB collection.
+- **`THIRD_PARTY_ATTRIBUTIONS.md`** - new at repo root. Central tracker for every pattern adapted from external OSS projects. Lists source URL, author, license, adaptation type, and what was changed. License compatibility verified at import time.
+
+### Fixed
+- **Privacy: pre-existing leaks scrubbed in 4 `memory_templates/feedback_*.md` files.** The privacy-check patterns in `private-patterns.env` tightened over recent weeks (Vendor-A, Vendor-B-equivalents, NVWA-equivalents, etc. added to `BUSINESSES_PRIVATE`). Older generalised templates from initial public release contained example references that the new patterns now flag. All four templates re-generalised in this update: `feedback_capture_knowledge.md`, `feedback_verify_project_state.md`, `feedback_always_two_agents.md`, `feedback_compute_weekday_dont_guess.md`. Privacy-check now passes 10/10 across the full repo.
+
+### Notes
+- The friction protocol and doctor patterns were independently checker-verified before this push (12/12 PASS for the live system shipping; this PR mirrors the public-safe portions).
+- Outbound regulatory-deadline poller (a related pattern shipped to the maintainer's private system) was held back from this push pending generalisation - it currently references specific agency domains that need placeholder substitution before it can ship publicly.
+
 ## [2026-05-07] - Auto-compact threshold
 
 ### Added

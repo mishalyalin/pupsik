@@ -1,63 +1,60 @@
 ---
 name: Always spawn minimum 2 agents per task — worker + checker
-description: 🔴 MANDATORY — for every meaningful task, spawn at least 2 agents. One does the work, one verifies it was done correctly. More agents if the task needs specialization. "The result must be 100% correct."
+description: 🔴 MANDATORY — for every meaningful task, spawn at least 2 agents. One does the work, one verifies it was done correctly. More agents if task needs specialization. "My life depends on this being 100% correct."
 type: feedback
+originSessionId: af402a5d-8e5c-4048-8728-ad458ef2ad9e
 ---
-
 # 🔴 MANDATORY: Always 2+ agents per task
 
-## The rule
+Miша, 24 Apr 2026, дословно: "for each task always spawn 2 agents at the minimum. if more agents are required, spawn more each with an appropriate role and the best credentials for it. one is doing the work, the other one is testing and checking that all is done and done correctly. my life depends on this being 100% correct."
 
-**Every meaningful task = minimum 2 agents:**
+## Правило
 
-1. **Worker** — does the work.
-2. **Checker / Tester** — independently verifies that the work was done correctly.
+**Каждая значимая задача = минимум 2 агента:**
+1. **Worker** — делает работу
+2. **Checker/Tester** — независимо проверяет что сделано правильно
 
-**If the task is complex — spawn more:**
+**Если задача сложная — спавнить ещё:**
+- Architect (план)
+- Specialist roles (researcher, coder, reviewer, migrator, etc.)
+- Каждый агент с appropriate tools + credentials + focus
 
-- Architect (plan)
-- Specialist roles (researcher, coder, reviewer, migrator, security auditor, etc.)
-- Each agent gets appropriate tools, credentials, and a narrowly scoped focus.
+**Паттерн:**
+- Worker и Checker — **разные агенты**, запущенные независимо
+- Checker НЕ видит работы Worker'а напрямую (чтобы не повторить его предположения)
+- Checker должен независимо проверить результат и сказать PASS / FAIL + список проблем
+- Если FAIL → Worker фиксит → Checker перепроверяет
+- Ship только после PASS от Checker'а
 
-**Pattern:**
+## Где это применяется
 
-- Worker and Checker are **separate agents**, launched independently.
-- The Checker does NOT see the Worker's intermediate work — that way they don't inherit the Worker's assumptions.
-- The Checker independently verifies the result and reports `PASS` or `FAIL` + list of issues.
-- On `FAIL` → the Worker fixes the issues → the Checker re-verifies.
-- Ship only after the Checker says `PASS`.
+**ДА, спавнить 2+ агентов:**
+- Любой код / скрипт / tool изменение
+- Любой анализ данных (email scan, contact import, financial calc)
+- Любая настройка системы (MCP, hooks, workflows)
+- Любой экспорт / packaging / migration
+- Планы / архитектура / research
+- Письма / контракты / документы для отправки
 
-## Where it applies
+**НЕТ, один агент достаточно:**
+- Один lookup (найти email, контакт, факт)
+- Один tool call без трансформации (list events, read file)
+- Прямой ответ на вопрос из памяти/БД
 
-**YES, spawn 2+ agents:**
+**Если сомневаюсь — спавнить двух.** Стоимость ошибки >> стоимость второго агента.
 
-- Any code / script / tool change
-- Any data analysis (email scan, contact import, financial calc)
-- Any system setup (MCP, hooks, workflows)
-- Any export / packaging / migration
-- Plans / architecture / research deliverables
-- Emails / contracts / documents being sent to a third party
+## Antipattern (что БЫЛО и чего больше НЕ делаю)
 
-**NO, one agent is enough:**
+- ❌ Делаю работу сам → тестирую сам → "готово" (один point of failure)
+- ❌ Спавню одного агента → принимаю его результат как истину
+- ❌ "Быстренько сам сделаю" вместо команды
 
-- A single lookup (find an email, a contact, a fact)
-- A single tool call with no transformation (list events, read file)
-- Direct answer to a question from memory / DB
-
-**If in doubt — spawn two.** Cost of an error >> cost of a second agent.
-
-## Antipattern (what NOT to do)
-
-- ❌ Do the work yourself → test it yourself → "done" (single point of failure)
-- ❌ Spawn one agent → accept its result as truth
-- ❌ "I'll just do this quickly myself" instead of building a team
-
-## Pattern (what to do)
+## Pattern (как ДОЛЖНО быть)
 
 ```
 Task: Build X
   ├─ Agent 1 (Worker): builds X
-  └─ Agent 2 (Tester): verifies X — reports PASS / FAIL + details
+  └─ Agent 2 (Tester): verifies X — reports PASS/FAIL + details
 
 If FAIL:
   ├─ Worker fixes issues from Tester's report
@@ -66,41 +63,37 @@ If FAIL:
 Ship only when Tester says PASS.
 ```
 
-**For complex tasks:**
-
+**Для сложных задач:**
 ```
 Task: Complex system
-  ├─ Agent 1 (Architect): designs the plan
-  ├─ Agent 2 (Worker): implements the plan
-  ├─ Agent 3 (Reviewer): code-quality pass
+  ├─ Agent 1 (Architect): designs plan
+  ├─ Agent 2 (Worker): implements plan
+  ├─ Agent 3 (Reviewer): code quality check
   ├─ Agent 4 (Tester): end-to-end verification
-  └─ Agent 5 (Security): audits for leaks / issues
+  └─ Agent 5 (Security): audit for leaks/issues
 ```
 
-## Example of why this matters
+## Прецедент
 
-A real packaging task was built by a team of 3 agents (architect + packager + tester). The Tester caught **3 bugs** the single implementer would have missed:
+A real precedent (April 2026): assembling a setup-package for a family member using a team of 3 agents (architect + packager + tester). Tester found **3 bugs** I would not have caught alone:
+1. Company-name hardcoded in HTML export (leaked into another person's output)
+2. SQL handler without `db.commit()` - INSERT silently not persisted
+3. `sqlite3.Row.get()` doesn't exist - `find` crashed on non-empty results
 
-1. A hardcoded name from the developer's own context leaking into a user-facing HTML export.
-2. A SQL handler missing `db.commit()` — `INSERT` silently failed to persist.
-3. `sqlite3.Row.get()` doesn't exist — a `find` command crashed on non-empty results.
+One of them (#2) was also in my own production file - tester found I had been silently broken for months. **Without team review I would not have seen it.**
 
-One of those (#2) had been present in a production file for months, unnoticed. **Without the team check, it would not have been found.**
+Это и есть причина правила: single-agent работа пропускает баги, команда находит.
 
-That is the reason for this rule: single-agent work misses bugs; a team catches them.
+## Как применять
 
-## How to apply
-
-When receiving a task, the **first step** is to ask: "do I need a second agent?"
-
-- If the task is more than one lookup / direct-answer → **YES, 2+ agents.**
-- Define the roles: worker + checker (minimum), more for complex work.
-- Give each agent a clear role, inputs, and acceptance criteria.
-- Worker and Checker run **independently** (in parallel where possible).
-- Wait for both reports. Fix-loop if needed.
+Когда получаю задачу — **первый шаг**: задаю себе "нужен ли второй агент?"
+- Если задача больше чем один lookup/direct-answer → **ДА, 2+ агента**
+- Определяю роли: worker + checker (минимум), больше для сложных
+- Даю каждому чёткую роль и acceptance criteria
+- Worker и Checker запускаются **независимо** (параллельно где возможно)
+- Жду отчёта обоих. Fix loop если нужно.
 
 ## Full rule reference
 
-- `~/.claude/rules/critical-rules.md` — one-line summary
-- `memory/feedback_always_two_agents.md` — this file (full context)
-- `pupsik/docs/AGENT_TEAM_RULE.md` — user-facing explanation
+`~/.claude/rules/critical-rules.md` — one-liner
+`memory/feedback_always_two_agents.md` — этот файл (full context)

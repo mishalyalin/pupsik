@@ -1,159 +1,175 @@
 ---
 name: Capture knowledge in-flight via note.py
-description: 🔴 MANDATORY — the MOMENT an insight / decision / research finding emerges (even mid-investigation), capture it via `note.py`. Don't wait for the topic to close. Never ask the user "should I capture this?" — just capture. If understanding evolves, re-run with the SAME title; upsert overwrites the existing note.
+description: 🔴 MANDATORY — в МОМЕНТ когда insight / решение / research finding всплывает (даже mid-investigation) — сразу написать capture-note через `note.py`. Не ждать закрытия топика. Если понимание потом эволюционирует — re-run с тем же title, upsert обновит note.
 type: feedback
+originSessionId: 17176b18-3561-4eeb-bd8e-779b13b69319
 ---
 # 🔴 MANDATORY: Capture knowledge in-flight (moment-of-emergence)
 
-## Trigger
+## Правило (corrected 2026-04-28)
 
-The **moment** a meaningful insight, decision, or research finding crystallises in a session, capture it via `note.py` **immediately**. Don't wait until "the topic closes" — the capture happens at the moment of emergence, even mid-investigation.
+В **момент** когда в сессии всплывает meaningful insight, decision, или research finding — захватить его через `note.py` **СРАЗУ**. Не ждать "когда тема закроется" — захват в момент кристаллизации факта, даже если ты ещё mid-investigation.
 
-If understanding later changes, re-run `note.py` with the **same title**. The slug matches the existing file and `note.py` **upserts** it (merges tags, refreshes the `updated:` frontmatter, rewrites the body). **One note per topic, kept current** — not a chain of revisions.
+Если понимание потом меняется — re-run `note.py` с **тем же title**. Slug упирается в существующий файл, и note.py его **upsert'ит** (merge tags, обновит `updated:` frontmatter, перепишет body). **Один note per topic, держится в актуальном состоянии.** Не цепочка ревизий.
 
 ## 🔴 Never ask permission (no-ask rule)
 
-**NEVER ask the user "should I capture this?", "want me to save this?", or any variant.** Default = **capture**. The user will delete (`rm` the file, or tell you to) only if a particular capture was a mistake. Asking-by-default = guaranteed lost knowledge: by the time the user answers, context has moved on, the insight has decayed, and most of the time the answer is "yes, just do it" anyway.
+**NEVER ask Misha "should I capture this?" / "want me to save this?" / "make a memory note?"**. Default = **capture**. User rejects only if it was a mistake. Asking-by-default = guaranteed lost knowledge: by the time the user answers, context has moved, the insight has decayed, and half the time the user just says "да делай не спрашивай" anyway. The cost asymmetry favors over-capture: a bad note is one `rm` away; an uncaptured insight is gone forever.
 
-The cost asymmetry favors over-capture: a bad note is one `rm` away; an uncaptured insight is gone forever.
+**Threshold question** ("would this matter 3 weeks from now?") = the **model's silent decision**, NOT a question for the user. If you are *thinking* about whether to capture → that thinking IS the trigger → run `note.py` immediately. If you're not sure, capture; the upsert mechanism makes "wrong title" trivial to fix later.
 
-The **threshold question** ("would this matter 3 weeks from now?") is the **model's silent decision**, NOT a question for the user. If you are *thinking* about whether to capture → that thinking IS the trigger → run `note.py` immediately. If unsure, capture; the upsert mechanism makes "wrong title" trivial to fix later.
+**Banned phrases** (do not emit any of these or paraphrases):
 
-**If you're thinking about whether to capture, you've already crossed the threshold. Capture.**
-
-### Banned phrases
-
-Do not emit any of these (or paraphrases). Capture first, then mention what landed in passing.
+Russian:
+- ❌ "Сделать сейчас memory note?"
+- ❌ "Записать это в память?"
+- ❌ "Сохранить как learning?"
+- ❌ "Зафиксировать в note.py?"
+- ❌ "Хочешь чтобы я это сохранил?"
+- ❌ "Закапчурить?"
 
 English:
 - ❌ "Should I capture this?"
 - ❌ "Want me to save this for later?"
 - ❌ "Want this in memory?"
 - ❌ "Should I note this down?"
-- ❌ "Make a memory note now?"
-- ❌ "Want a learning note from this?"
+- ❌ "Make a memory note?"
+- ❌ "Should I add a learning/decision note?"
 
-Russian (universal — keep as-is even if the user works in English):
-- ❌ "Сделать сейчас memory note?"
-- ❌ "Сохранить?"
-- ❌ "Записать?"
-- ❌ "Запомнить это?"
-- ❌ "Хочешь запись?"
-- ❌ "Делать ли memory note?"
+**Correct pattern:** capture FIRST, then mention it in passing — "Captured as learning `<slug>` for future search" — so Misha sees what landed without being asked to authorize it. He can override (`rm` the file, or tell you to delete) if a particular capture was noise. Override cost: 5 seconds. Asking cost: lost knowledge.
 
-**Correct pattern:** capture FIRST, then mention it in passing — "Captured as learning `<slug>` for future search" — so the user sees what landed without being asked to authorize it. Override cost: 5 seconds (delete the file). Asking cost: lost knowledge.
+This rule has a **5 May 2026 precedent**: a session asked "Сделать сейчас memory note?" instead of just capturing, then on retry hit a `note.py` apostrophe-escape bug and gave up on capture entirely. Both root causes patched: rule hardened (this section) + `note.py` got `--body-file` / `--body-stdin` flags so quoting friction doesn't make "ask the user" feel easier than "just capture".
 
-## Upsert by title (one note per topic)
+## Что изменилось vs старая формулировка
 
-Re-running `note.py` with the **same title** overwrites the existing file in place:
+Старая (wrong) рамка: "после meaningful insight — пиши ДО закрытия темы". Это позволяло откладывать. Закрытия темы можно ждать долго; за это время инсайт уже забыт или потерян.
 
-- **Preserves** `created:` (date when first written, never changes).
-- **Sets** `updated: <today>`.
-- **Merges tags** (union, dedup case-insensitive, existing first).
-- **Rewrites the body** cleanly. The previous version is not retained — current version is the source of truth, history lives in git.
-- **Prints** `updated: <path>` (not `wrote:`) so you see the upsert happened.
+Новая (correct) рамка: **момент возникновения = момент записи**. Если потом эволюционирует — переписываем тот же файл (note.py upsert).
 
-To force a new file when slugs collide on genuinely unrelated topics: pass `--new`. To preserve prior body and append a dated update section: pass `--append`.
+## Зачем
 
-## Use `--body-stdin` or `--body-file` for tricky text
+Без auto-capture знание умирает в chat-контексте. Через 5 дней Миша спрашивает "что там был vendor freight quote?" — а ответ, который когда-то был в разговоре, **исчез**. Compaction съел его. Новая сессия его не видит. ChromaDB его не индексирует.
 
-Single-line shell-quoted bodies break on apostrophes, embedded quotes, or multi-line content. Two flags solve it:
+Capture-в-момент = единственный способ сохранить atomic knowledge так, чтобы:
+- Он находился через `memory_search.py search "flex freight"` через месяц.
+- Он жил отдельным MD-файлом с frontmatter — readable, grep-friendly, version-controllable.
+- Он автоматически попадал в ChromaDB collection (`learnings` / `decisions` / `research`).
+- При эволюции понимания — обновляется тот же файл, не дубликат.
+
+## Когда ловить (threshold)
+
+**Ловить если:** "Would this matter if Misha asked about it 3 weeks from now?" → ДА → capture **в момент возникновения**, не в конце топика.
+
+Конкретно:
+- ✅ **Learning/insight** — что-то узнали о supplier, рынке, регуляторе, tooling, паттерне, антипаттерне.
+- ✅ **Decision** — выбор был сделан между альтернативами (даже маленький: "идём с Vendor-A, не с Vendor-X"; "OUTERBOX 150×150×150 вместо 120×120×120").
+- ✅ **Research finding** — web/реестр/competitor/regulator search дал конкретный факт + источник (URL, дата, документ).
+
+**Не ловить:**
+- ❌ Trivial lookup ("какой email у supplier-contact?")
+- ❌ Restatement of known fact ("canonical-supplier already documented" — уже в CLAUDE.md)
+- ❌ Side-comments, банальности, мета-замечания о ходе работы.
+- ❌ "Сделал X" в смысле прогресс-репорта — это journal, не learning.
+
+## Куда идёт
+
+`note.py` сам кладёт файл в правильный subdir:
+- `learning` → `~/Desktop/claude/memory/learnings/2026-MM-DD-slug.md`
+- `decision` → `~/Desktop/claude/memory/decisions/2026-MM-DD-slug.md`
+- `research` → `~/Desktop/claude/research/2026-MM-DD-slug.md`
+
+**Filename keeps the FIRST-emergence date** (когда впервые написал). Upsert не меняет имя файла. Frontmatter: `created:` (date when first written, never changes) + `updated:` (today, changes on each upsert).
+
+## Upsert behavior (default)
+
+Если уже есть файл с таким же slug в subdir (любая дата в имени) — `note.py`:
+
+- **Открывает** существующий файл.
+- **Сохраняет** `created:` (или мигрирует `date:` → `created:`).
+- **Устанавливает** `updated: <today>`.
+- **Merge tags** (union, dedup case-insensitive, existing first).
+- **Перезаписывает body** чисто. Прошлая версия не сохраняется — Миша уточнил: важна актуальная версия, не история ревизий. Если нужна история — git history. Если нужно дописать вместо overwrite — `--append`.
+- **Print** `updated: <path>` (не `wrote:`) — видно что апсёрт произошёл.
+
+Tag-merge decision: **union** (не replace). Если ты re-run с подмножеством тегов, существующие сохраняются. Если хочешь принудительно сократить теги — отредактируй файл вручную.
+
+Versions-log decision: **clean overwrite, no history**. Текущая версия = source of truth. История — git, не frontmatter bloat.
+
+## Edge cases
+
+**Genuinely unrelated topic с тем же slug** (slug коллизия из-за похожих заголовков):
+```bash
+note.py learning "Different topic, same slug" "..." --new
+# print: wrote: <path>  (НОВЫЙ файл, не upsert)
+```
+`--new` принудительно создаёт новый файл (использует существующий unique_path с -2/-3 suffix).
+
+**Evolving research где хочется keep history** (например, цены поставщика во времени):
+```bash
+note.py research "Vendor-A pricing" "Q1 €0.49/pc" --tags "vendor-a"
+# Позже:
+note.py research "Vendor-A pricing" "Q2 €0.51/pc — поднял на 4%" --append
+# Body станет: "## Update 2026-05-15\n\nQ2 €0.51/pc...\n\n[предыдущий body]"
+```
+
+**Если понял что заголовок не тот** — переименуй файл вручную и re-run note.py с правильным title. Старый файл не удалится автоматически.
+
+## Как применять
+
+Когда insight всплывает в течение работы — **немедленно**:
 
 ```bash
-# Heredoc — handles apostrophes, "quotes", and multi-line cleanly
-python3 ~/Desktop/claude/tools/note.py learning "Title" --body-stdin <<'EOF'
-Body with 'apostrophes', "quotes", and multi-line
-all work — no escape gymnastics.
-EOF
+python3 ~/Desktop/claude/tools/note.py learning "Vendor-A min order 5k pcs" \
+  "supplier-contact confirmed Vendor-A's MOQ on outerbox = 5,000 pcs. Below that, tooling cost €450 still applies but per-unit jumps to €4.10. Implication: if launch volume <5k, switch to alternate-vendor-supplied generic boxes." \
+  --tags "vendor-a,packaging,moq" --project "Packaging Design"
 
-# File — when the body is already on disk (e.g. from a prior tool output)
-python3 ~/Desktop/claude/tools/note.py learning "Title" --body-file /tmp/body.md
+python3 ~/Desktop/claude/tools/note.py decision "Use Vendor-B as baseline 3PL" \
+  "After 5-way RFQ (Vendor-B, Vendor-C, Vendor-D, Vendor-E, Vendor-F), Vendor-B wins on speed-to-onboard and Polish freight cost." \
+  --alternatives "Vendor-B,Vendor-C,Vendor-D,Vendor-E,Vendor-F" --rationale "Vendor-B = €0 setup, regional freight 400-500€/lane, default-carrier. Vendor-C silent. Vendor-E premium pricing. Vendor-D requires existing carrier accounts." \
+  --project "Logistics"
+
+python3 ~/Desktop/claude/tools/note.py research "Regulator-A registration timeline" \
+  "Regulator-A (national food safety authority) accepted Your-Company BV registration in <72h. Client number issued. No fee. Required for any food operation under BV." \
+  --sources "https://example.gov/registers/food" --query "Regulator-A registration BV food"
+
+# Через неделю supplier-contact прислал уточнение — re-run с тем же title:
+python3 ~/Desktop/claude/tools/note.py learning "Vendor-A min order 5k pcs" \
+  "REVISED: supplier-contact re-confirmed MOQ = 3,500 pcs, not 5,000. Tooling cost €450 unchanged. Per-unit at MOQ floor = €3.85." \
+  --tags "vendor-a,packaging,moq,revised"
+# print: updated: <path>  ← тот же файл, обновлён
 ```
 
-Reach for these whenever the body contains anything beyond plain ASCII letters and spaces. Default to `--body-stdin` when in doubt — it costs you one heredoc, saves you a quoting-hell debug loop.
+Тон body: **2-5 предложений max, atomic — не essay**. Title в формате noun-phrase (не вопрос). Tags = lowercase, comma-separated.
 
-## Threshold heuristics
+## Antipattern (что НЕ делать)
 
-**Capture if:** "Would this matter to me (or future-me, or a teammate) 3 weeks from now?" → YES → capture **at the moment it emerges**, not at the end of the topic.
+- ❌ "Захвачу это потом / когда тема закроется" — нет. **Сейчас** = единственный надёжный момент.
+- ❌ Только в журнале / в briefing / в outputs — это не findable как atomic знание.
+- ❌ Длинный essay в body — atomic, не сочинение.
+- ❌ Дубликат CLAUDE.md / project memory file — `note.py` для **новых** атомов, не для копий.
+- ❌ Создавать новый title под каждую ревизию ("vendor quote v2", "vendor quote final") — upsert тот же title.
 
-Concretely:
-- ✅ **Learning / insight** — something you learned about a vendor, market, regulator, tool, codebase pattern, or anti-pattern.
-- ✅ **Decision** — a choice was made between alternatives (even small ones: "use Vendor A, not Vendor B"; "ship 150×150×150 box, not 120×120×120").
-- ✅ **Research finding** — a web / registry / competitor / regulator search produced a concrete fact + source (URL, date, document).
-- ✅ **Vendor commitment** — a price, lead time, MOQ, or SLA confirmed by the supplier.
-- ✅ **Deadline shift** — a regulatory or contractual date moved.
-
-**Don't capture:**
-- ❌ Trivial lookup ("what's their email?").
-- ❌ Restatement of a known fact already in `CLAUDE.md` or another memory file.
-- ❌ Side-comments, banalities, meta-remarks about the work itself.
-- ❌ Progress reports ("I did X today") — those belong in journal, not learnings.
-
-## Where it goes
-
-`note.py` writes the file into the right subdir automatically:
-- `learning` → `~/Desktop/claude/memory/learnings/YYYY-MM-DD-<slug>.md`
-- `decision` → `~/Desktop/claude/memory/decisions/YYYY-MM-DD-<slug>.md`
-- `research` → `~/Desktop/claude/research/YYYY-MM-DD-<slug>.md`
-
-**Filename keeps the FIRST-emergence date** (when first written). Upsert does not change the filename. Frontmatter: `created:` (first write, immutable) + `updated:` (today, changes on each upsert).
-
-## Examples (generic)
-
-```bash
-# Learning — after a meaningful insight about a vendor / market / pattern
-python3 ~/Desktop/claude/tools/note.py learning "Vendor X minimum order is 5k pcs" \
-  "Confirmed MOQ on outerbox = 5,000 pcs. Below that, tooling cost still applies but per-unit jumps significantly. Implication: if launch volume <5k, switch to a generic-box supplier." \
-  --tags "vendor-x,packaging,moq"
-
-# Decision — when you (or your team) chose between alternatives
-python3 ~/Desktop/claude/tools/note.py decision "Use Vendor A as baseline 3PL" \
-  --alternatives "VendorA,VendorB,VendorC" \
-  --rationale "Vendor A wins on speed-to-onboard and per-shipment freight cost; B silent; C premium." \
-  --body-stdin <<'EOF'
-After RFQ across A/B/C, Vendor A wins on speed-to-onboard and per-shipment freight.
-Default carrier integration; no setup fee; baseline lane within target cost band.
-EOF
-
-# Research — when a search produced a concrete fact + source
-python3 ~/Desktop/claude/tools/note.py research "NL food regulator registration timeline" \
-  "Regulator accepted entity registration in <72h. Client number issued. No fee. Required for any food operation under the entity." \
-  --sources "https://example.regulator.gov/registers"
-
-# A week later, a vendor sent a correction — re-run with the SAME title:
-python3 ~/Desktop/claude/tools/note.py learning "Vendor X minimum order is 5k pcs" \
-  "REVISED: MOQ re-confirmed = 3,500 pcs, not 5,000. Tooling cost unchanged. Per-unit at MOQ floor adjusted." \
-  --tags "vendor-x,packaging,moq,revised"
-# print: updated: <path>  ← same file, refreshed
-```
-
-Body tone: **2-5 sentences, atomic — not an essay**. Title = noun-phrase (not a question). Tags = lowercase, comma-separated.
-
-## Anti-pattern
-
-- ❌ "I'll capture it later / when the topic closes" — no. **Now** is the only reliable moment.
-- ❌ Asking "should I save this?" before capturing — banned (see "Never ask permission").
-- ❌ Only in journal / briefing / outputs — those are not findable as atomic knowledge.
-- ❌ Long essay in body — atomic, not prose.
-- ❌ Duplicate of `CLAUDE.md` / project memory — `note.py` is for **new** atoms, not copies.
-- ❌ Creating a new title for each revision ("Vendor X quote v2", "Vendor X quote final") — upsert with the same title.
-
-## Pattern (how it should work)
+## Pattern (как ДОЛЖНО быть)
 
 ```
-Insight crystallises mid-conversation
-  ├─ Pause (don't "I'll do it later", don't "should I save this?")
-  ├─ Run note.py with the appropriate type + descriptive title
+Insight crystallizes mid-conversation
+  ├─ STOP (не "доделаю позже")
+  ├─ Run note.py with appropriate type + same title each time
   ├─ Confirm "wrote: <path>" (new) or "updated: <path>" (upsert)
-  └─ Resume work, mention capture in passing if relevant
+  └─ Resume work
 
-Later: understanding evolves
-  ├─ note.py with the same title + new body
+Later: понимание эволюционирует
+  ├─ note.py с тем же title + новый body
   ├─ Confirm "updated: <path>"
   └─ Done — single canonical note, current state
 ```
 
-Time-to-capture ≈ 30 seconds. Cost of skipping = knowledge lost forever.
+Время на capture = ~30 секунд. Цена пропуска = знание потеряно навсегда.
+
+## Self-instance
+
+Этот rule имеет первый instance собственного применения — note был написан в момент Misha's correction (2026-04-28) и upserted прямо в self-test:
+`memory/learnings/2026-04-28-knowledge-capture-is-moment-of-emergence.md`
 
 ## Full reference
 
