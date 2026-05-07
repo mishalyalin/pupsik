@@ -227,6 +227,12 @@ files modified this session, decisions made. The `PostCompact` hook
 (`hooks/post-compact.sh`) runs *after* the compact and emits a one-line
 reminder telling Claude to read the snapshot file before continuing.
 
+The recommended setup also sets `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` in
+the `env` block of `~/.claude/settings.json`. That lowers the auto-compact
+threshold from the default (~95% of context) to 50%, so compaction fires
+on a fresher window - the snapshot is cleaner and the post-compact summary
+has more headroom to preserve. See `docs/COMPACT_SETUP.md` for tuning.
+
 Net effect: the conversation gets compacted, but the assistant doesn't
 lose the plot.
 

@@ -4,21 +4,27 @@
 
 Claude Code automatically compacts (compresses) the conversation when the context fills up. Without configuration, Claude loses the thread: it forgets active tasks, background processes, and recent decisions.
 
-These two hooks solve the problem:
+Two hooks plus one env var solve it:
 
 - **pre-compact.sh** - BEFORE compacting, saves a session snapshot to disk and injects an instruction into the compact summary about "what to do after"
 - **post-compact.sh** - AFTER compacting, reminds Claude to run `memory_search.py wake-up`, read the saved snapshot, and do a semantic search on the current topic
+- **`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` env var** - lowers the auto-compact threshold from the default (~95% of context) to 50%, so compaction fires on a fresher, smaller window. The post-compact summary has more headroom to preserve, and the snapshot is cleaner.
 
 **What you get:**
-- Compaction happens normally (no threshold to configure - it's an internal Claude Code heuristic)
-- But **after compaction Claude knows:** which TODOs are active, which agents are running in the background, which files were touched, which decisions were made
+- Compaction triggers at ~50% of context instead of waiting until you're nearly full (configurable via env var)
+- **After compaction Claude knows:** which TODOs are active, which agents are running in the background, which files were touched, which decisions were made
 - State is saved to disk (`~/Desktop/claude/.claude/compact-state/`) with an archive of the last 20 compacts
 
-## What does NOT work
+## Tuning the threshold
 
-Claude Code does NOT support a setting like "compact at 50%" or "compact at 70%" - the threshold is fixed internally and not exposed to settings. The only thing this configures is **proper recovery** after compaction.
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` accepts an integer percentage. Common settings:
 
-If you want to compact earlier, do it manually: `/compact` or `/compact focus on X` to specify what to keep.
+- `40` - aggressive, snapshots state more often (good if you run long sessions and want maximum recoverability)
+- `50` - **recommended default**, balances frequency vs interruption
+- `60-70` - relaxed, fewer compacts (use if you mostly run short sessions)
+- Remove the env var entirely to fall back to Claude Code's built-in heuristic (~95%)
+
+The env var is read at session start, so changes require a Claude Code restart.
 
 ## Installation
 
@@ -39,12 +45,15 @@ chmod +x ~/Desktop/claude/.claude/hooks/*.sh
 
 **2. Register in `~/.claude/settings.json`:**
 
-Add to the `"hooks"` section (create it if missing). The recommended `"permissions"` block is also shown - it sets `auto` as the default permission mode (auto-accepts safe operations, prompts on writes/shell):
+Add to the `"hooks"` section (create it if missing). The recommended `"permissions"` and `"env"` blocks are also shown - `auto` is the default permission mode (auto-accepts safe operations, prompts on writes/shell), and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` lowers the auto-compact threshold to 50%:
 
 ```json
 {
   "permissions": {
     "defaultMode": "auto"
+  },
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50"
   },
   "hooks": {
     "PreCompact": [
@@ -141,6 +150,8 @@ echo '{"test": "payload"}' | ~/Desktop/claude/.claude/hooks/pre-compact.sh
 ```
 
 Should print `=== PRE-COMPACT STATE SAVED ===` and create a file at `~/Desktop/claude/.claude/compact-state/latest.json`.
+
+To verify the threshold env var loaded, watch for the status message `Saving session state before auto-compact...` when context hits ~50% (instead of ~95%). If it still fires only near the end, restart Claude Code - env vars are read at session start, not mid-session.
 
 On the next auto-compact, Claude should automatically run wake-up after recovery.
 

@@ -5,6 +5,23 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-07] - Auto-compact threshold
+
+### Added
+- **`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` env var documented** - lowers Claude
+  Code's auto-compact threshold from the default (~95% of context) to a
+  user-tunable percentage. Recommended `50`. Recipe shipped in:
+  - `install.sh` printed snippet now includes an `"env"` block
+  - `docs/COMPACT_SETUP.md` rewritten - the previous "does not work" section
+    was incorrect; the env var is supported by Claude Code and was
+    independently verified against the installed binary
+  - `HOW_IT_WORKS.md` and `README.md` mention the threshold
+
+### Fixed
+- **`docs/COMPACT_SETUP.md` misinformation** - the doc previously asserted
+  Claude Code does NOT support a configurable compact threshold. It does.
+  Section rewritten to teach the correct configuration.
+
 ## [2026-04-29] — Phase 2
 
 ### Added
