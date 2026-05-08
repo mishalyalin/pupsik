@@ -58,6 +58,12 @@ the `CLAUDE.md` isn't loading — see Troubleshooting below.
   accounts in a single call.
 - **WhatsApp chat reader MCP** (macOS only, read-only) — search, list, sync
   business contacts to the contact DB.
+- **Optional contact-enrichment cron** (template) - 3-pass signature/web/bio
+  enrichment via `gmail_search_all` + WebSearch, idempotent via `COALESCE`,
+  privacy-guarded (skips personal/tenancy/events + distribution lists). Use
+  `tools/enrichment_schema_migrate.py` to add the 10 enrichment columns to
+  your `contacts.db`, then install the template at
+  `templates/scheduled-tasks/contact-enrichment-weekly.md.template`.
 - **Auto-compact hooks + 50% threshold** - `PreCompact` saves session state,
   `PostCompact` reminds Claude to restore it, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50`
   fires compaction at half-context instead of waiting until 95%. No more

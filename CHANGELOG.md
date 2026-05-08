@@ -5,6 +5,16 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-08] - Contact enrichment cron + dedup fix
+
+### Added
+- **`templates/scheduled-tasks/contact-enrichment-weekly.md.template`** - cron template for a weekly 3-pass contact enrichment task. Pass 1 mines email signatures via `gmail_search_all`. Pass 2 runs targeted WebSearch for missing LinkedIn URLs. Pass 3 fetches a short bio + Instagram handle for PR-active contacts. Idempotent via `COALESCE(existing, new)` on every UPDATE; never clobbers a non-NULL field. Privacy-guarded: skips `category IN ('personal','tenancy','events')` and any distribution-list email pattern (info@/support@/team@/...). Capped at 50 candidates per run, 90-day refresh window, weekly cadence (Sunday 06:00). Optional Telegram notification on substantial change. `source: original`, NOT a gbrain import.
+- **`memory_templates/feedback_contact_enrichment_weekly.md`** - operating rule that documents when the task runs, the SQL filter, the 3-pass flow, hard privacy guards, three manual-trigger paths, and how morning briefings should pick up `latest.md`. Pairs with the cron template.
+- **`tools/enrichment_schema_migrate.py`** - idempotent helper that adds the 10 enrichment columns (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`) to an existing `contacts.db`. Default DB path resolves via `$CLAUDE_WORKSPACE/data/contacts.db` -> `$HOME/Desktop/claude/data/contacts.db`, override via argv. Catches `OperationalError: duplicate column name` so re-runs are safe; verifies all 10 columns are present before exiting 0.
+
+### Fixed
+- **`tools/memory_search.py`** - dedup bug in the indexer where chunks could be re-emitted across reindex passes. Patch from a parallel-session worker; merged unchanged.
+
 ## [2026-05-07] - gbrain pattern imports + privacy fix
 
 ### Added
