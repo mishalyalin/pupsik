@@ -23,6 +23,7 @@ Usage:
     python3 memory_search.py stats                       # Index statistics
 """
 
+import hashlib
 import sqlite3
 import sys
 import os
@@ -404,36 +405,47 @@ def index_chat_archives(client):
     except:
         pass
 
-    # Find chat archive files
-    chat_files = []
+    # Find chat archive files. Restrict to text-like extensions so that image
+    # attachments named "WhatsApp Image YYYY-MM-DD at HH.MM.SS.jpeg" (which the
+    # old globs picked up) are not read as text and chunked into garbage.
+    TEXT_EXTS = {".txt", ".json", ".csv", ".md", ".html", ".htm"}
+    chat_files: set[Path] = set()
     for pattern in ["**/*WhatsApp*", "**/*telegram*", "**/*chat*export*"]:
-        chat_files.extend(BASE_DIR.glob(pattern))
+        for f in BASE_DIR.glob(pattern):
+            if f.is_file() and f.suffix.lower() in TEXT_EXTS:
+                chat_files.add(f.resolve())
 
     # Also check common locations
     for extra_dir in [Path.home() / "Downloads", BASE_DIR / "data"]:
         if extra_dir.exists():
             for pattern in ["*WhatsApp*.txt", "*telegram*.txt", "*chat*.json"]:
-                chat_files.extend(extra_dir.glob(pattern))
+                for f in extra_dir.glob(pattern):
+                    if f.is_file():
+                        chat_files.add(f.resolve())
 
     docs = []
     metas = []
     ids = []
 
-    for chat_file in chat_files:
+    for chat_file in sorted(chat_files):
         if chat_file.stat().st_size > 10_000_000:  # Skip files > 10MB
             continue
         try:
             text = chat_file.read_text(errors='replace')
             chunks = chunk_text(text, 1000, 150)
+            # Collision-free ID: hash of absolute path + chunk index. Two files
+            # with the same stem in different directories no longer collide.
+            path_hash = hashlib.sha1(str(chat_file).encode()).hexdigest()[:12]
             for i, chunk in enumerate(chunks):
                 docs.append(chunk)
                 metas.append({
                     "source": chat_file.name,
+                    "path": str(chat_file.relative_to(BASE_DIR)) if BASE_DIR in chat_file.parents else str(chat_file),
                     "type": "chat_archive",
                     "chunk": i,
                     "category": "chat"
                 })
-                ids.append(f"chat_{chat_file.stem}_{i}")
+                ids.append(f"chat_{path_hash}_{i}")
         except Exception as e:
             print(f"  Skipped {chat_file.name}: {e}")
 
