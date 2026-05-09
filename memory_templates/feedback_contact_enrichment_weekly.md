@@ -9,14 +9,26 @@ created: 2026-05-08
 ## What this rule says
 
 When configuring this scheduled task in your own pupsik install:
-every Sunday at 06:00 local time, the task re-runs 3-pass enrichment
-(Gmail signature mining + web LinkedIn search + web rich-bio search +
-Instagram for PR-active people) ONLY on contacts.db rows that need
-it. New contacts get enriched within ~7 days of being added; existing
+every Sunday at 06:00 local time, the task re-runs 4-pass enrichment
+ONLY on contacts.db rows that need it:
+
+1. Gmail signature mining (LinkedIn / Twitter / GitHub / website / phone / role)
+2. Web LinkedIn search (when signature didn't yield a profile)
+3. Web rich-bio search + Instagram (for PR-active candidates)
+4. Email + WhatsApp correspondence scan, synthesizing a private
+   2-4 sentence `relationship_context` summary per contact
+
+New contacts get enriched within ~7 days of being added; existing
 enrichments are refreshed once they hit 90 days old.
 
 The task is idempotent, never clobbers existing data, and skips all
 personal/tenancy/events categories + distribution-list emails.
+
+Pass 4 is the only pass that reads private correspondence. The output
+is a 2-4 sentence summary stored in the DB column `relationship_context`,
+never exported to public surfaces. Telegram is NEVER auto-read; for
+likely-TG-active contacts (Russian-speaker heuristic) the run surfaces
+a manual-paste prompt instead.
 
 ## When the task runs
 
@@ -28,7 +40,7 @@ personal/tenancy/events categories + distribution-list emails.
 - Skill path (after install): `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md`
 - Template source: `templates/scheduled-tasks/contact-enrichment-weekly.md.template`
 
-## What it does (3-pass + filter)
+## What it does (4-pass + filter)
 
 Filter (SQL):
 ```sql
@@ -44,7 +56,7 @@ WHERE (category IS NULL OR category NOT IN ('personal', 'tenancy', 'events'))
 
 Cap: 50 candidates per run.
 
-3-pass logic:
+4-pass logic:
 1. Pass 1: `gmail_search_all` for signature data (LinkedIn / Twitter
    / GitHub / website / phone / role).
 2. Pass 2: WebSearch for `"Name" "Company" site:linkedin.com/in`
@@ -52,9 +64,45 @@ Cap: 50 candidates per run.
 3. Pass 3: WebSearch for bio text (only if LinkedIn was found in
    Pass 1 or 2 AND `bio IS NULL`). Plus Instagram search for
    PR-active categories.
+4. Pass 4: Email correspondence (re-read recent gmail threads from
+   Pass 1) + WhatsApp scan (`whatsapp_messages_with` if `phone`
+   populated). Synthesize a 2-4 sentence private
+   `relationship_context` summary. Skip if no email evidence.
+   Telegram is NEVER read by the cron - for flagged candidates
+   (`tg_manual_paste_recommended=1`), the run surfaces a manual-paste
+   prompt in the summary instead.
 
-UPDATE uses COALESCE(existing, new) on every field - non-NULL values
-are preserved.
+UPDATE uses COALESCE(existing, new) on every field including
+`relationship_context` - non-NULL values are preserved. Manual
+refresh path: `UPDATE contacts SET relationship_context = NULL WHERE
+id = ?` then re-run Pass 4 for that one row.
+
+## Russian-speaker heuristic (Step 0.5)
+
+Pass 4 needs to know which contacts are likely on Telegram (since TG
+is manual-paste-only and the cron can't read it). The cron's Step 0.5
+runs `tools/flag_russian_speakers.py --apply` to refresh
+`tg_manual_paste_recommended` flags before pulling enrichment
+candidates. The tool is multi-signal (any one matches):
+
+1. Cyrillic in name or full_name
+2. First-name token matches a Latin transliteration of a Russian name
+   (Nikolay, Vlad, Aleksey, Andrey, Dasha, Ilya, Anna, Igor, Anton, etc.)
+3. Last-name token ends with a Russian surname suffix
+   (`-ov` / `-ova` / `-ev` / `-eva` / `-in` / `-ina` / `-sky` / `-skaya` /
+   `-enko` / `-uk` and variants)
+4. Email matches `.ru` / `.by` / `.kz` / `.ua` / `mail.ru` / `yandex.ru`
+5. Company contains a substring from `$RUSSIAN_CONTEXT_COMPANIES`
+   (opt-in env var; leave unset to disable signal 5)
+
+Idempotent (only flips 0 -> 1; never clobbers a manual override). Run
+ad-hoc as a dry-run any time:
+
+```bash
+python3 ~/pupsik/tools/flag_russian_speakers.py
+```
+
+Pass `--apply` to actually update the DB.
 
 ## Hard privacy guards
 
@@ -65,6 +113,14 @@ are preserved.
 - Skip Pass 2 if candidate has no `company` - too many false positives
   on common names.
 - Skip Instagram for corporate / legal / tenancy categories.
+- Pass 4 NEVER auto-reads Telegram (per `feedback_telegram_manual.md`).
+  The Russian-speaker heuristic flags candidates for manual paste only.
+- `relationship_context` NEVER leaves the local DB. Not in
+  `latest.md`, not in archive runs, not in briefings (briefings
+  reformulate, never quote), not in public repos or templates, not in
+  Telegram notifications. The morning briefing MAY query it via
+  `memory_search.py search` for grounded context but reformulates the
+  output before printing.
 
 ## How to manually trigger
 
@@ -112,23 +168,27 @@ rules (c) gmail_search_all is broken.
 
 ## Schema requirement
 
-The task assumes the contacts table has these 10 enrichment columns:
+The task assumes the contacts table has these 12 enrichment columns:
 `linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`,
 `enrichment_source`, `enrichment_date`, `enrichment_confidence`,
-`last_enriched`. If your contacts.db started from an older pupsik
-schema, run the helper once:
+`last_enriched`, `relationship_context`, `tg_manual_paste_recommended`.
+
+If your contacts.db started from an older pupsik schema (pre-Pass-4),
+run the helper once:
 
 ```bash
 python3 ~/pupsik/tools/enrichment_schema_migrate.py
 ```
 
-It is idempotent and safe to re-run.
+It is idempotent and safe to re-run. Adds any missing column without
+touching the others.
 
 ## Files this rule references
 
 - Scheduled task: `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md`
 - Template: `~/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template`
 - Schema migration: `~/pupsik/tools/enrichment_schema_migrate.py`
+- Russian-speaker heuristic: `~/pupsik/tools/flag_russian_speakers.py`
 - Run summary: `~/Desktop/claude/memory/contact_enrichment/latest.md`
 - Run archive: `~/Desktop/claude/memory/contact_enrichment/archive/<date>-enrichment.md`
 - DB: `~/Desktop/claude/data/contacts.db`
@@ -141,3 +201,11 @@ It is idempotent and safe to re-run.
 maintainer's initial full-DB enrichment. NOT a gbrain pattern. Cron
 architecture pattern adapted from a sibling outbound-deadline poller
 (also original).
+
+Pass 4 (email + WhatsApp correspondence scan + private
+`relationship_context` synthesis) and Step 0.5 (Russian-speaker
+heuristic refresh) added 2026-05-08 same session. The TG-manual-paste
+flag exists because automated Telegram reading is blocked by an
+upstream rule (`feedback_telegram_manual.md`); the heuristic surfaces
+which contacts would benefit from a one-off manual-paste refresh
+without ever auto-reading TG.

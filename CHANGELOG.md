@@ -5,6 +5,22 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-08] - Contact enrichment Pass 4 (correspondence scan + TG manual-paste flag)
+
+### Added
+- **`tools/flag_russian_speakers.py`** - multi-signal heuristic to flag contacts likely to chat with the operator on Telegram. 5 signals: Cyrillic in name, Latin transliteration of a Russian first name (~120 names covered), Russian surname suffix (`-ov` / `-ova` / `-ev` / `-eva` / `-in` / `-ina` / `-sky` / `-skaya` / `-enko` / `-uk` and variants), Russian-domain email pattern, and an opt-in company match via `$RUSSIAN_CONTEXT_COMPANIES` env var (comma-separated substrings; leave unset to disable signal 5). Idempotent (only flips 0 -> 1, never clobbers a manual override). Sets the new `tg_manual_paste_recommended` column. `source: original`, NOT a gbrain import.
+- **Pass 4 of the contact enrichment task** - email + WhatsApp correspondence scan synthesizing a 2-4 sentence private `relationship_context` summary per contact. Email read via `gmail_search_all` (re-uses Pass 1 thread set). WhatsApp read via `mcp__whatsapp__whatsapp_search` + `whatsapp_messages_with` for contacts with `phone` populated. Telegram is NEVER auto-read - blocked by the upstream `feedback_telegram_manual.md` rule. Flagged contacts (`tg_manual_paste_recommended = 1`) are surfaced in the run summary as "TG manual-paste candidates" so the operator can paste TG history into a one-off prompt for any specific row. COALESCE-guarded so the synthesis is preserved across runs (manual refresh path: `UPDATE contacts SET relationship_context = NULL WHERE id = ?` then re-run for that row).
+- **Step 0.5 of the cron template** - runs `flag_russian_speakers.py --apply` before pulling enrichment candidates so newly-added contacts get auto-flagged.
+
+### Changed
+- **`tools/enrichment_schema_migrate.py`** - now adds 12 columns instead of 10. New columns: `relationship_context TEXT` (Pass 4's private summary, never exported) and `tg_manual_paste_recommended INTEGER DEFAULT 0` (Russian-speaker heuristic flag). Re-runs are safe and only add the missing 2 columns on existing pupsik installs.
+- **`templates/scheduled-tasks/contact-enrichment-weekly.md.template`** - reframed from 3-pass to 4-pass. Adds Step 0.5 (heuristic refresh), Step 4.5 (Pass 4 correspondence scan + relationship_context synthesis), expanded what-NOT-to-do list (no auto-Telegram, no exporting `relationship_context`), updated SELECT/UPDATE SQL with new columns, expanded run-summary frontmatter with `new_relationship_context` and `tg_manual_paste_pending` counters.
+- **`memory_templates/feedback_contact_enrichment_weekly.md`** - operating rule updated for 4-pass + Russian-speaker heuristic. Adds explicit privacy invariants for `relationship_context` (never leaves local DB).
+
+### Privacy invariants (new in this release)
+- `relationship_context` content NEVER appears outside the local `contacts.db`. Not in run summaries, not in archive files, not in briefings (briefings reformulate via `memory_search.py` but never quote), not in Telegram notifications, not in any pupsik public template.
+- Telegram is NEVER auto-read by any tool in this repo. The `tg_manual_paste_recommended` flag is the only mechanism for surfacing TG-active contacts; the operator pastes manually if they want a Pass-4 refresh that includes TG context.
+
 ## [2026-05-08] - Contact enrichment cron + dedup fix
 
 ### Added
