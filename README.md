@@ -1,160 +1,91 @@
 # Pupsik
 
-> The Claude Code workspace that doesn't lose context between sessions.
+> What I use to make Claude Code remember things between sessions.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for: Claude Code](https://img.shields.io/badge/Built_for-Claude_Code-blueviolet)](https://claude.com/claude-code)
-[![Status: Stable](https://img.shields.io/badge/Status-Stable-green)](#)
+[![Status: I use it daily](https://img.shields.io/badge/Status-I_use_it_daily-green)](#)
 [![Auto-update: enabled](https://img.shields.io/badge/Auto--update-enabled-blue)](#staying-up-to-date)
 [![Privacy-checked: CI](https://img.shields.io/badge/Privacy--checked-CI-green)](.github/workflows/privacy-check.yml)
 
-> "I run my entire business through Claude Code. Pupsik is the workspace I
-> built so it doesn't lose context between sessions."
+I'm Misha. Solo founder. I run my whole company on Claude Code - sales, ops, finance, taxes, kids' school stuff, all of it. Not just code.
 
-Pupsik is a drop-in toolkit that turns Claude Code into a stateful
-collaborator: persistent contact graph, semantic memory search across 9
-ChromaDB collections, multi-account Gmail / Calendar / WhatsApp via local
-MCP servers, mandatory rule discipline pinned to every session, auto-compact
-hooks that survive context compression, and a 2-agent worker-plus-checker
-workflow.
+The problem: Claude Code forgets everything between sessions. Every morning, fresh start, no memory.
 
-Most people use Claude Code for code. If you're using it for everything else
-too — sales, ops, finance, customer success, scheduling — this is the missing
-layer. MIT licensed, macOS-friendly, runs entirely local.
+So I built this. Pupsik is the workspace I drop into `~/Desktop/claude/`. It gives Claude a contact DB, semantic search across my notes, all my Gmail accounts in one call, WhatsApp read access, and a set of rules that stop it from doing dumb things.
 
-## Quick Start
+It works for me every day. Putting it on GitHub because someone else probably has the same problem.
+
+MIT. macOS-friendly. Local. No telemetry, no cloud sync, no SaaS dashboard.
+
+## Quick start
 
 ```bash
 git clone https://github.com/mishalyalin/pupsik.git
 cd pupsik
-bash install.sh             # base setup: dirs, Python deps, CLAUDE.md, hooks, memory
-bash install_mcps.sh        # builds multi-gmail, multi-gcal, whatsapp
-bash register_mcps.sh       # registers the three MCPs with Claude Code
+bash install.sh             # creates ~/Desktop/claude/, installs tools + rules + hooks
+bash install_mcps.sh        # builds the local Gmail / Calendar / WhatsApp MCPs
+bash register_mcps.sh       # tells Claude Code about them
 ```
 
-Then open a fresh Claude Code session in `$HOME/Desktop/claude/` (or wherever
-you pointed the installer) and ask:
+Then open a fresh Claude Code session in `~/Desktop/claude/` and ask:
 
 ```
 > What's your 2-agent rule?
 ```
 
-If Claude paraphrases it back, the install worked. If it says "what rule?",
-the `CLAUDE.md` isn't loading — see Troubleshooting below.
+If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't load - jump to Troubleshooting.
 
-## Features
+## What's in it
 
-- **Persistent contact graph DB** (SQLite) — people, companies, interactions,
-  links. Graph traversal, intro chains, staleness detection, all in pure
-  Python stdlib.
-- **Semantic memory search** (ChromaDB, 9 collections) — index your markdown
-  notes, briefings, journal entries, decisions, learnings, research, plus the
-  contact DB. One command searches across all of it.
-- **Moment-of-emergence knowledge capture** (`note.py`) — capture a learning,
-  decision, or research note the instant an insight surfaces. Upserts by
-  title; one note per topic, kept current.
-- **Multi-account Gmail + Calendar MCPs** — never get asked "which account"
-  again. `gmail_search_all` and `gcal_list_all_events` cover all linked
-  accounts in a single call.
-- **WhatsApp chat reader MCP** (macOS only, read-only) — search, list, sync
-  business contacts to the contact DB.
-- **Optional contact-enrichment cron** (template) - 4-pass enrichment:
-  signature / web LinkedIn / web rich-bio + Instagram / email + WhatsApp
-  correspondence scan synthesizing a private 2-4 sentence
-  `relationship_context` summary. Idempotent via `COALESCE`, privacy-guarded
-  (skips personal/tenancy/events + distribution lists). Pass 4
-  `relationship_context` NEVER leaves the local DB. Telegram is NEVER
-  auto-read; a multi-signal Russian-speaker heuristic
-  (`tools/flag_russian_speakers.py`) flags TG-active contacts for manual
-  paste only. Use `tools/enrichment_schema_migrate.py` to add the 12
-  enrichment columns to your `contacts.db`, then install the template at
-  `templates/scheduled-tasks/contact-enrichment-weekly.md.template`.
-- **Auto-compact hooks + 50% threshold** - `PreCompact` saves session state,
-  `PostCompact` reminds Claude to restore it, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50`
-  fires compaction at half-context instead of waiting until 95%. No more
-  losing the plot mid-session.
-- **`tools/doctor.py` health-check + safe auto-fix** - deterministic
-  diagnostics across 13 checks (broken symlinks, stale locks, ChromaDB
-  orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers,
-  dead scheduled-task dirs, unindexed recent notes). `check` is read-only,
-  `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe),
-  `orphans` lists unlinked entities for human review.
-- **Friction protocol** - `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y`
-  captures repeat-correction patterns. Upsert by `(phase, severity)` increments
-  a counter so the third recurrence of the same friction surfaces escalated.
-  `friction summary --days 7 --top 3` aggregates for morning briefing.
-- **2+ agent rule** — every real task runs a worker plus an independent
-  checker. Catches the bugs a single-agent pass would miss.
-- **Critical-rules file** — `~/.claude/rules/critical-rules.md` auto-loads
-  every session. MANDATORY behaviour rules pinned to every project.
-- **15 generic feedback rules** — contact-DB-first, save-outputs,
-  verify-before-showing, never-ignore-own-rules, capture-knowledge,
-  short-dashes-only, no-office-files, compute-weekday-don't-guess, and more.
-- **Third-party attribution discipline** - `THIRD_PARTY_ATTRIBUTIONS.md` at
-  the repo root tracks every pattern adapted from external OSS projects
-  (currently: gbrain by Garry Tan, MIT). Source URL + author + license +
-  adaptation type + honest delta of what was taken verbatim vs adapted vs
-  added. License compatibility verified at import time.
-- **5 pre-written agent prompts** — Architect / Discoverer / Packager /
-  Migrator / Tester. Use them when the task warrants a team.
-- **`auto` permission mode by default** — accepts safe ops automatically,
-  prompts on writes / shell / risky calls.
+- **Contact graph DB** (SQLite). Every person I deal with, their company, every interaction, every link between them. I run `contacts_db.py find "Steve"` instead of digging through Gmail. There's a graph traversal too - "how do I get introduced to person X" returns a chain.
+- **Semantic search across 9 ChromaDB collections.** My notes, briefings, journal, decisions, learnings, research, plus the contact DB. One query, all of it. `memory_search.py search "что было с Tupak в апреле"` and it pulls the relevant chunks.
+- **Capture knowledge the second it happens.** `note.py learning "Title" "body"` writes a learning note and reindexes it in 50ms. Re-run the same title later and it upserts - one note per topic, kept current. The `decision` and `research` variants do the same.
+- **Multi-account Gmail / Calendar / WhatsApp MCPs.** I have 3 Gmail accounts. `gmail_search_all` searches all of them in one call. Same for Calendar. WhatsApp is read-only on macOS but it pulls into the contact DB.
+- **`tools/doctor.py` health-check + safe auto-fix.** 13 deterministic checks across the workspace. Broken symlinks, stale lock files, ChromaDB orphan rows, oversized CLAUDE.md, dangling memory pointers. `check` is read-only; `fix-safe` only does safe repairs (never rewrites my prose); `orphans` lists unlinked entities for me to review. Cron-safe.
+- **Friction protocol.** `note.py friction --severity blocker --phase X --message Y` captures the moments when something's wrong but I don't have time to fix it now. Re-run the same phase + severity and the counter increments. After 3 hits, my morning briefing surfaces it loud.
+- **Optional contact-enrichment cron, 4 passes.** Gmail signature mining for LinkedIn / Twitter / GitHub / website / phone. Then web search for missing LinkedIn URLs. Then a short bio + Instagram. Then Pass 4: it reads my email and WhatsApp correspondence with the contact and writes a 2-4 sentence private summary into `relationship_context`. That field never leaves my local DB - not in any export, not in briefings (briefings reformulate, never quote), not in this repo. Telegram is never auto-read; a heuristic flags Russian-speaker contacts so I can paste TG history manually if I want their context refreshed. Runs Sunday 06:00 if I enable it.
+- **Auto-compact hooks + 50% threshold.** `PreCompact` saves session state to disk before Claude compacts. `PostCompact` reminds it to restore. `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` fires compaction at half-context instead of waiting until 95% and losing the plot.
+- **2-agent rule.** Every real task spawns a Worker plus an independent Checker. Catches the bugs a single-agent pass misses. I learned this the hard way; it's now non-negotiable for anything I'd actually ship.
+- **`~/.claude/rules/critical-rules.md` auto-loads every session.** This is where the MANDATORY rules live - check the contact DB before mentioning a person, never use em-dashes in my voice, never write Excel files (I don't use Office), all 3 Gmail accounts always, etc.
+- **17 generic feedback rules** in `memory_templates/feedback_*.md`. Each one is a thing I corrected Claude on enough times to make it permanent. Not opinion-shaped advice - corrected behaviour pinned to disk.
+- **5 agent role prompts** (Architect, Discoverer, Packager, Migrator, Tester). I use them when a task warrants a team, not a solo run.
+- **Third-party attribution discipline.** `THIRD_PARTY_ATTRIBUTIONS.md` at the repo root tracks every pattern I borrowed from external OSS (currently: gbrain by Garry Tan, MIT). Source URL, author, license, what I took verbatim vs adapted vs added.
+- **`auto` permission mode by default.** Accepts safe ops, prompts on writes / shell / risky calls. Replaces `bypassPermissions` as the recommendation. Less friction than full bypass, less risk of nuking things.
 
-## Documentation
+## Docs
 
-- [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) — how the system works, conceptually:
-  memory layers, tools, rules, the 2-agent discipline, compact hooks, an
-  end-to-end example. **Start here** to understand what you're installing.
-- [`UPGRADING.md`](UPGRADING.md) — for users on a previous version of this
-  toolkit. What's preserved, what gets replaced, the one-time migration steps,
-  rollback.
-- [`MODULAR.md`](MODULAR.md) — for users with their own Claude Code setup who
-  want individual components. Each piece, its dependencies, a 3-line install
-  snippet, and mix-and-match recipes.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, how to PR,
-  privacy guarantee.
-- [`THIRD_PARTY_ATTRIBUTIONS.md`](THIRD_PARTY_ATTRIBUTIONS.md) — patterns,
-  code, conventions adapted from external OSS projects. Source URL, author,
-  license, adaptation type, and what was changed vs taken verbatim.
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes.
+- [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) - the concept walkthrough. **Start here** if you want to understand the architecture before installing.
+- [`UPGRADING.md`](UPGRADING.md) - if you're already on an older version. What gets preserved, what gets replaced, how to roll back.
+- [`MODULAR.md`](MODULAR.md) - if you have your own Claude Code setup and want individual pieces. Each component, its dependencies, install snippet.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) - PR rules. Short version: no personal data, ever.
+- [`THIRD_PARTY_ATTRIBUTIONS.md`](THIRD_PARTY_ATTRIBUTIONS.md) - what I borrowed from where.
+- [`CHANGELOG.md`](CHANGELOG.md) - release notes.
 
-## Requirements
+## What you need
 
-- **Node.js 18+** — for the MCP servers (`brew install node` on macOS).
-- **Python 3.10+** — for the tools (`brew install python` on macOS).
-- **Claude Code CLI** — `claude` command on PATH.
-  See [claude.com/claude-code](https://claude.com/claude-code).
-- **`pip install chromadb`** — the installer handles this.
+- **Node.js 18+** (`brew install node` on macOS) - for the MCP servers.
+- **Python 3.10+** (`brew install python` on macOS) - for the tools.
+- **Claude Code CLI** on PATH - get it from [claude.com/claude-code](https://claude.com/claude-code).
+- **`pip install chromadb`** - the installer handles this.
 
 Optional:
 
-- **WhatsApp for Mac** — only if you want the WhatsApp MCP.
+- **WhatsApp for Mac** - only if you want the WhatsApp MCP. Skip it otherwise.
 
-## How it works (one paragraph)
+## Or: have Claude install it for you
 
-You install a workspace at `$HOME/Desktop/claude/` (configurable). Inside it
-sit a `CLAUDE.md` Claude reads first every session, a `memory/` of long-form
-markdown notes, a SQLite contact graph, a ChromaDB index, three MCP servers,
-and a rules file pinned to every session. Claude reads the rules, reads
-`CLAUDE.md`, runs a 200-token `wake-up` query, and is ready to go. When a
-real task comes in, it spawns a Worker plus a Checker. When an insight
-surfaces, it captures the note immediately. When the conversation gets long
-enough to compact, the hooks save and restore session state. For the full
-walk-through, see [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md).
+If you'd rather watch Claude do the install with diffs at every step:
 
-## Installation — guided path
+1. Open a fresh Claude Code session in any directory.
+2. Paste the contents of `SETUP_PROMPT.md` into the chat.
+3. Claude spawns 5 agents (architect, discoverer, packager, migrator, tester) and walks through it step by step, asking for approval before writing anything.
 
-If you'd rather have Claude do the install for you with review at each step:
-
-1. Open a fresh Claude Code conversation in any directory.
-2. Copy the contents of `SETUP_PROMPT.md` into the chat.
-3. Claude spawns a team of 5 agents (architect, discoverer, packager,
-   migrator, tester) and installs step-by-step, showing diffs and asking for
-   approval.
+Slower than `bash install.sh`. More transparent. Pick whichever you prefer.
 
 ## Staying up to date
 
-Pupsik ships an in-repo updater. From inside your clone:
+From inside your clone:
 
 ```bash
 bash tools/update.sh
@@ -162,94 +93,69 @@ bash tools/update.sh
 
 What it does:
 
-1. `git fetch` from `origin/main`. If you're already up to date, exits silently.
-2. Shows the new commits and the file-level diff before touching anything.
-3. Refuses to update if you have uncommitted local edits (pass `--force` to
-   stash + update + restore).
-4. Fast-forward only — never rewrites your local commits.
-5. Re-runs `bash install.sh --update-only` to apply new tools, hooks,
-   templates, and rule files.
+1. `git fetch origin/main`. If you're up to date, exits silently.
+2. Shows the new commits and the file diff before touching anything.
+3. Refuses to run if you have uncommitted local edits (pass `--force` to stash, update, restore).
+4. Fast-forward only - never rewrites your local commits.
+5. Re-runs `bash install.sh --update-only` to apply new tools / hooks / rules / feedback templates.
 
 ### What `update.sh` updates
 
-- `tools/{contacts_db,memory_search,note}.py` (smart-merge — see below)
-- `~/.claude/rules/critical-rules.md` (append-only smart merge — see below)
+- `tools/{contacts_db,memory_search,note,doctor,enrichment_schema_migrate,flag_russian_speakers}.py` (smart-merge - see below)
+- `~/.claude/rules/critical-rules.md` (append-only smart merge)
 - `~/Desktop/claude/.claude/hooks/{pre,post}-compact.sh` (smart-merge)
-- `memory_templates/feedback_*.md` (smart-merge in your project memory dir)
+- `memory_templates/feedback_*.md` (smart-merge in your project memory directory)
 
-### What `update.sh` never touches
+### What `update.sh` will never touch
 
 - Your `CLAUDE.md`
 - Your `data/contacts.db`
-- `memory/learnings/`, `memory/decisions/`, `memory/journal/`,
-  `memory/people/`, `memory/projects/`
+- `memory/learnings/`, `memory/decisions/`, `memory/journal/`, `memory/people/`, `memory/projects/`
 - `briefings/`, `outputs/`, `research/`
-- Any feedback rule you've personalised in your project memory dir
+- Any feedback rule you've personalised in your project memory directory
+- Scheduled-task templates (those are opt-in - see UPGRADING.md for the install command)
 
-In short: **all your data is safe**. Only the tooling layer is replaced.
+In short: **your data is safe.** Only the tooling layer gets replaced.
 
-### What happens if I customized files
+### What if I customised a file
 
-`update.sh` is conservative — it never silently overwrites your edits.
+`update.sh` is conservative. It never silently overwrites your edits.
 
-For each managed file (tools, hooks, feedback rules):
+For each managed file:
 
-- If the file is **identical to the upstream version** → nothing happens.
-- If you **haven't modified it** since the previous install → it's safely
-  updated to the new version (your old copy is backed up as
-  `<file>.bak.<timestamp>`).
-- If you **have modified it** → the new upstream version is installed
-  side-by-side as `<file>.new`. Your version stays untouched. You diff
-  and merge manually:
+- **Identical to upstream** - nothing happens.
+- **You haven't modified it since last install** - safely updated, your old copy backed up as `<file>.bak.<timestamp>`.
+- **You modified it** - the new upstream version drops side-by-side as `<file>.new`. Your version stays untouched. Diff and merge:
 
   ```bash
   diff ~/Desktop/claude/tools/memory_search.py{,.new}
   # ...resolve, then either rm the .new file or replace the original
   ```
 
-After an update, `update.sh` prints a summary line listing every `.new`
-file awaiting your attention.
+After the update, `update.sh` prints which `.new` files are waiting on you.
 
-Detection works by comparing the installed file against the latest
-`<file>.bak.<timestamp>` from the previous install. If they match, you
-haven't touched it; if they differ (or no `.bak` exists), the file is
-treated as user-modified.
-
-`~/.claude/rules/critical-rules.md` is special: it is **never replaced**.
-New rule references in the upstream template are appended at the bottom
-of your file under a `## Updates from upstream <date>` header. Existing
-content is left alone, including any rules you've added yourself.
+`~/.claude/rules/critical-rules.md` is special - it's **never replaced**. New rule references from the upstream template get appended at the bottom under a `## Updates from upstream <date>` header. Your existing content stays put, including any rules you wrote yourself.
 
 ### Optional: weekly auto-update via cron
 
-Add to `crontab -e`:
-
 ```
-# Pull latest pupsik every Monday at 09:00 local time. Adjust path to wherever you cloned.
+# Every Monday at 09:00 local. Adjust the path to wherever you cloned.
 0 9 * * 1 cd ~/pupsik && bash tools/update.sh >> ~/pupsik/.update.log 2>&1
 ```
 
 ### Privacy-checked at the source
 
-Every push to `mishalyalin/pupsik` runs the
-[Privacy Check workflow](.github/workflows/privacy-check.yml) — a
-multi-pattern grep that fails the build if any privacy-sensitive content
-lands in the public diff (real names, emails, phone numbers, government
-IDs, project codenames, API tokens, oversize blobs). The script lives at
-[`.github/scripts/privacy-check.sh`](.github/scripts/privacy-check.sh) and
-runs locally too.
+Every push to `mishalyalin/pupsik` runs the [Privacy Check workflow](.github/workflows/privacy-check.yml) - a multi-pattern grep that fails the build if anything privacy-sensitive sneaks into the diff (real names, real emails, phone numbers, IDs, project codenames, API tokens, oversize blobs). The script lives at [`.github/scripts/privacy-check.sh`](.github/scripts/privacy-check.sh) and runs locally too.
 
-If you fork and self-host, the same workflow runs on your fork.
+If you fork it, the same workflow runs on your fork.
 
-## After installation
+## After install
 
-### 1. Personalize `CLAUDE.md`
+### 1. Edit your CLAUDE.md
 
-The template at `$HOME/Desktop/claude/CLAUDE.md` has `{{PLACEHOLDERS}}` —
-fill in your name, role, active projects. This is the file Claude reads
-first every session.
+The template at `~/Desktop/claude/CLAUDE.md` has `{{PLACEHOLDERS}}`. Fill in your name, role, what you're working on. This is the file Claude reads first every session - it's the "I am Misha and I'm working on these projects" doc, in your version.
 
-### 2. Populate the contact DB
+### 2. Add some contacts
 
 ```bash
 python3 ~/Desktop/claude/tools/contacts_db.py init
@@ -257,37 +163,28 @@ python3 ~/Desktop/claude/tools/contacts_db.py add "Alice Smith" \
   --email alice@example.com --company "Acme Corp" --category "work"
 ```
 
-Or import from WhatsApp after the MCP is set up:
+Or pull from WhatsApp once the MCP is up:
 
 ```
 Ask Claude: "Run whatsapp_sync_to_contacts_db"
 ```
 
-### 3. Add your Google accounts
+### 3. Wire up your Google accounts
 
-Follow `docs/GOOGLE_CLOUD_SETUP.md` — about 15 minutes, done once.
+Follow `docs/GOOGLE_CLOUD_SETUP.md`. About 15 minutes, one-time.
 
 ### 4. Test the 2-agent rule
 
-Give Claude a real task (not a one-shot lookup) and watch for it spawning
-multiple agents. See `docs/AGENT_TEAM_RULE.md`.
+Give Claude a real task (not a one-shot lookup) and watch it spawn multiple agents. See `docs/AGENT_TEAM_RULE.md`.
 
 ## Troubleshooting
 
-- **`claude` command not found** — install Claude Code CLI from
-  [claude.com/claude-code](https://claude.com/claude-code).
-- **MCP servers fail to build** — check `node --version` (need 18+). Run
-  `npm install` in each `mcp-servers/*/` dir manually to see the error.
-- **WhatsApp MCP returns "permission denied"** — grant Full Disk Access to
-  your terminal. See `docs/WHATSAPP_SETUP.md` Step 2.
-- **Gmail auth fails with "access blocked"** — you didn't add yourself as a
-  test user in the Google Cloud consent screen. See `docs/GOOGLE_CLOUD_SETUP.md`
-  Step 3.7.
-- **Compact hooks don't trigger** — check `~/.claude/settings.json` is valid
-  JSON and paths are absolute. See `docs/COMPACT_SETUP.md`.
-- **Claude doesn't mention the 2-agent rule** — verify
-  `~/Desktop/claude/CLAUDE.md` contains the rule section, and
-  `memory/feedback_always_two_agents.md` is in the project memory directory.
+- **`claude` command not found** - install the Claude Code CLI from [claude.com/claude-code](https://claude.com/claude-code).
+- **MCP servers fail to build** - check `node --version` (need 18+). Run `npm install` in each `mcp-servers/*/` dir manually to see the error.
+- **WhatsApp MCP says "permission denied"** - your terminal needs Full Disk Access. See `docs/WHATSAPP_SETUP.md` Step 2.
+- **Gmail auth fails with "access blocked"** - you didn't add yourself as a test user in the Google Cloud consent screen. See `docs/GOOGLE_CLOUD_SETUP.md` Step 3.7.
+- **Compact hooks don't fire** - check `~/.claude/settings.json` is valid JSON and paths are absolute. See `docs/COMPACT_SETUP.md`.
+- **Claude doesn't mention the 2-agent rule** - confirm `~/Desktop/claude/CLAUDE.md` has the rule section and `memory/feedback_always_two_agents.md` is in your project memory directory.
 
 ## Uninstall
 
@@ -297,140 +194,57 @@ rm ~/Desktop/claude/tools/contacts_db.py ~/Desktop/claude/tools/memory_search.py
 claude mcp remove multi-gmail
 claude mcp remove multi-gcal
 claude mcp remove whatsapp
-# Optionally:
+# If you want to nuke everything:
 rm ~/Desktop/claude/CLAUDE.md ~/Desktop/claude/data/contacts.db
 ```
 
-The Google Cloud project, OAuth credentials, and installed npm packages
-aren't touched — remove those manually if you want a clean slate.
+The Google Cloud project, OAuth credentials, and installed npm packages aren't touched - kill those manually if you want a clean slate.
 
 ## Contributing
 
-PRs are welcome. The bar: changes should make sense to a fresh user who has
-never met any of the contributors. Personal data — real names, real emails,
-real account numbers — never lands in this repo. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for the full rules.
+PRs are welcome. The bar: changes should make sense to a fresh user who has never met any of the contributors. No personal data, ever. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Releases
 
-For full release notes, see [`CHANGELOG.md`](CHANGELOG.md).
+Full release notes in [`CHANGELOG.md`](CHANGELOG.md).
 
-### What's new in this release (2026-05-07: gbrain pattern imports + privacy)
+### What's new (2026-05-09)
 
-1. **`tools/doctor.py` - deterministic health-check + safe-auto-fix.**
-   Three subcommands: `check` (read-only), `fix-safe` (safe auto-repairs),
-   `orphans` (read-only orphan listing). Thirteen specific checks across
-   broken symlinks, stale lock files, ChromaDB orphan rows, dangling memory
-   pointers, dead scheduled-task directories, and oversized CLAUDE.md /
-   MEMORY.md. Auto-fix is restricted to safe ops only - never LLM content
-   rewrites - so the tool is cron-safe and won't clobber your prose.
-2. **`note.py friction` subcommand.** Capture severity-tagged friction events
-   (`blocker` / `error` / `confused` / `nit`) with phase + message + optional
-   hint. Upsert by `(phase, severity)` increments a counter for repeat-pattern
-   detection. `friction summary --days 7 --top 3` aggregates the loudest
-   recurring friction for embedding in morning briefings.
-3. **Output Rules adapted from gbrain.** Four cross-cutting quality rules
-   (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality)
-   referenced in `THIRD_PARTY_ATTRIBUTIONS.md`. The consolidated public
-   feedback file is on the follow-up backlog; for now they live in the
-   attribution tracker as a reading guide.
-4. **`THIRD_PARTY_ATTRIBUTIONS.md` at repo root.** New central tracker for
-   patterns adapted from external OSS projects. Per-pattern source URL,
-   author, license, adaptation type, and an honest delta of what was taken
-   verbatim vs adapted vs added on top.
-5. **Privacy hardening.** Five `memory_templates/feedback_*.md` files
-   re-generalised after the privacy-pattern catalogue tightened over the
-   previous weeks. The previously-missing `feedback_no_office.md` was
-   added in pre-scrubbed form. `bash .github/scripts/privacy-check.sh
-   --include-untracked` now passes 10/10 across the full repo.
-6. **Em-dash style consistency.** The toolkit ships `feedback_short_dashes_only.md`
-   as a MANDATORY rule. Mass sed-pass cleaned 90 em-dashes lurking in template
-   prose and tooling docstrings, including in the rule files themselves.
+1. **Pass 4 of the contact-enrichment cron** - reads my email and WhatsApp correspondence with each contact and synthesizes a 2-4 sentence private `relationship_context` summary. The field never leaves the local DB. Telegram is never auto-read - manual paste only, per the upstream rule.
+2. **Russian-speaker heuristic.** `tools/flag_russian_speakers.py` flags contacts likely to be on Telegram (Cyrillic name / Latin transliteration of a Russian first name / Russian surname suffix / Russian-domain email / opt-in company match via `$RUSSIAN_CONTEXT_COMPANIES`). Idempotent. The cron's Step 0.5 calls it.
+3. **Schema migration: 10 -> 12 columns.** `enrichment_schema_migrate.py` now adds `relationship_context` and `tg_manual_paste_recommended` on top of the original 10. Re-runs are safe.
+4. **Upgrade discipline closed.** `tools/update.sh` and `install.sh` now smart-merge all 6 tools instead of just the original 3. Existing pupsik installs running `update.sh` will pick up `doctor.py`, `enrichment_schema_migrate.py`, and `flag_russian_speakers.py` automatically.
+5. **UPGRADING.md rewritten.** Per-release format with one-time steps + verification checks for each release back to Phase 2. Backfill recipe included for users who ran the 2026-05-08 cron before this update.
 
-For full detail and the upgrade pointer, see
-[`CHANGELOG.md`](CHANGELOG.md#2026-05-07---gbrain-pattern-imports--privacy-fix).
+### What's new (2026-05-07: gbrain pattern imports + privacy)
 
-### What's new in the previous release (2026-04-29)
+1. **`tools/doctor.py`** - 13 deterministic health checks across `check` / `fix-safe` / `orphans`. Cron-safe, never rewrites prose. Adapted from gbrain (Garry Tan, MIT).
+2. **`note.py friction` subcommand** - severity-tagged friction events (`blocker` / `error` / `confused` / `nit`). Counter-incremented on repeat. `friction summary --days 7 --top 3` for morning briefings. Adapted from gbrain.
+3. **Output Rules adapted from gbrain** - 4 cross-cutting quality rules (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality) attributed in `THIRD_PARTY_ATTRIBUTIONS.md`.
+4. **`THIRD_PARTY_ATTRIBUTIONS.md`** at repo root - central tracker for everything I borrowed.
+5. **Privacy hardening.** 5 feedback templates re-generalised after the privacy-check pattern catalogue tightened. `bash .github/scripts/privacy-check.sh --include-untracked` now passes 10/10.
+6. **Em-dash style consistency.** Mass sed-pass cleaned 90 em-dashes lurking in template prose and tooling docstrings. `feedback_short_dashes_only.md` is the rule.
 
-1. **9-collection ChromaDB indexer** — `tools/memory_search.py` now indexes 9
-   collections (briefings, outputs, journal, knowledge, research added on top
-   of the existing contacts, interactions, memory_files, chat_archives). The
-   `knowledge` collection combines `memory/learnings/` and `memory/decisions/`
-   into one searchable index. Run `memory_search.py stats` to see them all.
-2. **`tools/note.py` — moment-of-emergence knowledge capture.** One command
-   captures a learning, decision, or research note. Upserts by title —
-   re-capturing the same topic refreshes the existing note instead of
-   creating a duplicate. One note per topic, kept current.
-3. **New mandatory rule: `feedback_capture_knowledge.md`.** Tells Claude to
-   call `note.py` the moment an insight surfaces, not when the topic closes.
-   Loaded automatically alongside the other critical rules.
-4. **Idempotent reindex.** `coll.upsert` everywhere. Re-running
-   `memory_search.py index` is safe and cheap — no duplicates, no stale
-   entries piling up.
-5. **Surgical single-file reindex** — `memory_search.py index --file <path>`
-   reindexes one file in roughly 50ms instead of doing a full rebuild on
-   every capture. `note.py` uses this automatically after each save.
-6. **Concurrency-safe lockfile with stale TTL.** Parallel reindex calls no
-   longer deadlock; if a stale lock is detected, it self-recovers.
-7. **Diff-based stale-chunk pruning.** When a file shrinks, old chunks get
-   removed from the index instead of lingering and polluting search results.
+### What's new (2026-04-29: Phase 2)
 
-For users on a previous version of this toolkit, see
-[`UPGRADING.md`](UPGRADING.md) for the one-time migration path.
+1. **9-collection ChromaDB indexer.** `memory_search.py` now indexes 9 collections (briefings, outputs, journal, knowledge, research added on top of contacts, interactions, memory_files, chat_archives). The `knowledge` collection holds both `learnings/` and `decisions/` in one searchable index.
+2. **`tools/note.py`** - capture a learning, decision, or research note in one command. Upserts by title - one note per topic, kept current.
+3. **`feedback_capture_knowledge.md`** - new MANDATORY rule. Tells Claude to call `note.py` the moment an insight surfaces, not at the end of the topic.
+4. **Idempotent reindex.** `coll.upsert` everywhere. Re-running `memory_search.py index` is safe and cheap.
+5. **Surgical single-file reindex.** `memory_search.py index --file <path>` reindexes one file in ~50ms instead of rebuilding the whole thing. `note.py` uses this automatically.
+6. **Concurrency-safe lockfile with stale TTL.** Parallel reindex calls don't deadlock; stale locks self-recover.
+7. **Diff-based stale-chunk pruning.** When a file shrinks, old chunks come out of the index instead of lingering and polluting search.
 
-### What's new since the last release
-
-1. **`auto` permission mode is the recommended default** (replaces
-   `bypassPermissions`). `auto` auto-accepts safe ops and prompts on writes /
-   shell / risky calls — safer than full bypass without losing flow.
-   `bypassPermissions` is still a valid choice; this toolkit no longer
-   recommends it as the default.
-2. **`critical-rules.md` template added** —
-   `templates/critical-rules.md.template` is installed to
-   `~/.claude/rules/critical-rules.md`. Claude Code auto-loads files from
-   `~/.claude/rules/` at session start, so the MANDATORY rules ride along on
-   every session, project or otherwise.
-3. **4 new generic feedback rules** bundled in `memory_templates/`:
-   - `feedback_never_ignore_own_rules.md` — rules in `CLAUDE.md` and
-     `feedback_*.md` are MANDATORY, not suggestions.
-   - `feedback_verify_project_state.md` — verify status from fresh data
-     before answering project / payment / partner questions.
-   - `feedback_compute_weekday_dont_guess.md` — compute weekday from ISO
-     date programmatically, don't reuse last brief's labels.
-   - `feedback_short_dashes_only.md` — when drafting in the user's voice,
-     use `-` not `—`.
-4. **MCP servers re-shipped scrubbed** — the bundled `multi-gmail`,
-   `multi-gcal`, `whatsapp` source no longer carries any owner-specific
-   comments or labels.
-
-Earlier additions still here:
-
-- **Auto-compact hooks** — `PreCompact` saves session state to disk;
-  `PostCompact` reminds Claude to restore it.
-- **Always-2-agents rule** — `memory/feedback_always_two_agents.md` plus a
-  `CLAUDE.md` section.
-- **Bug fixes in `contacts_db.py`** — `db.commit()` on SQL,
-  `sqlite3.Row.get()` replaced, no more hardcoded project name leaking
-  into HTML.
-- **Portable paths** — `memory_search.py` paths are derived from `$HOME`.
-  Compact hooks honour `CLAUDE_WORKSPACE` env var for non-default install
-  locations.
+For users on a previous version, see [`UPGRADING.md`](UPGRADING.md) for the migration path.
 
 ## About
 
-Built and used in production by [Misha Lyalin](https://github.com/mishalyalin),
-a solo founder running an early-stage company end-to-end through Claude Code.
-This toolkit is what made that practical.
+I'm a solo founder running an early-stage company end to end through Claude Code. This toolkit is what makes that practical. I built it for me. I use it every day. Putting it on GitHub because someone else with the same setup probably wants the same fixes.
 
-If you're a solo operator getting leverage from Claude Code, this is for you.
-Fork it, take what you need, send PRs back.
-
-If you find this useful, a star helps others discover it. ⭐
+If you find it useful, a star helps others discover it. ⭐
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE) for the full text.
+MIT. See [`LICENSE`](LICENSE).
 
-The bundled MCP servers carry their own licenses (each `mcp-servers/*/LICENSE`
-where present — `multi-gmail` is MIT). Everything else in this toolkit is
-MIT.
+The bundled MCP servers carry their own licenses (each `mcp-servers/*/LICENSE` where present - `multi-gmail` is MIT). Everything else here is MIT.

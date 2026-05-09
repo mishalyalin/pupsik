@@ -1,18 +1,12 @@
-# Modular Install — Pick Individual Components
+# Modular install - pick individual components
 
-## Who this is for
+## When to use this doc
 
-You're a user with your own Claude Code setup who wants individual components
-from this toolkit. You don't want a full install that overlays your existing
-conventions. You want to grab one or two specific pieces — just the rules, or
-just the contact DB — without dragging in the rest.
+You already have your own Claude Code setup. You like it. You don't want a full pupsik install but you want to grab one or two pieces - say, just the contact DB, or just the rules, or just the multi-account Gmail MCP.
 
-This document lists each component, what it depends on, what it doesn't depend
-on, and how to install just that piece.
+Each component below has: what it does, what files it is, what it depends on, what it doesn't, and a 3-line install snippet. Pick what you want, paste, done.
 
 ## Components
-
-Each component below is described with: **what it does**, **what files it consists of**, **what it depends on**, **what it doesn't depend on** (so you know it's safe to skip the rest), and a **3-line install snippet**.
 
 ### a) Critical rules
 
@@ -32,7 +26,7 @@ Each component below is described with: **what it does**, **what files it consis
 
 - **What it does:** `note.py` captures a learning, decision, or research note the moment an insight surfaces. Upserts by title, so the same topic stays one note that gets refreshed instead of duplicating.
 - **Files:** `tools/note.py` + `memory_templates/feedback_capture_knowledge.md` (the rule that reminds Claude to use it).
-- **Depends on:** `tools/memory_search.py` for the surgical single-file reindex. Soft dependency — `note.py` writes the markdown file fine without it; you just don't get auto-reindex.
+- **Depends on:** `tools/memory_search.py` for the surgical single-file reindex. Soft dependency - `note.py` writes the markdown file fine without it; you just don't get auto-reindex.
 - **Doesn't depend on:** Contact DB, MCP servers, hooks. Standalone otherwise.
 - **Install:**
 
@@ -46,7 +40,7 @@ Each component below is described with: **what it does**, **what files it consis
 
 - **What it does:** SQLite database of people, companies, interactions, and the relationships between them. CRUD via `contacts_db.py`. Graph traversal (`graph`, `chain`), staleness detection (`stale 7`).
 - **Files:** `tools/contacts_db.py` + `data/contacts.db` (initialized via `contacts_db.py init`).
-- **Depends on:** Python ≥ 3.10. Pure stdlib `sqlite3` — no extra packages.
+- **Depends on:** Python ≥ 3.10. Pure stdlib `sqlite3` - no extra packages.
 - **Doesn't depend on:** ChromaDB, MCP servers, rules. Fully standalone.
 - **Install:**
 
@@ -60,7 +54,7 @@ Each component below is described with: **what it does**, **what files it consis
 
 - **What it does:** Indexes any markdown directories you point it at, plus the contact DB if present, into a local ChromaDB. 9 collections: contacts, interactions, memory_files, chat_archives, briefings, outputs, journal, knowledge, research. The `knowledge` collection combines `memory/learnings/` and `memory/decisions/`. Search across them with `memory_search.py search "..."`.
 - **Files:** `tools/memory_search.py` + the `chromadb` Python package.
-- **Depends on:** `pip install chromadb`. Soft-coupled to `contacts_db.py` — 2 of the 9 collections (contacts, interactions) come from the SQLite DB; the other 7 work without it.
+- **Depends on:** `pip install chromadb`. Soft-coupled to `contacts_db.py` - 2 of the 9 collections (contacts, interactions) come from the SQLite DB; the other 7 work without it.
 - **Doesn't depend on:** MCP servers, hooks, rules. Standalone except for `chromadb` and the optional contact-DB coupling.
 - **Install:**
 
@@ -87,7 +81,7 @@ Each component below is described with: **what it does**, **what files it consis
 
 ### f) MCP servers
 
-- **What it does:** Three local MCP servers — `multi-gmail` (Gmail across multiple accounts), `multi-gcal` (Calendar across multiple accounts), `whatsapp` (read-only Mac WhatsApp). Each is independent: pick one, two, or all three.
+- **What it does:** Three local MCP servers - `multi-gmail` (Gmail across multiple accounts), `multi-gcal` (Calendar across multiple accounts), `whatsapp` (read-only Mac WhatsApp). Each is independent: pick one, two, or all three.
 - **Files:** `mcp-servers/multi-gmail/`, `mcp-servers/multi-gcal/`, `mcp-servers/whatsapp/`. Each has its own source and prebuilt `dist/`.
 - **Depends on:** Node ≥ 18 for build. Each server has its own OAuth setup (Gmail and Calendar share a Google Cloud project; WhatsApp needs Full Disk Access on Mac).
 - **Doesn't depend on:** Each other. They're three independent npm packages. They also don't depend on Python tools, contact DB, ChromaDB, hooks, or rules.
@@ -159,18 +153,18 @@ Each component below is described with: **what it does**, **what files it consis
 
 A few common combinations:
 
-- **"Just the discipline"** — Critical rules (a) + Knowledge capture (b). Lightest possible install. No databases, no MCP. You get rule enforcement and `note.py`. Good for users who already have their own memory/search setup and just want the behavioural backbone.
+- **"Just the discipline"** - Critical rules (a) + Knowledge capture (b). Lightest possible install. No databases, no MCP. You get rule enforcement and `note.py`. Good for users who already have their own memory/search setup and just want the behavioural backbone.
 
-- **"Just the brain"** — Contact DB (c) + Semantic search (d). No rules, no MCP, no hooks. Pure local data layer. Good for users who want to run searches and graph queries from their own scripts and let their existing Claude Code configuration handle rules.
+- **"Just the brain"** - Contact DB (c) + Semantic search (d). No rules, no MCP, no hooks. Pure local data layer. Good for users who want to run searches and graph queries from their own scripts and let their existing Claude Code configuration handle rules.
 
-- **"Just the inbox"** — MCP servers (f), one or all three. Zero local DB, zero rules. Good for users who want Gmail/Calendar/WhatsApp access in Claude Code and nothing else.
+- **"Just the inbox"** - MCP servers (f), one or all three. Zero local DB, zero rules. Good for users who want Gmail/Calendar/WhatsApp access in Claude Code and nothing else.
 
-- **"Discipline + brain"** — (a) + (b) + (c) + (d). Everything except hooks and MCP servers. The minimal "Claude has memory and follows rules" setup, no third-party services.
+- **"Discipline + brain"** - (a) + (b) + (c) + (d). Everything except hooks and MCP servers. The minimal "Claude has memory and follows rules" setup, no third-party services.
 
 ## What to avoid mixing
 
-- **Don't grab `note.py` without the capture-knowledge rule.** `note.py` is the tool; the rule is what reminds Claude to actually use it. Without the rule loaded into `~/.claude/projects/<slug>/memory/`, Claude won't reach for the tool when an insight surfaces, and the file just sits there. Always pair (b) — both pieces, not just the script.
+- **Don't grab `note.py` without the capture-knowledge rule.** `note.py` is the tool; the rule is what reminds Claude to actually use it. Without the rule loaded into `~/.claude/projects/<slug>/memory/`, Claude won't reach for the tool when an insight surfaces, and the file just sits there. Always pair (b) - both pieces, not just the script.
 
-- **Don't enable compact hooks (e) without configuring `~/.claude/settings.json`.** Copying the scripts to `.claude/hooks/` does nothing on its own — Claude Code only fires them if `settings.json` registers them. Either install both pieces or neither.
+- **Don't enable compact hooks (e) without configuring `~/.claude/settings.json`.** Copying the scripts to `.claude/hooks/` does nothing on its own - Claude Code only fires them if `settings.json` registers them. Either install both pieces or neither.
 
-- **Don't install semantic search (d) without something for it to index.** It's not useless without (c), but it's noticeably less useful — half the value comes from the contact and interaction collections sourced from SQLite. If you skip (c), point `memory_search.py` at your own markdown directories instead, otherwise the index will be sparse.
+- **Don't install semantic search (d) without something for it to index.** It's not useless without (c), but it's noticeably less useful - half the value comes from the contact and interaction collections sourced from SQLite. If you skip (c), point `memory_search.py` at your own markdown directories instead, otherwise the index will be sparse.

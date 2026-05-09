@@ -1,149 +1,133 @@
 # Marketing copy
 
-Drop-in social copy for sharing this repo. Pick the channel, copy the block,
-swap the link for the live repo URL.
+Drop-in copy for sharing the repo. Pick the channel, copy the block, tweak.
+
+I'm not a marketer. These are the words I'd use if someone asked me what this is.
 
 ---
 
-## Twitter / X — short
+## Twitter / X - thread
 
 ```
-I run my entire business through Claude Code.
+I run my whole company on Claude Code.
 
-Today I'm open-sourcing the workspace I built to keep it stateful:
+Sales, ops, finance, taxes, kids' school stuff. Not just code.
 
-→ persistent contact graph
+The problem: it forgets everything between sessions.
+
+So I built a workspace toolkit. Open-sourced today.
+
+→ contact graph DB
 → semantic search across 9 ChromaDB collections
-→ multi-account Gmail / Cal / WhatsApp via local MCPs
-→ mandatory rule discipline + 2-agent worker/checker
+→ all 3 of my Gmail accounts in one call (multi-account MCPs)
+→ rule discipline pinned to every session
+→ 2-agent worker + checker for anything I'd actually ship
 → moment-of-emergence knowledge capture
 
-MIT, macOS, local-first.
+MIT. macOS. Local-first. No cloud sync, no telemetry.
 
 github.com/mishalyalin/pupsik
 ```
 
-## Twitter / X — single tweet (under 280)
+## Twitter / X - single tweet (under 280)
 
 ```
-Open-sourcing the Claude Code workspace I run my whole business on:
-persistent memory, multi-account inbox, rule discipline, auto-capture
-knowledge base. MIT.
+Open-sourced the workspace I run my whole company on. Claude Code with persistent memory, multi-account inbox, rule discipline, auto-capture knowledge base. MIT.
 
 github.com/mishalyalin/pupsik
 ```
 
-## LinkedIn — story version
+## LinkedIn
 
 ```
-For the past several months I've been quietly running my entire business
-through Claude Code — sales, operations, finance, customer success, and a
-dozen things in between. The bottleneck was never Claude's intelligence; it
-was state. Every new session started from zero.
+For a few months now I've been running my entire company through Claude Code. Sales, ops, finance, taxes, customer success, kids' school logistics. Not just code.
 
-So I built a workspace toolkit on top of it. Persistent contact graph DB.
-Semantic memory across nine ChromaDB collections. Multi-account Gmail /
-Calendar / WhatsApp via local MCP servers. Mandatory rule discipline pinned
-to every session. A 2-agent worker-plus-checker workflow that catches the
-bugs a single-agent pass would miss. Auto-capture knowledge base that
-surfaces decisions made three weeks ago.
+The bottleneck was never Claude's intelligence. It was state. Every session started from zero. Every morning I was re-explaining who Marco at the box supplier was, what was happening with the BV setup, which deals were live.
 
-Today I'm open-sourcing it. MIT licensed. Generic, no personal data.
+So I built the missing layer. Persistent contact graph. Semantic memory across 9 ChromaDB collections. Multi-account Gmail / Calendar / WhatsApp through local MCP servers. A 2-agent worker + checker rule that catches the bugs a single-agent pass misses. Auto-capture knowledge base that surfaces decisions I made three weeks ago.
 
-If you're a solo operator getting leverage out of Claude Code and feel the
-same friction — fork it, take what you need.
+Open-sourcing it today. MIT. Generic, no personal data anywhere.
+
+If you're a solo operator getting leverage from Claude Code and feel the same friction - fork it, take what you need.
 
 → github.com/mishalyalin/pupsik
 ```
 
-## Hacker News — title
+## Hacker News - title
 
 ```
-Show HN: I run my whole business on Claude Code – here's the workspace I built
+Show HN: I run my whole company on Claude Code - here's the workspace I built
 ```
 
 Or:
 
 ```
-Show HN: Claude Code Workspace Toolkit – persistent memory, MCPs, rule discipline
+Show HN: Pupsik - Claude Code workspace with persistent memory, MCPs, rule discipline
 ```
 
-Body for Show HN (500 chars-ish):
+Body (~500 chars):
 
 ```
-I'm a solo founder running my entire business through Claude Code. Over a
-few months I built a workspace toolkit so Claude doesn't lose context
-between sessions: SQLite contact graph, ChromaDB semantic search across 9
-collections, multi-account Gmail/Cal/WhatsApp MCPs, a 2-agent
-worker-plus-checker rule, and a `note.py` capture-on-emergence tool.
+I'm a solo founder. I run my whole company through Claude Code, not just code. Over a few months I built a workspace toolkit so it doesn't lose context between sessions: SQLite contact graph, ChromaDB semantic search across 9 collections, multi-account Gmail / Cal / WhatsApp MCPs, a 2-agent worker + checker rule, a `note.py` capture-on-emergence tool, auto-compact hooks, and a doctor for keeping the workspace healthy.
 
-Open-sourcing it today, MIT.
+Open-sourcing today. MIT.
 
 Repo: https://github.com/mishalyalin/pupsik
 ```
 
-## Reddit — r/ClaudeAI, r/LocalLLaMA, r/selfhosted
+## Reddit - r/ClaudeAI, r/LocalLLaMA, r/selfhosted
 
 Title:
 
 ```
-[OSS] Claude Code workspace toolkit — persistent memory, multi-account
-inbox MCPs, rule discipline. Built it to run my whole business on Claude.
+[OSS] The workspace I run my whole company on. Claude Code with persistent
+memory, multi-account inbox MCPs, rule discipline.
 ```
 
 Body:
 
 ```
-Hey folks. Solo founder here. I've spent the last few months running my
-entire business through Claude Code (sales, ops, finance, scheduling) and
-built a workspace toolkit to keep it useful between sessions.
+Hey. Solo founder. Spent the last few months running my whole company through Claude Code (sales, ops, finance, kids' stuff) and built a workspace toolkit so it stays useful between sessions.
 
 What's in it:
 
-- SQLite contact graph DB with relationships, intro chains, staleness
-  detection
-- ChromaDB semantic search across 9 collections (memory files, briefings,
-  outputs, journal, learnings, decisions, research, and the contact DB)
-- Multi-account Gmail + Calendar + WhatsApp via local MCP servers
-- A 2-agent worker-plus-checker rule that catches single-agent bugs
-- `note.py` for moment-of-emergence knowledge capture, upsert by title
-- Auto-compact hooks that survive context compression
-- A `~/.claude/rules/critical-rules.md` template that pins MANDATORY rules
-  to every session
+- SQLite contact graph DB. People, companies, interactions, links. Graph traversal, intro chains, staleness detection.
+- ChromaDB semantic search across 9 collections (memory files, briefings, outputs, journal, learnings, decisions, research, plus the contact DB).
+- Multi-account Gmail + Calendar + WhatsApp via local MCP servers. I have 3 Gmail accounts; one call hits all of them.
+- 2-agent worker + checker rule. Catches the single-agent bugs.
+- `note.py` for moment-of-emergence knowledge capture. Upsert by title.
+- `doctor.py` for workspace health. 13 deterministic checks, safe auto-fix.
+- Auto-compact hooks so the conversation survives context compression.
+- A `~/.claude/rules/critical-rules.md` template that pins MANDATORY rules to every session.
 
 Local-first. MIT. macOS for the WhatsApp piece, the rest is portable.
 
 Repo: https://github.com/mishalyalin/pupsik
 ```
 
-## Dev.to — title
+## Dev.to - title
 
 ```
-How I turned Claude Code into a stateful business assistant (and the
-toolkit I'm open-sourcing today)
+How I made Claude Code remember things between sessions (and the toolkit
+I'm open-sourcing)
 ```
 
-## Indie Hackers — title
+## Indie Hackers - title
 
 ```
-Open-sourcing the Claude Code workspace I run my entire business on
+Open-sourcing the Claude Code workspace I run my whole company on
 ```
 
 ---
 
 ## Notes for posting
 
-- The Hacker News slot is once. Pick the day carefully. Tuesday-Thursday
-  morning Pacific tends to do best.
-- LinkedIn version reads as a story, not a pitch — that's deliberate.
-- For Twitter, the multi-line version converts better than a single tweet
-  for tooling repos. The thread structure invites scrolling.
-- Reddit communities each have their own self-promo norms. Read the rules
-  first; some require a "[OSS]" or "[Show]" prefix.
-- Star count to aim for in week 1: 100. After that the GitHub trending
-  algorithm starts surfacing it organically.
+- Hacker News slot is one shot. Pick the day. Tuesday-Thursday morning Pacific does best.
+- LinkedIn version is a story, not a pitch. Deliberate.
+- Twitter: the thread converts better than the single tweet for tooling repos. Threads invite scrolling.
+- Reddit: each community has its own self-promo norms. Read the rules first; some require `[OSS]` or `[Show]` prefixes.
+- Star count to aim for in week 1: 100. After that GitHub trending starts surfacing it organically.
 
 ## Hashtags to consider
 
-`#ClaudeCode` `#OpenSource` `#AI` `#Productivity` `#SoloFounder`
-`#MCP` `#SemanticSearch` `#LocalFirst`
+`#ClaudeCode` `#OpenSource` `#AI` `#Productivity` `#SoloFounder` `#MCP` `#SemanticSearch` `#LocalFirst`

@@ -1,55 +1,38 @@
-# Upgrading from a Previous Version
+# Upgrading
 
-## Who this is for
+## If you're already on an older version
 
-You're a user on a previous version of this toolkit. You already have a
-Claude Code workspace at `$HOME/Desktop/claude/` from an earlier release.
-You have a `CLAUDE.md`, a `memory/` directory, a `data/contacts.db`, and
-probably some custom rules and outputs you've accumulated. You want the new
-pieces - the 9-collection indexer, `note.py`, the capture-knowledge rule,
-idempotent reindex, surgical single-file reindex, plus the 2026-05-07,
-2026-05-08, and 2026-05-09 releases (doctor + friction protocol, contact
-enrichment cron, Pass 4 correspondence scan + Russian-speaker heuristic) -
-without losing your data.
+You have a `~/Desktop/claude/` workspace from a previous install. You have a `CLAUDE.md`, a `memory/` directory, a `contacts.db`, probably some rules and outputs you've added. You want the new stuff without losing what you've built.
 
-This document covers what an upgrade preserves, what it replaces, and the
-one-time steps to get current. If you're installing for the first time, see
-[`README.md`](README.md) instead.
+This doc covers what gets preserved, what gets replaced, and the one-time steps for each release back to Phase 2. If you're installing for the first time, go to [`README.md`](README.md) instead.
 
-## Quick path: just run `tools/update.sh`
+## TL;DR: just run `tools/update.sh`
 
-If you cloned this repo with git originally:
+If you cloned with git:
 
 ```bash
 cd ~/pupsik           # or wherever you cloned it
-git pull              # fetch the latest main
-bash tools/update.sh  # smart-merges new tools, hooks, rules, feedback rules
+git pull              # fetch latest main
+bash tools/update.sh  # smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges tools (`contacts_db.py`, `memory_search.py`,
-`note.py`, `doctor.py`, `enrichment_schema_migrate.py`,
-`flag_russian_speakers.py`), hooks, the critical-rules template (append-only),
-and feedback templates. It NEVER touches your `CLAUDE.md`, `contacts.db`,
-or anything you've authored under `memory/`, `briefings/`, or `outputs/`.
+`update.sh` smart-merges 6 tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `flag_russian_speakers.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
 
-Scheduled-task templates (the contact-enrichment-weekly cron) are NOT
-auto-installed - they're opt-in. See section "Per-release one-time steps"
-below for the cron install commands.
+Scheduled-task templates (the optional weekly enrichment cron) are NOT auto-installed - they're opt-in. The install command is in "Per-release one-time steps" below.
 
-If you didn't clone with git, re-download the repo and run `bash install.sh
---update-only` to get the same smart-merge behaviour without the git pull.
+If you didn't clone with git, re-download the repo and run `bash install.sh --update-only` for the same smart-merge behaviour without the git pull.
 
 ## What's preserved
 
 Nothing the upgrade touches deletes data. Specifically:
 
-- **`data/contacts.db`** — your SQLite contact graph. Untouched. All contacts, companies, interactions, links, custom columns: kept.
-- **`data/chroma/`** — your existing ChromaDB index. Will be re-indexed once with the new code; the re-index is idempotent (uses `coll.upsert`), so duplicates are not created.
-- **`CLAUDE.md`** — your personalized version. Untouched.
-- **`memory/*.md`** — your existing memory files (people profiles, project notes, learnings, custom feedback rules). Untouched.
-- **`~/.claude/rules/critical-rules.md`** — your existing rules file. The installer will *append* a pointer to the new capture-knowledge rule if it isn't already referenced; it does not overwrite the file.
-- **`~/.claude/projects/<slug>/memory/feedback_*.md`** — your existing feedback rules. Untouched.
-- **`outputs/`, `briefings/`, `journal/`** — anything you've generated. Untouched.
+- **`data/contacts.db`** - your SQLite contact graph. Untouched. All contacts, companies, interactions, links, custom columns: kept.
+- **`data/chroma/`** - your existing ChromaDB index. Will be re-indexed once with the new code; the re-index is idempotent (uses `coll.upsert`), so duplicates are not created.
+- **`CLAUDE.md`** - your personalized version. Untouched.
+- **`memory/*.md`** - your existing memory files (people profiles, project notes, learnings, custom feedback rules). Untouched.
+- **`~/.claude/rules/critical-rules.md`** - your existing rules file. The installer will *append* a pointer to the new capture-knowledge rule if it isn't already referenced; it does not overwrite the file.
+- **`~/.claude/projects/<slug>/memory/feedback_*.md`** - your existing feedback rules. Untouched.
+- **`outputs/`, `briefings/`, `journal/`** - anything you've generated. Untouched.
 
 ## What gets replaced
 
@@ -266,11 +249,11 @@ mv ~/.claude/rules/critical-rules.md.bak.YYYYMMDD-HHMMSS \
    ~/.claude/rules/critical-rules.md
 ```
 
-The new ChromaDB collections (briefings, outputs, journal, knowledge, research) will simply sit unused — they don't break the old `memory_search.py`. To remove them too, delete `~/Desktop/claude/data/chroma/` and re-run the old indexer.
+The new ChromaDB collections (briefings, outputs, journal, knowledge, research) will simply sit unused - they don't break the old `memory_search.py`. To remove them too, delete `~/Desktop/claude/data/chroma/` and re-run the old indexer.
 
 ## Troubleshooting
 
-- **`memory_search.py stats` still shows 4 collections** — the new file didn't get installed. Check `ls -la ~/Desktop/claude/tools/memory_search.py*` for a `.bak` file and a fresh `memory_search.py`. If only the `.bak` is there, re-run `install.sh`.
-- **`note.py` not found** — same deal: re-run `install.sh` and confirm `~/Desktop/claude/tools/note.py` is present and executable (`chmod +x`).
-- **Reindex hangs or errors with "lockfile stale"** — the new lockfile has a TTL and self-recovers. If it doesn't, delete `~/Desktop/claude/data/chroma/.lock` manually and re-run `index`.
-- **`wake-up` returns empty** — your `CLAUDE.md` may have moved or your memory directory is empty. The wake-up command depends on having indexed content; run a full `index` first.
+- **`memory_search.py stats` still shows 4 collections** - the new file didn't get installed. Check `ls -la ~/Desktop/claude/tools/memory_search.py*` for a `.bak` file and a fresh `memory_search.py`. If only the `.bak` is there, re-run `install.sh`.
+- **`note.py` not found** - same deal: re-run `install.sh` and confirm `~/Desktop/claude/tools/note.py` is present and executable (`chmod +x`).
+- **Reindex hangs or errors with "lockfile stale"** - the new lockfile has a TTL and self-recovers. If it doesn't, delete `~/Desktop/claude/data/chroma/.lock` manually and re-run `index`.
+- **`wake-up` returns empty** - your `CLAUDE.md` may have moved or your memory directory is empty. The wake-up command depends on having indexed content; run a full `index` first.
