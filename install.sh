@@ -5,6 +5,8 @@
 #   1. Checks dependencies (Python 3.10+, Node 18+, claude CLI)
 #   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks,.claude/compact-state}
 #   3. Copies tools/ → ~/Desktop/claude/tools/
+#      (contacts_db.py, memory_search.py, note.py, doctor.py,
+#       enrichment_schema_migrate.py, flag_russian_speakers.py)
 #   4. Renders templates/CLAUDE.md.template → ~/Desktop/claude/CLAUDE.md (prompts for placeholders)
 #   5. Renders templates/wakeup_l0.txt.template → ~/Desktop/claude/memory/wakeup_l0.txt (prompts for placeholders)
 #   6. Copies memory_templates/feedback_*.md → project memory dir
@@ -214,9 +216,12 @@ mkdir -p "$PROJECT_MEMORY_DIR"
 
 # ---------- Step 3: copy tools (smart-merge) ----------
 say "Copying tools..."
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"   "$WORKSPACE/tools/contacts_db.py"   "tools/contacts_db.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py" "$WORKSPACE/tools/memory_search.py" "tools/memory_search.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"          "$WORKSPACE/tools/note.py"          "tools/note.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"             "$WORKSPACE/tools/contacts_db.py"             "tools/contacts_db.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py"           "$WORKSPACE/tools/memory_search.py"           "tools/memory_search.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/flag_russian_speakers.py"   "$WORKSPACE/tools/flag_russian_speakers.py"   "tools/flag_russian_speakers.py"
 
 # ---------- Step 4 + 5: render templates ----------
 render_template() {

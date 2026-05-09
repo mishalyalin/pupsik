@@ -5,11 +5,20 @@
 #   bash tools/update.sh           # safe update (refuses if you have local edits)
 #   bash tools/update.sh --force   # stash uncommitted changes, then update
 #
-# What this DOES touch (smart-merge — never clobbers your edits):
-#   - tools/{contacts_db,memory_search,note}.py   in ~/Desktop/claude/tools/
+# What this DOES touch (smart-merge - never clobbers your edits):
+#   - tools/{contacts_db,memory_search,note,doctor,
+#            enrichment_schema_migrate,flag_russian_speakers}.py
+#                                                 in ~/Desktop/claude/tools/
 #   - hooks/{pre,post}-compact.sh                 in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
 #   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
+#
+# Scheduled-task templates (templates/scheduled-tasks/*.md.template) are NOT
+# auto-installed — they are opt-in cron tasks. To enable one, copy the
+# template to ~/.claude/scheduled-tasks/<task-name>/SKILL.md (drop the
+# .template suffix), then register the cron via Claude Code's
+# scheduled-tasks MCP. The matching memory_templates/feedback_*.md operating
+# rule IS auto-installed (since it documents the task without enabling it).
 #
 # Smart-merge per file:
 #   - Identical to upstream → nothing happens.
