@@ -5,6 +5,26 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-11] - Architect proposals backlog
+
+### Added
+- **`memory_templates/architect_proposals/_PROTOCOL.md`** - schema + lifecycle for a local backlog of structural / workflow / tool proposals against your workspace. Proposals live in `~/Desktop/claude/memory/architect_proposals/latest.md` under five sections (Open / Accepted / Applied / Rejected / Obsolete). Each proposal is a YAML block with `id`, `source`, `effort`, `status`, `rationale`, `why_relevant`, optional `attribution`. ID convention `arch-YYYY-MM-DD-NNN`. 90-day re-propose suppression on rejected. `source: original`.
+- **`memory_templates/architect_proposals/latest.md`** - empty bootstrap backlog with the five section headings. Installed once on first run; never overwritten (the user's accumulated backlog is preserved across `install.sh --update-only` runs).
+- **`memory_templates/feedback_architect_auto_apply.md`** - operating rule. Architect Lens proposals that are SMALL same-turn fixes (file rename, typo, missing pointer, stale fact) apply immediately with a checker pass. Excludes destructive ops, external posts, large structural changes, and conflicts with MANDATORY rules. `source: original`.
+- **`memory_templates/feedback_architect_proposals_backlog.md`** - operating rule. Every Architect-Lens output, ad-hoc architectural insight, and nightly reflection/research finding gets persisted to the backlog. Co-exists with the auto-apply rule: small things go in as `status: applied`, large structural things go in as `status: open` for explicit approval. Privacy invariant: backlog is local-only, never included in any public export. `source: original`.
+- **`install.sh` Step 6.1** - bootstraps `~/Desktop/claude/memory/architect_proposals/` on install. `_PROTOCOL.md` is smart-merged every run (schema can evolve); `latest.md` is created once and never overwritten. Adds `archive/` subdirectory for monthly snapshots.
+
+### Changed
+- **`templates/critical-rules.md.template`** - new "System self-improvement" section adds one-line pointers to the auto-apply rule and the backlog rule.
+- **`templates/morning_briefing_skill.md.template`** - new input #7 reads the backlog's `## Open` section for top-3 proposals to surface in the Architect lens. New "Architect proposals - write step" section requires persisting every Architect insight to the backlog before exiting (small auto-applied ones with `status: applied`, larger ones with `status: open`). New rule in the "what NOT to do" list: don't re-surface proposals already in `Rejected` unless 90 days have passed.
+
+### Privacy invariants (new in this release)
+- The architect proposals backlog (`memory/architect_proposals/latest.md` and its archive) is LOCAL ONLY. Never include in any public export of your dotfiles or workspace. Briefings reformulate proposals into their own voice; never quote raw backlog text in a brief.
+- External-research findings that go into the backlog reference public URLs; those URLs are public so they can be shown. Your specific workstreams are private; do not echo workstream context to external surfaces.
+
+### Notes
+- The dream-v2 / nightly reflection skill is NOT shipped in this repo. The backlog pattern works standalone (morning briefing + ad-hoc session writes are enough to make it useful). If you wire a custom nightly reflection skill, the `_PROTOCOL.md` "Promotion rules" section documents how it should read the backlog and how to filter external-research candidates against your own workstreams. A reference implementation lives in the maintainer's private system but ships separately when generalised.
+
 ## [2026-05-08] - Contact enrichment Pass 4 (correspondence scan + TG manual-paste flag)
 
 ### Added
