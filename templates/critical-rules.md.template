@@ -34,6 +34,11 @@ This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Cla
 
 - **Deploy immediately** when work is ready — don't ask "should I deploy?" if the workflow expects ship-after-pass. → `feedback_deploy_immediately.md`
 
+## System self-improvement
+
+- **Architect Lens auto-apply** — proposals from a morning-briefing AI Architect Lens (or any reflective audit step) apply same-turn with a checker pass; just report what shipped. Excludes destructive ops, external posts, and conflicts with MANDATORY rules. → `feedback_architect_auto_apply.md`
+- **Architect proposals backlog** — every Architect-Lens output, ad-hoc architectural insight, and nightly reflection/research finding is persisted to `~/Desktop/claude/memory/architect_proposals/latest.md`. Lifecycle: open → accepted → applied | rejected | obsolete. Morning brief surfaces top-3 open; if you wire a nightly reflection skill, it reviews all open + adds new candidates from external sources of your choice. 90-day re-propose suppression on rejected. Large structural changes NEVER auto-apply. → `feedback_architect_proposals_backlog.md`
+
 ## How to use this file
 
 1. The file is loaded unconditionally at the start of each session (Claude Code auto-includes `~/.claude/rules/*.md`).

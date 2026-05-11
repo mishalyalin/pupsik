@@ -320,6 +320,22 @@ for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
   smart_merge_file "$f" "$target" "$name"
 done
 
+# ---------- Step 6.1: architect proposals backlog (bootstrap) ----------
+# The backlog directory lives under the WORKSPACE memory dir (it's data the
+# user accumulates over time), not the per-project Claude Code memory dir.
+# We bootstrap _PROTOCOL.md (schema) every run, and latest.md only on first
+# install — never overwrite the user's accumulated backlog.
+say "Bootstrapping architect proposals backlog..."
+ARCH_DIR="$WORKSPACE/memory/architect_proposals"
+mkdir -p "$ARCH_DIR/archive"
+smart_merge_file "$SCRIPT_DIR/memory_templates/architect_proposals/_PROTOCOL.md" "$ARCH_DIR/_PROTOCOL.md" "architect_proposals/_PROTOCOL.md"
+if [ ! -f "$ARCH_DIR/latest.md" ]; then
+  cp "$SCRIPT_DIR/memory_templates/architect_proposals/latest.md" "$ARCH_DIR/latest.md"
+  say "  new: architect_proposals/latest.md (empty bootstrap)"
+else
+  say "  architect_proposals/latest.md: kept (your accumulated backlog)"
+fi
+
 # ---------- Step 6.5: critical-rules.md (smart append-only merge) ----------
 say "Installing critical-rules.md..."
 RULES_DIR="$HOME/.claude/rules"
