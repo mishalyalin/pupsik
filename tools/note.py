@@ -73,6 +73,8 @@ LEARNINGS_DIR = BASE_DIR / "memory" / "learnings"
 DECISIONS_DIR = BASE_DIR / "memory" / "decisions"
 RESEARCH_DIR = BASE_DIR / "research"
 FRICTION_DIR = BASE_DIR / "memory" / "friction"
+WORLD_KNOWLEDGE_DIR = BASE_DIR / "memory" / "world_knowledge"
+USER_CONTEXT_DIR = BASE_DIR / "memory" / "user_context"
 MEMORY_SEARCH = BASE_DIR / "tools" / "memory_search.py"
 
 TYPE_DIRS = {
@@ -80,6 +82,8 @@ TYPE_DIRS = {
     "decision": DECISIONS_DIR,
     "research": RESEARCH_DIR,
     "friction": FRICTION_DIR,
+    "world_knowledge": WORLD_KNOWLEDGE_DIR,
+    "user_context": USER_CONTEXT_DIR,
 }
 
 # Severity ordering (low -> high) used for sort/aggregation.
@@ -986,6 +990,33 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--tags", help="Comma-separated tags (merged with existing on upsert).")
     pr.add_argument("--project", help="Optional project name.")
     pr.set_defaults(func=lambda a: cmd_capture(a, "research"))
+
+    # world_knowledge - general facts not project-specific (VAT rates, regulatory
+    # limits, industry conventions). Schema cherry-picked from obra/superpowers
+    # private-journal-mcp (MIT). Uses same upsert-by-slug + ChromaDB reindex as
+    # learning/decision/research; lives in memory/world_knowledge/.
+    pw = sub.add_parser(
+        "world_knowledge",
+        help="Capture a general fact not tied to a specific project (e.g. VAT rate, regulatory limit).",
+    )
+    add_common(pw)
+    pw.add_argument("--tags", help="Comma-separated tags (merged with existing on upsert).")
+    pw.add_argument("--project", help="Optional project name (rarely used for world_knowledge).")
+    pw.set_defaults(func=lambda a: cmd_capture(a, "world_knowledge"))
+
+    # user_context - the user's preferences, working style, recurring patterns
+    # that are NOT feedback rules. Schema cherry-picked from obra/superpowers
+    # private-journal-mcp (MIT). For schedule, energy patterns, environmental
+    # constraints (e.g. exercises Mon/Wed/Fri 10am, prefers afternoon for deep
+    # work, back pain triggered by long flights).
+    pu = sub.add_parser(
+        "user_context",
+        help="Capture a user preference/pattern/working-style fact (NOT a feedback rule).",
+    )
+    add_common(pu)
+    pu.add_argument("--tags", help="Comma-separated tags (merged with existing on upsert).")
+    pu.add_argument("--project", help="Optional project name (rarely used for user_context).")
+    pu.set_defaults(func=lambda a: cmd_capture(a, "user_context"))
 
     # friction (sub-sub-commands: default = log a new event; summary = aggregate)
     pf = sub.add_parser(
