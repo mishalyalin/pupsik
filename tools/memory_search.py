@@ -8,9 +8,10 @@ Indexes:
   - memory_files      - CLAUDE.md, MEMORY.md, memory/*.md (feedback rules, project docs)
   - chat_archives     - WhatsApp / Telegram exports
   - briefings         - daily morning briefings (~/Desktop/claude/briefings/*.md)
-  - outputs           - everything Claude+Misha produced (~/Desktop/claude/outputs/**/*.md)
+  - outputs           - everything Claude+the user produced (~/Desktop/claude/outputs/**/*.md)
   - journal           - daily journal entries (~/Desktop/claude/memory/journal/*.md)
-  - knowledge         - atomic learnings + decisions (memory/learnings + memory/decisions)
+  - knowledge         - atomic learnings + decisions + world_knowledge + user_context
+                        (memory/learnings + memory/decisions + memory/world_knowledge + memory/user_context)
   - research          - long-form research notes (~/Desktop/claude/research/**/*.md)
 
 Usage:
@@ -58,6 +59,8 @@ LEARNINGS_DIR = BASE_DIR / "memory" / "learnings"
 DECISIONS_DIR = BASE_DIR / "memory" / "decisions"
 RESEARCH_DIR = BASE_DIR / "research"
 FRICTION_DIR = BASE_DIR / "memory" / "friction"
+WORLD_KNOWLEDGE_DIR = BASE_DIR / "memory" / "world_knowledge"
+USER_CONTEXT_DIR = BASE_DIR / "memory" / "user_context"
 
 # Collections
 COLL_CONTACTS = "contacts"
@@ -575,11 +578,18 @@ def _journal_meta(p: Path):
 
 
 def _knowledge_meta_for(p: Path):
-    """Knowledge collection covers learnings + decisions; subtype derived from path."""
+    """Knowledge collection covers learnings + decisions + world_knowledge +
+    user_context; subtype derived from path. world_knowledge / user_context
+    schema cherry-picked from obra/superpowers private-journal-mcp (MIT).
+    """
     if LEARNINGS_DIR in p.parents or p.parent == LEARNINGS_DIR:
         subtype = "learning"
     elif DECISIONS_DIR in p.parents or p.parent == DECISIONS_DIR:
         subtype = "decision"
+    elif WORLD_KNOWLEDGE_DIR in p.parents or p.parent == WORLD_KNOWLEDGE_DIR:
+        subtype = "world_knowledge"
+    elif USER_CONTEXT_DIR in p.parents or p.parent == USER_CONTEXT_DIR:
+        subtype = "user_context"
     else:
         subtype = "knowledge"
     return {
@@ -655,12 +665,19 @@ def index_journal(client):
 
 
 def index_knowledge(client):
-    """Index atomic learnings + decisions into one `knowledge` collection."""
+    """Index atomic learnings + decisions + world_knowledge + user_context
+    into one `knowledge` collection. world_knowledge / user_context schema
+    cherry-picked from obra/superpowers private-journal-mcp (MIT).
+    """
     files = []
     if LEARNINGS_DIR.exists():
         files.extend(sorted(LEARNINGS_DIR.glob("*.md")))
     if DECISIONS_DIR.exists():
         files.extend(sorted(DECISIONS_DIR.glob("*.md")))
+    if WORLD_KNOWLEDGE_DIR.exists():
+        files.extend(sorted(WORLD_KNOWLEDGE_DIR.glob("*.md")))
+    if USER_CONTEXT_DIR.exists():
+        files.extend(sorted(USER_CONTEXT_DIR.glob("*.md")))
     if not files:
         return 0
     return _index_md_dir(
@@ -703,7 +720,9 @@ def _detect_collection_for(path: Path) -> str | None:
         return COLL_OUTPUTS
     if JOURNAL_DIR in parents and path.suffix == ".md":
         return COLL_JOURNAL
-    if (LEARNINGS_DIR in parents or DECISIONS_DIR in parents) and path.suffix == ".md":
+    if (LEARNINGS_DIR in parents or DECISIONS_DIR in parents
+            or WORLD_KNOWLEDGE_DIR in parents or USER_CONTEXT_DIR in parents) \
+            and path.suffix == ".md":
         return COLL_KNOWLEDGE
     if RESEARCH_DIR in parents and path.suffix == ".md":
         return COLL_RESEARCH
@@ -937,7 +956,12 @@ def wake_up():
         return files[:n]
 
     know_titles = []
-    for d, label in [(DECISIONS_DIR, "decision"), (LEARNINGS_DIR, "learning")]:
+    for d, label in [
+        (DECISIONS_DIR, "decision"),
+        (LEARNINGS_DIR, "learning"),
+        (WORLD_KNOWLEDGE_DIR, "world"),
+        (USER_CONTEXT_DIR, "user"),
+    ]:
         for p in _latest(d, 2):
             know_titles.append(f"{label}:{p.stem}")
     if know_titles:

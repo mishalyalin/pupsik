@@ -26,6 +26,29 @@ License compatibility note: this toolkit is MIT-licensed (see `LICENSE`). Import
 
 **Output Rules** - taken verbatim with attribution: 4 rules (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality). Adapted: examples reframed for this toolkit's voice. Our additions: cross-references to the 7 pre-existing per-rule feedback files in `memory_templates/` (short dashes, no Office, save outputs, verify before showing, weekday-from-iso, kids' names exactness, never-extract-signatures); together the 11 form a single cross-cutting checklist.
 
+## obra/superpowers (Jesse Vincent)
+
+- **Source:** https://github.com/obra/superpowers
+- **Related repo:** https://github.com/obra/private-journal-mcp (schema source for the knowledge sub-collections below)
+- **Author:** Jesse Vincent
+- **License:** MIT (verified via the upstream repo's `LICENSE` file)
+- **What it is:** A library of Claude Code skills plus a private-journal MCP that categorises atomic notes into project/world/user buckets.
+- **Why we drew from it:** Two debugging-discipline rules (systematic phase walk + plan specificity) and the world/user knowledge category split fit cleanly on top of this toolkit's existing `note.py` + ChromaDB stack.
+
+| Imported pattern | Source file in obra/superpowers | Date | Adaptation type | Our location |
+|------------------|---------------------------------|------|-----------------|--------------|
+| Systematic Debugging (4-phase rubric + hard gates) | `skills/systematic-debugging` | 2026-05-13 | adapted | `memory_templates/feedback_systematic_debugging.md` |
+| Junior-Engineer Plan Test (writing-plans specificity rubric) | `skills/writing-plans` | 2026-05-13 | adapted | `memory_templates/feedback_junior_engineer_plan_test.md` |
+| World / User knowledge categories (schema only, not the MCP server) | `obra/private-journal-mcp` (related repo) | 2026-05-13 | schema-only cherry-pick | `tools/note.py` (subcommands), `tools/memory_search.py` (knowledge subtype), `memory_templates/world_knowledge/_PROTOCOL.md`, `memory_templates/user_context/_PROTOCOL.md` |
+
+### Adaptation notes
+
+**Systematic Debugging** - taken verbatim: the 4-phase rubric (Reproduce / Isolate / Diagnose / Fix) and the hard-gate framing ("no fix before isolation", "no phase 3 skip", "stop at 30 minutes without isolation"). Adapted: phrased as a user-voice feedback rule in this toolkit's style; cross-referenced against the 2-agent rule and the capture-knowledge rule (a phase-3 root-cause claim is exactly what `note.py learning` is for).
+
+**Junior-Engineer Plan Test** - taken verbatim: the "an enthusiastic junior engineer could execute it cold, without coming back with questions" framing and the pass/fail criteria shape (absolute paths, exact commands, explicit success criteria, named assumptions). Adapted: phrased as a user-voice feedback rule; generic bad/good examples replace the original's specific examples; cross-referenced against the 2-agent rule (a Checker can only verify if the brief was specific enough) and against the systematic-debugging rule (a Phase 2 isolation statement is itself a junior-engineer-plan-test for bugfix work).
+
+**World / User knowledge categories** - taken verbatim: the category concept (world_knowledge = facts about the world, user_context = facts about the user). NOT taken: the MCP-server implementation (this toolkit uses `note.py` + the existing ChromaDB knowledge collection). Adapted: storage as per-file markdown in `memory/world_knowledge/` and `memory/user_context/`; upsert-by-slug semantics matching the learning/decision/research types; surfaces via `memory_search.py search` with `subtype: world_knowledge` / `subtype: user_context`. Our additions: explicit separation from `feedback_*.md` files (those are prescriptive rules Claude MUST follow; user_context is descriptive observations for planning).
+
 ## How attribution lives in the codebase
 
 For every import, attribution is layered in 5 places (overkill is intentional - any single layer can drift, but five together do not):

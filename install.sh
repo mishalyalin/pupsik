@@ -336,6 +336,21 @@ else
   say "  architect_proposals/latest.md: kept (your accumulated backlog)"
 fi
 
+# ---------- Step 6.2: world_knowledge + user_context (bootstrap) ----------
+# Two ChromaDB knowledge sub-collections cherry-picked from obra/superpowers
+# private-journal-mcp (Jesse Vincent, MIT). Each directory lives under the
+# WORKSPACE memory dir alongside learnings/ and decisions/.
+#
+# We smart-merge _PROTOCOL.md every run so the schema can evolve across
+# upgrades. We do NOT bootstrap any seed notes - the user creates entries
+# via `note.py world_knowledge` / `note.py user_context` as facts arise.
+say "Bootstrapping world_knowledge + user_context directories..."
+for kind in world_knowledge user_context; do
+  KIND_DIR="$WORKSPACE/memory/$kind"
+  mkdir -p "$KIND_DIR"
+  smart_merge_file "$SCRIPT_DIR/memory_templates/$kind/_PROTOCOL.md" "$KIND_DIR/_PROTOCOL.md" "$kind/_PROTOCOL.md"
+done
+
 # ---------- Step 6.5: critical-rules.md (smart append-only merge) ----------
 say "Installing critical-rules.md..."
 RULES_DIR="$HOME/.claude/rules"

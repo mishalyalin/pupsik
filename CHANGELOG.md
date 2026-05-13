@@ -5,6 +5,29 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-13] - obra/superpowers cherry-picks (debugging rubric + plan test + knowledge sub-collections)
+
+### Added
+- **`memory_templates/feedback_systematic_debugging.md`** - operating rule. 4-phase debugging rubric (Reproduce / Isolate / Diagnose / Fix) with hard gates: no fix before isolation, no phase-3 skip, stop at 30 minutes without isolation. Adapted from obra/superpowers `skills/systematic-debugging` (Jesse Vincent, MIT).
+- **`memory_templates/feedback_junior_engineer_plan_test.md`** - operating rule. "A plan is good only when an enthusiastic junior engineer could execute it cold, without coming back with questions." Applies to Worker briefs, implementation plans, decision notes, PR descriptions, and briefing action items. Adapted from obra/superpowers `skills/writing-plans` (Jesse Vincent, MIT).
+- **`memory_templates/world_knowledge/_PROTOCOL.md`** - schema for a new ChromaDB knowledge sub-collection covering general facts not tied to a specific project (VAT rates, regulatory limits, industry conventions). Cherry-picked from obra/private-journal-mcp (related repo, MIT).
+- **`memory_templates/user_context/_PROTOCOL.md`** - schema for a new ChromaDB knowledge sub-collection covering the user's preferences, working style, and recurring patterns. Distinct from `feedback_*.md` (those are prescriptive rules Claude MUST follow; user_context is descriptive observations to inform planning). Cherry-picked from obra/private-journal-mcp (related repo, MIT).
+- **`install.sh` Step 6.2** - bootstraps `~/Desktop/claude/memory/world_knowledge/` and `~/Desktop/claude/memory/user_context/` on install. `_PROTOCOL.md` is smart-merged every run so the schema can evolve across upgrades. No seed notes are bootstrapped - the user creates entries as facts arise.
+
+### Changed
+- **`tools/note.py`** - two new subcommands: `note.py world_knowledge "Title" "Body"` and `note.py user_context "Title" "Body"`. Same upsert-by-slug semantics as learning/decision/research; same `--body-file` / `--body-stdin` / `--tags` / `--project` flags; same ChromaDB single-file reindex hook. New directories: `WORLD_KNOWLEDGE_DIR` and `USER_CONTEXT_DIR` constants added to `TYPE_DIRS`.
+- **`tools/memory_search.py`** - knowledge collection extended. `_knowledge_meta_for` now derives `subtype: world_knowledge` and `subtype: user_context` from path. `index_knowledge` indexes both new directories alongside learnings + decisions. `_detect_collection_for` routes single-file upserts in the new directories to the knowledge collection. The `wake-up` summary surfaces the latest 2 notes from each of the 4 knowledge sub-collections (decision / learning / world / user). Module docstring updated to describe the 4-way knowledge collection contents.
+- **`THIRD_PARTY_ATTRIBUTIONS.md`** - new section "obra/superpowers (Jesse Vincent)" with source URL, MIT license verification, and a 3-row import table covering all three cherry-picks in this release.
+- **`README.md`** - feedback-rule count bumped from 19 to 21. New one-line mention of the world_knowledge + user_context knowledge sub-collections in the "What's in it" list, alongside the existing `note.py` bullet.
+
+### Privacy invariants (new in this release)
+- `memory/user_context/` may contain personal information about the operator (sleep schedule, health constraints, family rhythms). Treat the directory as local-only: never include in public exports of dotfiles or configuration. If you fork this toolkit, scrub any inherited examples and start your own from scratch.
+- `memory/world_knowledge/` is intended to be portable across operators (regulations, industry facts, tool defaults) but may pick up project-specific context if the operator drifts. Keep an eye on what lands there during regular memory audits.
+
+### Notes
+- The new subcommands are additive: existing `note.py learning|decision|research|friction` flows are unchanged. Existing pupsik installs upgrade safely via `install.sh --update-only`.
+- No new ChromaDB collection is created. world_knowledge and user_context share the existing `knowledge` collection (along with learnings + decisions); the `subtype` metadata field discriminates.
+
 ## [2026-05-11] - Architect proposals backlog
 
 ### Added
