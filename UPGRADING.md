@@ -111,6 +111,57 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
 
+### 2026-05-14 release: date-aware session anchor + connection-aware memory graph
+
+This release adds two big things: a date/timezone anchor injected at session start (kills the "Claude thinks today is six months ago" failure mode) and a connection-aware memory graph that surfaces clusters of related notes in `wake-up`. It also introduces the `VERSION` file + `update.sh` notification flow, so future upgrades show you a summary of what changed instead of just rsync output.
+
+No breaking changes. All existing flows continue to work.
+
+1. **Install the `networkx` dependency** (new, for the graph layer):
+
+   ```bash
+   pip3 install --user networkx
+   ```
+
+2. **Run the smart-merge update** (picks up `now.py`, `note_graph.py`, `note_graph_schema.py`, the new feedback rule, the updated `note.py` / `memory_search.py` / `update.sh`, and the new `session-start-reminder.sh` hook):
+
+   ```bash
+   bash tools/update.sh
+   ```
+
+   The schema migration (`note_graph_schema.py`) is idempotent and auto-runs on first `note.py` invocation after the upgrade. No manual step needed.
+
+3. **Wire the SessionStart hook into `~/.claude/settings.json`.** Open `~/.claude/settings.json` and merge this into the `hooks` block (replace `<HOME>` with your actual home path):
+
+   ```json
+   {
+     "hooks": {
+       "SessionStart": [
+         {
+           "matcher": "*",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "<HOME>/Desktop/claude/.claude/hooks/session-start-reminder.sh",
+               "timeout": 5
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   The hook is OPT-IN: nothing breaks if you skip it, but the date anchor only fires if you wire it.
+
+4. **(Optional) Backfill the graph from your existing notes.** One-time pass that indexes everything you've written so far (takes 30-60 seconds depending on note count):
+
+   ```bash
+   python3 ~/Desktop/claude/tools/note_graph.py backfill
+   ```
+
+   After backfill, `memory_search.py wake-up` will start including the "Active clusters (last 7d)" block.
+
 ### 2026-05-07 release: doctor + friction protocol + Output Rules
 
 After running `bash tools/update.sh` (or `install.sh --update-only`):
