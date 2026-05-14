@@ -543,7 +543,7 @@ def build_alias_index(entities: list[dict]) -> tuple[re.Pattern | None, dict[str
     topic), so the value is a list.
 
     Aliases are sorted longest-first inside the regex so a longer match wins
-    over a shorter contained one (e.g. "Joe Lound" beats "Lound").
+    over a shorter contained one (e.g. "Alice Johnson" beats "Johnson").
     """
     alias_to_ids: dict[str, list[int]] = {}
     for e in entities:
@@ -1578,7 +1578,7 @@ def cmd_export_wikilinks(args) -> int:
             ).fetchall()
 
             # Inject [[Entity Name]] on first occurrence of each entity.
-            # Sort longest-first so "Steve Aylott" wraps before bare "Steve".
+            # Sort longest-first so "Alice Smith" wraps before bare "Alice".
             entity_names = sorted(
                 {er["name"] for er in ent_rows},
                 key=lambda n: (-len(n), n),
