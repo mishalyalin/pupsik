@@ -562,6 +562,29 @@ else
   fi
 fi
 
+# ---------- Step 11: record current VERSION to state file ----------
+# Records the current VERSION so future update.sh runs only show notifications
+# for NEW changes, not the full release history.
+#
+# Behaviour:
+#   - Fresh install: silently record current VERSION.
+#   - --update-only on a pre-version-system install (no state file): print a
+#     one-time "Pupsik now uses version tracking - you're on $VERSION" message
+#     instead of letting update.sh spam the user with the entire history.
+PUPSIK_STATE_DIR="$HOME/.pupsik-state"
+PUPSIK_STATE_FILE="$PUPSIK_STATE_DIR/last-applied-version"
+if [ -f "$SCRIPT_DIR/VERSION" ]; then
+  CURRENT_VERSION="$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo)"
+  if [ -n "$CURRENT_VERSION" ]; then
+    mkdir -p "$PUPSIK_STATE_DIR"
+    if [ "$UPDATE_ONLY" = "1" ] && [ ! -f "$PUPSIK_STATE_FILE" ]; then
+      say "Pupsik now uses version tracking - you're on $CURRENT_VERSION."
+      say "Future update.sh runs will only show notifications for NEW releases."
+    fi
+    echo "$CURRENT_VERSION" > "$PUPSIK_STATE_FILE"
+  fi
+fi
+
 # ---------- Done ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
   # Print smart-merge tally; update.sh also reads $SMART_LOG.

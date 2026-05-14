@@ -971,7 +971,42 @@ def wake_up():
     if journal_files:
         l1_parts.append("\nJournal: " + ", ".join(p.stem for p in journal_files))
 
+    # Active clusters (from note_graph.py). Best-effort: skip silently on any
+    # failure so wake-up never regresses if the graph layer is unavailable.
+    clusters_block = _wake_up_clusters_block()
+    if clusters_block:
+        l1_parts.append("\n" + clusters_block)
+
     return l0 + "\n".join(l1_parts)
+
+
+def _wake_up_clusters_block(timeout_sec: float = 3.0) -> str:
+    """Invoke note_graph.py clusters and return its output, or "" on failure.
+
+    Wrapped in broad try/except so wake-up never crashes on a missing or broken
+    graph layer. Returns empty string if no clusters found (avoids noise).
+    """
+    note_graph = BASE_DIR / "tools" / "note_graph.py"
+    if not note_graph.exists():
+        return ""
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, str(note_graph), "clusters",
+             "--days", "7", "--min-notes", "3", "--min-weight", "0.05"],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+        )
+        if result.returncode != 0:
+            return ""
+        out = (result.stdout or "").strip()
+        # Skip empty / "no clusters" placeholder output to avoid noise.
+        if not out or out.lower().startswith("no clusters") or out.lower().startswith("no notes"):
+            return ""
+        return out
+    except Exception:
+        return ""
 
 
 def stats():

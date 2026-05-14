@@ -76,6 +76,7 @@ FRICTION_DIR = BASE_DIR / "memory" / "friction"
 WORLD_KNOWLEDGE_DIR = BASE_DIR / "memory" / "world_knowledge"
 USER_CONTEXT_DIR = BASE_DIR / "memory" / "user_context"
 MEMORY_SEARCH = BASE_DIR / "tools" / "memory_search.py"
+NOTE_GRAPH = BASE_DIR / "tools" / "note_graph.py"
 
 TYPE_DIRS = {
     "learning": LEARNINGS_DIR,
@@ -347,6 +348,28 @@ def reindex(file_path: Path | None = None, background: bool = True) -> None:
         print(f"warn: reindex failed: {e}", file=sys.stderr)
 
 
+def _trigger_graph_extract(file_path: Path) -> None:
+    """Fire-and-forget update of the note_graph (entities + edges) for one file.
+
+    Mirrors `reindex()` semantics: background Popen, DEVNULL stdio, no blocking,
+    best-effort. Any failure is swallowed so it never blocks the note write.
+    Skips silently if tools/note_graph.py is absent (back-compat).
+    """
+    if not NOTE_GRAPH.exists():
+        return
+    cmd = [sys.executable, str(NOTE_GRAPH), "extract", str(file_path)]
+    try:
+        subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print("graph: extract queued (background)")
+    except Exception as e:
+        print(f"warn: graph extract failed: {e}", file=sys.stderr)
+
+
 def write_note(
     note_type: str,
     title: str,
@@ -462,6 +485,8 @@ def write_note(
 
     if do_reindex:
         reindex(file_path=target_path, background=True)
+        # Update note_graph (entities + edges) - same fire-and-forget pattern as reindex.
+        _trigger_graph_extract(target_path)
 
     return target_path, action
 
@@ -785,6 +810,8 @@ def write_friction(
 
     if do_reindex:
         reindex(file_path=target_path, background=True)
+        # Update note_graph (entities + edges) - same fire-and-forget pattern as reindex.
+        _trigger_graph_extract(target_path)
 
     return target_path, action, final_counter
 

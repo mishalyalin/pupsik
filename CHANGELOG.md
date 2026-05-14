@@ -5,6 +5,32 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-14] - Date-aware session anchor + connection-aware memory graph
+
+### Added
+- **`tools/now.py`** - single source of truth for current datetime. Auto-detects IANA timezone from `/etc/localtime` symlink on macOS/Linux. 4 output modes (default / `--short` / `--json` / `--anchor`) + `--tz <IANA>` override. Latency ~35ms. Used by SessionStart hook to inject a hard time anchor that prevents Claude from pattern-matching dates from stale conversation context.
+- **`tools/note_graph.py`** - connection-aware memory graph layer. Builds entity-mention edges across all your `memory/`, `outputs/`, `briefings/`, `research/` notes. 7 subcommands: `backfill` / `extract` / `related` / `entity` / `graph` / `clusters` / `export-wikilinks`. Uses Louvain modularity + TF-ICF labels to surface 5-10 tight thematic clusters from your last 7 days of notes.
+- **`tools/note_graph_schema.py`** - idempotent migration script that adds 4 SQL tables to your existing `contacts.db`: `entities`, `notes`, `note_entity_edges`, `note_note_edges`. Existing contacts/companies/interactions are untouched.
+- **`hooks/session-start-reminder.sh`** - NEW SessionStart hook. Injects `⏰ NOW: YYYY-MM-DD (Weekday), HH:MM TZ. Local zone: <IANA> - You are in <city>` anchor at the top of every session's context. Also includes the existing CLAUDE.md staleness check + critical-rules pointer.
+- **`memory_templates/feedback_know_current_datetime.md`** - operating rule. NEVER hard-code timezone or location. NEVER treat the actual current date as future. Trust the SessionStart anchor over any date pattern-matched from prior context. Re-run `now.py --short` before any date reference if there's doubt.
+- **`VERSION`** - new file at repo root. Single-line semver-ish identifier (`YYYY-MM-DD.N`). Used by `update.sh` to detect upgrades and surface CHANGELOG deltas.
+
+### Changed
+- **`tools/update.sh`** - now detects when you upgrade across releases and prints a formatted summary of CHANGELOG entries between your old version and the new one. Adds a `--quiet` flag for headless/CI use.
+- **`tools/note.py`** - new fire-and-forget hook: every `note.py learning|decision|research|world_knowledge|user_context|friction` invocation now auto-indexes the new note into the graph via `note_graph.py extract` in the background. Sub-1-second latency, never blocks the foreground write.
+- **`tools/memory_search.py`** - `wake_up` summary now includes an "Active clusters (last 7d)" block. Pulls top 5-10 thematic clusters from `note_graph.py clusters` with timeout-protected subprocess call.
+- **`install.sh`** - records current VERSION to `~/.pupsik-state/last-applied-version` on first install, so subsequent `update.sh` runs only surface CHANGELOG entries for NEW releases.
+- **`templates/critical-rules.md.template`** - new first MANDATORY-protocols bullet: "Know current datetime + location" pointing at the new feedback rule.
+
+### Privacy invariants (new in this release)
+- `~/.pupsik-state/last-applied-version` is a local-only file. Never commit to any repo.
+- The graph layer (`note_graph_schema.py`) adds tables to your existing `contacts.db` but does NOT introduce any new data outside what your notes already contain. Entity extraction is regex-based on note bodies, no external API calls.
+
+### Notes
+- The new tools are additive. Existing `note.py learning|...` flows are unchanged.
+- The graph layer needs `networkx` (pip install networkx). The schema migration is idempotent (re-running is safe).
+- The SessionStart hook is OPT-IN: you wire it into your `~/.claude/settings.json` hooks list yourself. See `install.sh` output for the JSON snippet to add.
+
 ## [2026-05-13] - obra/superpowers cherry-picks (debugging rubric + plan test + knowledge sub-collections)
 
 ### Added
