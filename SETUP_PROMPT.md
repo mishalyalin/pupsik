@@ -60,6 +60,8 @@ Spawn Tester with these checks:
 - [ ] A test Gmail query (`gmail_search_all` for "test") completes without auth errors
 - [ ] `~/Desktop/claude/.claude/hooks/pre-compact.sh` runs without errors when given `{}` on stdin
 - [ ] The new session reads `CLAUDE.md` and confirms the 2-agent rule when asked
+- [ ] `python3 ~/Desktop/claude/tools/rules.py list` prints the installed feedback rules
+- [ ] `python3 ~/Desktop/claude/tools/rules.py search "outbound email"` returns at least one matched rule with full text. `rules.py search "<topic>"` is the canonical way for the agent to pull the full verification protocol before any non-trivial outbound work.
 
 Tester reports PASS / FAIL with everything itemized. Any FAIL = we fix before declaring done.
 
