@@ -227,6 +227,31 @@ MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"            
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
 
+# Dashboard module
+say ""
+say "Step 3.5: Copy dashboard module..."
+mkdir -p "$WORKSPACE/dashboard" "$WORKSPACE/scripts" "$WORKSPACE/state/dashboard/archive"
+smart_merge_file "$SCRIPT_DIR/dashboard/build.py"   "$WORKSPACE/dashboard/build.py"   "dashboard/build.py"
+smart_merge_file "$SCRIPT_DIR/dashboard/styles.css" "$WORKSPACE/dashboard/styles.css" "dashboard/styles.css"
+smart_merge_file "$SCRIPT_DIR/dashboard/favicon.svg" "$WORKSPACE/dashboard/favicon.svg" "dashboard/favicon.svg"
+smart_merge_file "$SCRIPT_DIR/dashboard/NOTICE.md"  "$WORKSPACE/dashboard/NOTICE.md"  "dashboard/NOTICE.md"
+smart_merge_file "$SCRIPT_DIR/dashboard/README.md"  "$WORKSPACE/dashboard/README.md"  "dashboard/README.md"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/morning-dashboard.sh" "$WORKSPACE/scripts/morning-dashboard.sh" "scripts/morning-dashboard.sh"
+
+# Optional dash shortcut on PATH (~/.local/bin/dash)
+if [ -d "$HOME/.local/bin" ]; then
+  DASH_BIN="$HOME/.local/bin/dash"
+  if [ ! -e "$DASH_BIN" ]; then
+    cat > "$DASH_BIN" <<DASH_EOF
+#!/usr/bin/env bash
+# dash - morning dashboard launcher (rebuild + open in browser)
+exec bash "$WORKSPACE/scripts/morning-dashboard.sh" "\$@"
+DASH_EOF
+    chmod +x "$DASH_BIN"
+    say "  created dash shortcut at $DASH_BIN"
+  fi
+fi
+
 # ---------- Step 4 + 5: render templates ----------
 render_template() {
   local src="$1"

@@ -5,6 +5,32 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-19.2] - Morning dashboard module (markdown-in, HTML-out, six tabs)
+
+### Added
+- **`dashboard/build.py`** - renderer for a single-page HTML dashboard pulling from existing workspace artifacts. Six numbered sections - Today (briefing) / Projects (CLAUDE.md ## Active Projects, as a 3-column grid of cards with checkboxes) / Upcoming (## Upcoming, same layout) / Pulse (curated industry narrative from `dashboard/pulse-deep.md` or briefing `## Pulse` section) / Architect (`memory/architect_proposals/latest.md`) / Knowledge (last 7 days of decisions + learnings). Python stdlib only - no pip install, no server.
+- **`dashboard/styles.css`** - visual layer. Cream `#faf8f3` background, charcoal text, numbered chips, 1080px max-width, monospace for commands, no emojis. Aesthetic adapted from [impeccable.style](https://impeccable.style/) (vocabulary only - no assets copied).
+- **`dashboard/favicon.svg`** - red rounded square with cream "P" mark. 215 bytes. Customise colour by editing the `fill` attribute.
+- **`dashboard/NOTICE.md`** + **`dashboard/README.md`** - attribution + user-facing docs covering env-var configuration (PULSE_HEADERS / STATUS_KEYWORDS), checkbox persistence, optional VPS deploy for Telegram-bookmark access.
+- **`scripts/morning-dashboard.sh`** - one-shot launcher: rebuilds against current artifacts, optionally rsyncs to a VPS (if `DASHBOARD_VPS_HOST` + `DASHBOARD_VPS_PATH` env vars set), then opens in default browser.
+- **`install.sh`** Step 3.5 - copies dashboard files into the workspace and optionally creates a `dash` shortcut at `~/.local/bin/dash` if that directory is on PATH.
+
+### Highlights
+- **Six-tab pattern** adapted from [ilyyyyyyya/suma-starter](https://github.com/ilyyyyyyya/suma-starter) (clean-room reimplementation - source repo carries no LICENSE at time of adaptation).
+- **Cards with persistent checkboxes**. State stored in `localStorage`, keyed by stable SHA256 of section + title. Checking a card moves it to a collapsed "closed" zone at the bottom of the section; state survives across reloads AND across days. Cards only resurface if the title changes in `CLAUDE.md` (which yields a new hash). Export button downloads `dashboard-closed.json` for your morning-briefing skill to ingest.
+- **Pulse layered fallback**. `dashboard/pulse-deep.md` takes priority if present (point a research agent at it). Falls back to the briefing's `## Pulse` section, then to the most recent briefing with a Pulse section, then to an empty-state message.
+- **Hardened markdown rendering**. Inline links restricted to `http(s)://`, `mailto:`, `#`, or absolute paths via `safe_href()` allowlist - blocks `javascript:` and `data:` URL schemes that could land in user-generated decisions/learnings.
+- **Emoji stripping**. Honours the impeccable.style "no emojis" aesthetic across cards, headings, and Pulse content. Coverage tested against 5 Unicode blocks (symbols, transport, regional flags, enclosed alphanumerics, variation selectors).
+- **Status keywords** highlighted inline as monospace pills (DELIVERED / OVERDUE / PAID / ACTIVE / BLOCKED / PENDING / MISSED / ESCALATED / SHIPPED / LOCKED / CONFIRMED / RESOLVED / REJECTED). Override the list via `DASHBOARD_STATUS_KEYWORDS` env var.
+
+### Privacy invariants (new in this release)
+- Dashboard reads only local workspace files (CLAUDE.md, briefings/, memory/). No network calls in `build.py`.
+- VPS sync is opt-in via env vars only. No VPS hostname is baked into shipped code.
+- Checkbox state is local-first (`localStorage`). The export-to-JSON path is manual - nothing leaves the browser unless you click the button.
+
+### Notes
+- The dashboard is a sibling of `tools/` - put it in your workspace and run `bash scripts/morning-dashboard.sh` (or `dash` if the shortcut landed). Re-running `install.sh` smart-merges the new files into existing workspaces.
+
 ## [2026-05-19] - PRIMARY rule (verify-don't-imagine) + rules.py retrieval tool + 4 new feedback rules
 
 ### Added
