@@ -470,12 +470,14 @@ if _env_headers:
 
 
 def extract_pulse_section(briefing_md: str) -> str:
-    """Return body of '## 📰 PranaSalt Internet Pulse' section from briefing.
+    """Return body of '## Pulse' (or similar) section from briefing markdown.
 
-    The morning-briefing skill curates this section with PranaSalt context
-    applied: competitor moves, product launches, regulatory shifts, supplier
-    signals, channel partners. Each insight has reasoning + cited sources.
-    Raw HN/Reddit keyword dumps are intentionally NOT here - that's noise.
+    The morning-briefing skill is expected to curate this section with
+    business-specific context applied: competitor moves, product launches,
+    regulatory shifts, supplier signals, channel partners. Each insight
+    should have reasoning + cited sources. Raw HN/Reddit keyword dumps are
+    intentionally NOT here - that's noise. Override section title via the
+    DASHBOARD_PULSE_HEADERS env var (pipe-separated alternatives).
     """
     for header in PULSE_HEADERS:
         # Match `## <header>` (with optional trailing decoration like "(week)")
@@ -513,7 +515,7 @@ def render_pulse_section() -> str:
 
     Source priority:
       1. dashboard/pulse-deep.md - explicit deep-research output (preferred)
-      2. briefings/briefing-{today}.md ## 📰 PranaSalt Internet Pulse section
+      2. briefings/briefing-{today}.md ## Pulse section
       3. fallback: most recent briefing with a Pulse section
     """
     # 1. Deep-research file (preferred)
@@ -552,8 +554,7 @@ def render_pulse_section() -> str:
         return (
             "<p>No Pulse content available. Generate via deep-research worker "
             "writing to <code>dashboard/pulse-deep.md</code>, or run morning-briefing "
-            "to populate the briefing's <code>## 📰 PranaSalt Internet Pulse</code> "
-            "section.</p>"
+            "to populate a <code>## Pulse</code> section in today's briefing.</p>"
         )
 
     meta = (
