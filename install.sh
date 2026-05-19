@@ -222,6 +222,10 @@ MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                  
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/flag_russian_speakers.py"   "$WORKSPACE/tools/flag_russian_speakers.py"   "tools/flag_russian_speakers.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
 
 # ---------- Step 4 + 5: render templates ----------
 render_template() {

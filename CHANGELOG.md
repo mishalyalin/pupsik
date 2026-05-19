@@ -5,6 +5,28 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-19] - PRIMARY rule (verify-don't-imagine) + rules.py retrieval tool + 4 new feedback rules
+
+### Added
+- **`tools/rules.py`** - retrieval tool that returns the FULL content of feedback rules matching a topic. Merges an optional alias manifest with semantic search via `memory_search.py`. Subcommands: `search "<topic>" [--top N]`, `list`, `read "<name>"`. The point: when the agent is about to do something the rules cover (outbound email, status answer, brand documentation), it can pull the relevant rules in full instead of relying on the one-line pointers in `critical-rules.md`. The alias manifest is optional - the tool gracefully falls back to pure semantic search if no manifest is present. Auto-detects your project memory directory under `~/.claude/projects/<slug>/memory/` (override in the file if your layout differs).
+- **`memory_templates/feedback_never_imagine_always_verify.md`** - THE PRIMARY rule. Every number, date, price, fact, name, or claim in any output must be verified against a real source (file / email / chat / DB / WebFetch) BEFORE stating. 8 operational sub-cases: numbers, project state, public facts, brand patterns, links, people, private intel, dates. Cross-references every other verify-* rule. Promoted to the FIRST bullet in `templates/critical-rules.md.template` with a visual separator.
+- **`memory_templates/feedback_check_model_first.md`** - HARD GATE for any outbound containing numerical claims. Pre-send checklist (read latest model output / cite source for every number / state assumptions explicitly / never silently estimate). Generalises from financial-model context to any quantitative claim about your business.
+- **`memory_templates/feedback_verify_dont_imagine_external_brand.md`** - When documenting external brand patterns (competitor pricing, copy, funnel) for use in your own work, claims must be backed by direct WebFetch evidence, screenshots, or explicit `[INFERRED]` marker. Both what the brand SHOWS and what it deliberately HIDES are data.
+- **`memory_templates/feedback_marketing_panel_default.md`** - For any customer-facing copy work, dispatch a 3-lens panel (Behavioral Economics + Voss negotiations + cross-brand DTC mechanics) BEFORE proposing. Verify, recommend, await user approval, implement. Departure from `feedback_architect_auto_apply.md` because customer-facing copy is reputation-irreversible.
+- **`memory_templates/feedback_no_jargon.md`** - Banned consultancy vocab list (tie-breaker, parity, peak priority, swing factor, north star, low-hanging fruit, deep-dive, alignment, stakeholder, deliverable, action item, bandwidth, sunset, deprecate, etc). Plain language only. Format conditionals as flat "if X - A, if Y - B" instead of "tie-breaker / decision tree / swing factor".
+
+### Changed
+- **`templates/critical-rules.md.template`** - new FIRST bullet under MANDATORY protocols: "NEVER IMAGINE, ALWAYS VERIFY" + a horizontal-rule separator. Visual signal that this rule sits above the rest. Includes a pointer to `rules.py search` as the canonical way to load full verify-* rule content into the session before non-trivial outbound.
+
+### Privacy invariants (new in this release)
+- `rules.py` reads only from local rule directories and (optionally) a local alias manifest. No network calls.
+- The optional alias manifest is NOT shipped (a manifest tends to bake in real names and project codes). Create your own at `~/Desktop/claude/data/rules-aliases.json` with format `{"feedback_<name>": ["alias1", "alias2"]}`. The tool works fine without it.
+
+### Notes
+- The new rules are additive. Existing flows continue to work.
+- `rules.py` depends only on `memory_search.py` (already in the toolkit). No new pip packages.
+- The 5 new feedback templates can be picked up via `bash tools/update.sh` (smart-merge) or copied manually into `~/.claude/projects/<your-slug>/memory/`.
+
 ## [2026-05-14] - Date-aware session anchor + connection-aware memory graph
 
 ### Added
