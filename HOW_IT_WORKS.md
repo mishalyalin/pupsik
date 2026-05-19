@@ -134,21 +134,76 @@ one, two, or all three.
 
 ## Rules: how Claude stays disciplined
 
-Two layers of rules, both pinned to every session.
+Three layers of rules, working together.
 
-### `~/.claude/rules/critical-rules.md`
+### Layer 1 - `~/.claude/rules/critical-rules.md` (hot, every session)
 
 Claude Code auto-loads files from `~/.claude/rules/` at session start.
 Whatever lives there is read on every session, in every project. This
 toolkit installs a one-line index of MANDATORY rules - short pointers to
-the long-form versions.
+the long-form versions. The FIRST bullet is "NEVER IMAGINE, ALWAYS
+VERIFY" (the PRIMARY rule, see below).
 
-### `~/.claude/projects/<slug>/memory/feedback_*.md`
+### Layer 2 - `~/.claude/projects/<slug>/memory/feedback_*.md` (warm, semantic-searchable)
 
-The long-form versions, scoped to the workspace project. Each rule
-explains the why, the how, and gives examples. When Claude needs to
-verify the full text of a rule (because the one-liner is ambiguous),
-it reads the long-form file.
+The long-form versions, scoped to the workspace project. 27 generic
+rules. Each one explains the why, the how, and gives examples. These
+files are indexed in ChromaDB by `memory_search.py`, so Claude can
+semantic-search them when the one-liner pointer isn't enough.
+
+### Layer 3 - `tools/rules.py` (retrieval on demand)
+
+`python3 ~/Desktop/claude/tools/rules.py search "<topic>"` returns the
+FULL content of feedback rules that match. The point: when Claude is
+about to draft an outbound email, write a public-facing brief, or answer
+a status question, it can pull the actual verification protocols, not
+just the one-line pointer from Layer 1. Three subcommands:
+
+- `search "<topic>"` - semantic search, returns top-N matched rules with
+  full text. Optional `--top N` (default 5).
+- `read "<name>"` - print a single rule by name (no `feedback_` prefix
+  needed, e.g. `rules.py read short_dashes_only`).
+- `list` - dump all rule names in the project memory directory.
+
+Merges an optional alias manifest with semantic search. Falls back
+gracefully if no manifest is present. No network calls.
+
+### The PRIMARY rule: NEVER IMAGINE, ALWAYS VERIFY
+
+Sitting above everything else: any number, date, price, fact, name, or
+claim in any output must be verified against a real source - file,
+email, chat, DB, WebFetch - BEFORE stating. Inventing is banned, full
+stop. This is the parent rule for the whole verify-* family:
+
+- `feedback_check_model_first.md` - numbers in outbound must come from
+  a real model, not vibes.
+- `feedback_verify_project_state.md` - status questions need a fresh
+  inbox / chat scan first.
+- `feedback_verify_dont_imagine_external_brand.md` - documenting a
+  competitor's copy / pricing / funnel needs direct screenshots or
+  WebFetch evidence, not synthesis.
+- `feedback_verify_before_showing.md` - test links work before
+  presenting them.
+- `feedback_contact_db_first.md` - check the contact DB before naming a
+  person.
+- `feedback_private_intel_no_web_search.md` - hearsay from chat /
+  voice notes is internal only, never web-searched as if public.
+- `feedback_know_current_datetime.md` - trust the SessionStart anchor
+  for "today", never pattern-match from older context.
+- `feedback_check_public_first.md` - check public registries / company
+  websites before asking the user.
+
+How this came about: an agent fabricated a number in a draft outbound
+email. The number got caught downstream before sending. The user's
+correction was direct: verify against a source before saying anything
+from your head. The rule got promoted to the top of the MANDATORY list
+with a horizontal-rule separator above the rest of the bullets - it's
+visually higher than every other rule because it's the parent.
+
+Before any non-trivial outbound, the agent runs
+`rules.py search <topic>` to pull the relevant verify-* rules in full.
+Sole-loading `critical-rules.md` isn't enough - the one-line pointers
+don't carry the operational protocol.
 
 ### What rules ship in this toolkit
 

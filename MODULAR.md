@@ -113,7 +113,27 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
 - **Provenance:** `doctor.py` and the friction protocol are both adapted from gbrain by Garry Tan (MIT, 2026-05-07). See `THIRD_PARTY_ATTRIBUTIONS.md` for full attribution. Both adapted patterns are SAFE-ops only - no LLM content rewrites in the doctor (intentional), counter-only state in the friction tool (no automated escalation actions).
 
-### h) Contact enrichment cron (4-pass)
+### h) Rule retrieval on demand
+
+- **What it does:** `tools/rules.py search "<topic>"` returns the FULL content of feedback rules that match the query, so the agent can pull the actual verification protocol before non-trivial outbound work - not just the one-line pointer in `critical-rules.md`. Three subcommands: `search "<topic>" [--top N]` for semantic search, `read "<name>"` for a single rule by name (no `feedback_` prefix needed - e.g. `rules.py read short_dashes_only`), `list` for a directory dump. Merges an optional alias manifest (you create your own, the tool ships without one) with semantic search via `memory_search.py`. Falls back gracefully if no manifest is present. No network calls.
+- **Files:** `tools/rules.py`.
+- **Depends on:** `tools/memory_search.py` (module d) for the semantic search backend. If you don't have semantic search installed, `read` and `list` still work; only `search` needs it.
+- **Doesn't depend on:** Contact DB, MCP servers, hooks, scheduled tasks. The rule files themselves come from module a (Critical rules); if you have your own `feedback_*.md` files in any project memory directory, `rules.py` indexes and retrieves them too.
+- **Useful even standalone:** if you already have feedback-style rule files anywhere on disk and just want a "give me the relevant rule full text by topic" shortcut, this script is useful on its own. Point it at your rule directory in the file's top section if your layout isn't the default.
+- **Install:**
+
+  ```bash
+  cp pupsik/tools/rules.py ~/Desktop/claude/tools/ && chmod +x ~/Desktop/claude/tools/rules.py
+  # Sanity check:
+  python3 ~/Desktop/claude/tools/rules.py list
+  python3 ~/Desktop/claude/tools/rules.py search "outbound email"
+  ```
+
+  Optional: create an alias manifest at `~/Desktop/claude/data/rules-aliases.json` with the format `{"feedback_<name>": ["alias1", "alias2"]}` if you want explicit keyword routing on top of semantic search. The tool works fine without one.
+
+- **Privacy invariants:** Reads only from local rule directories and (optionally) a local alias manifest. No network calls. The alias manifest is NOT shipped in this repo (manifests tend to bake in real names and project codes - keep yours local).
+
+### i) Contact enrichment cron (4-pass)
 
 - **What it does:** Optional weekly cron task (Sunday 06:00 local) that tops up your `contacts.db` with publicly available bio/social data (Passes 1-3) AND a private `relationship_context` summary distilled from your own email + WhatsApp correspondence with each contact (Pass 4). Pass 1 mines email signatures via `gmail_search_all`. Pass 2 runs targeted WebSearch for missing LinkedIn URLs. Pass 3 fetches a short bio + Instagram handle for PR-active contacts. Pass 4 reads the email threads from Pass 1 + the WhatsApp chat history (when phone is populated) and synthesizes a 2-4 sentence summary of the channel state, last topic, and outstanding asks. All updates use `COALESCE(existing, new)` so existing values are preserved. Privacy-guarded: skips `category IN ('personal','tenancy','events')` + distribution-list email patterns. Telegram is NEVER auto-read - a multi-signal Russian-speaker heuristic (`flag_russian_speakers.py`) flags TG-likely contacts for manual paste only.
 - **Files:** `templates/scheduled-tasks/contact-enrichment-weekly.md.template` (the cron SKILL prompt), `memory_templates/feedback_contact_enrichment_weekly.md` (the operating rule), `tools/enrichment_schema_migrate.py` (idempotent migration adding the 12 enrichment columns), `tools/flag_russian_speakers.py` (Russian-speaker heuristic, used by Step 0.5 of the cron).

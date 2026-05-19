@@ -16,6 +16,18 @@ The CI runs a privacy check on every push. It will fail your build if anything s
 bash .github/scripts/privacy-check.sh --include-untracked
 ```
 
+### Branch protection on the upstream main
+
+As of 2026-05-19, `mishalyalin/pupsik:main` has branch protection enabled. The "Paranoid privacy scan" CI check MUST pass before any PR can merge. There's no override, even for the repo owner. If your PR fails the privacy check, the merge button stays grey - fix the flagged content and push again.
+
+Run the scan locally before pushing:
+
+```bash
+bash .github/scripts/privacy-check.sh --include-untracked
+```
+
+If it passes locally but fails in CI, that usually means an untracked file landed in the diff via a later commit. Check `git status` before pushing.
+
 ## Filing issues
 
 A good issue has:

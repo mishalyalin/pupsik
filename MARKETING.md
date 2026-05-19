@@ -20,7 +20,8 @@ So I built a workspace toolkit. Open-sourced today.
 → contact graph DB
 → semantic search across 9 ChromaDB collections
 → all 3 of my Gmail accounts in one call (multi-account MCPs)
-→ rule discipline pinned to every session
+→ rule discipline pinned to every session (top rule: NEVER IMAGINE, ALWAYS VERIFY)
+→ `rules.py search "<topic>"` pulls the full verification protocol on demand
 → 2-agent worker + checker for anything I'd actually ship
 → moment-of-emergence knowledge capture
 
@@ -68,7 +69,7 @@ Show HN: Pupsik - Claude Code workspace with persistent memory, MCPs, rule disci
 Body (~500 chars):
 
 ```
-I'm a solo founder. I run my whole company through Claude Code, not just code. Over a few months I built a workspace toolkit so it doesn't lose context between sessions: SQLite contact graph, ChromaDB semantic search across 9 collections, multi-account Gmail / Cal / WhatsApp MCPs, a 2-agent worker + checker rule, a `note.py` capture-on-emergence tool, auto-compact hooks, and a doctor for keeping the workspace healthy.
+I'm a solo founder. I run my whole company through Claude Code, not just code. Over a few months I built a workspace toolkit so it doesn't lose context between sessions: SQLite contact graph, ChromaDB semantic search across 9 collections, multi-account Gmail / Cal / WhatsApp MCPs, a 2-agent worker + checker rule, a `note.py` capture-on-emergence tool, a `rules.py` retrieval tool that loads the full text of verification rules before non-trivial outbound, auto-compact hooks, and a doctor for keeping the workspace healthy. The top rule, pinned to every session: never imagine, always verify - any number / date / fact / name in any output must trace back to a real source before stating.
 
 Open-sourcing today. MIT.
 
@@ -96,6 +97,7 @@ What's in it:
 - Multi-account Gmail + Calendar + WhatsApp via local MCP servers. I have 3 Gmail accounts; one call hits all of them.
 - 2-agent worker + checker rule. Catches the single-agent bugs.
 - `note.py` for moment-of-emergence knowledge capture. Upsert by title.
+- `rules.py` for on-demand rule retrieval. `rules.py search "<topic>"` pulls the full text of any matched verification rule into the session before the agent drafts outbound work. The top rule: never imagine, always verify.
 - `doctor.py` for workspace health. 13 deterministic checks, safe auto-fix.
 - Auto-compact hooks so the conversation survives context compression.
 - A `~/.claude/rules/critical-rules.md` template that pins MANDATORY rules to every session.
