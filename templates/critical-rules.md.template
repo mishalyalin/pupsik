@@ -6,6 +6,10 @@ This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Cla
 
 ## 🔴 MANDATORY protocols (highest priority)
 
+- **🔴🔴 NEVER IMAGINE, ALWAYS VERIFY** (THE PRIMARY RULE) - any number, date, price, fact, name, or claim in any output must be verified against a real source (file / email / chat / DB / WebFetch) BEFORE stating. Inventing = banned, always. Before any non-trivial outbound: run `python3 ~/Desktop/claude/tools/rules.py search <topic>` to pull relevant verify-* rules and apply them. Sole-loading critical-rules.md is INSUFFICIENT - the pointer summary doesn't carry the verification protocols. 8 operational sub-cases (numbers / project state / public facts / brand patterns / links / people / private intel / dates) → `feedback_never_imagine_always_verify.md`. Recurring rule with multiple precedents.
+
+---
+
 - **Know current datetime + location** - Timezone and location are AUTO-DETECTED from `/etc/localtime` on your laptop, not hard-coded. SessionStart hook injects `⏰ NOW: YYYY-MM-DD (Weekday), HH:MM TZ. Local zone: <IANA> - You are in <city>` anchor - trust it over any date pattern-matched from prior briefings/notes. Re-run `python3 ~/Desktop/claude/tools/now.py --short` (< 50ms) before any "today/yesterday/tomorrow/this week/Tuesday" reference if there's any doubt. NEVER treat the actual current date as future. NEVER assume a fixed location without checking the anchor. → `feedback_know_current_datetime.md`
 - **ALWAYS 2+ AGENTS per task** — worker + independent checker. Sole-agent work is banned for meaningful tasks. More agents for complex work (architect / specialist / reviewer / tester). Ship only after the checker reports `PASS`. → `feedback_always_two_agents.md`
 - **Capture knowledge in-flight** — the MOMENT an insight/decision/research emerges → `note.py learning|decision|research`. **NEVER ask the user "should I capture this?" — just capture.** Default = capture; user deletes if mistake. (Re-run same title to upsert. Use `--body-stdin` or `--body-file` for bodies with apostrophes/quotes.) → `feedback_capture_knowledge.md`

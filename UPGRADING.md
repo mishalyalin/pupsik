@@ -16,7 +16,7 @@ git pull              # fetch latest main
 bash tools/update.sh  # smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges 6 tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `flag_russian_speakers.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
+`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `flag_russian_speakers.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
 
 Scheduled-task templates (the optional weekly enrichment cron) are NOT auto-installed - they're opt-in. The install command is in "Per-release one-time steps" below.
 
@@ -110,6 +110,42 @@ The installer overwrites a small, known set of files. Each replaced file is back
 ## Per-release one-time steps
 
 If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
+
+### 2026-05-19 release: PRIMARY rule (verify-don't-imagine) + rules.py retrieval tool + 4 new feedback rules
+
+This release adds a NEW top-priority rule ("NEVER IMAGINE, ALWAYS VERIFY") that sits above every other MANDATORY protocol, plus a tool (`rules.py`) for pulling full rule content into a session on demand, plus 4 supporting rules (check-model-first, verify-don't-imagine-external-brand, marketing-panel-default, no-jargon).
+
+No breaking changes. All existing flows continue to work. No new pip dependencies.
+
+1. **Run the smart-merge update** (picks up `rules.py`, the 5 new feedback templates, and the updated `critical-rules.md` template):
+
+   ```bash
+   bash tools/update.sh
+   ```
+
+2. **Confirm the PRIMARY rule now appears at the top of `~/.claude/rules/critical-rules.md`.** Open the file and look for the first bullet under "MANDATORY protocols" - it should read "NEVER IMAGINE, ALWAYS VERIFY" with a horizontal-rule separator below it. If your existing `critical-rules.md` was already customised, the smart-merge appends new pointers without overwriting your edits; you may need to manually move the new bullet to the top if you want the visual priority.
+
+3. **Try the new retrieval tool:**
+
+   ```bash
+   python3 ~/Desktop/claude/tools/rules.py list                          # list all available rules
+   python3 ~/Desktop/claude/tools/rules.py search "outbound email"        # see what gets pulled
+   python3 ~/Desktop/claude/tools/rules.py read never_imagine_always_verify
+   ```
+
+4. **(Optional) Create an alias manifest** to boost retrieval on keywords your rule files don't explicitly mention:
+
+   ```bash
+   mkdir -p ~/Desktop/claude/data
+   cat > ~/Desktop/claude/data/rules-aliases.json <<'EOF'
+   {
+     "feedback_never_imagine_always_verify": ["imagine", "verify", "fabricate", "fact check"],
+     "feedback_check_model_first": ["model", "numbers", "revenue", "cac", "burn"]
+   }
+   EOF
+   ```
+
+   Aliases are optional - `rules.py` works on pure semantic search without one.
 
 ### 2026-05-14 release: date-aware session anchor + connection-aware memory graph
 
