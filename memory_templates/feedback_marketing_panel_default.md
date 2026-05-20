@@ -11,16 +11,55 @@ Permanent operating rule. The author's verbatim directive (translated; original 
 
 For any customer-facing work - funnel, capture flow, email sequence, SMS, paid landing page, brand voice, microcopy, ad creative - the default workflow is:
 
-1. **Multi-lens panel (parallel)** - minimum three agents, each bringing a distinct framework:
-   - **Behavioral Economics** lens - Dan Ariely (Predictably Irrational, The Upside of Irrationality) + Kahneman/Tversky (System 1/2, prospect theory, loss aversion) + Thaler (nudge, mental accounting). Map every funnel touchpoint to specific BE principles.
-   - **Negotiations** lens - Chris Voss / Never Split the Difference (tactical empathy, labels, accusation audit, no-oriented questions, calibrated questions, mirroring, F-word substitution, that's-right elicitation, Ackerman, Black Swans). Cross-ref to your own 21-tactic playbook if you keep one.
-   - **Cross-brand DTC mechanics** lens - Cialdini's 7 principles (reciprocity, commitment, social proof, authority, liking, scarcity, unity) + Rory Sutherland (alchemy / context-effects / status-signaling) + verified competitor patterns from reference brands relevant to your category.
+### Step 1 - check for a Brand OS
 
-2. **Verify** - each panel agent must flag inferences vs direct evidence (per `feedback_verify_dont_imagine_external_brand.md`). Synthesise the outputs; cross-check claims; remove fabrications.
+A Brand OS is a versioned repo (yours, on your GitHub) holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, templates - PLUS a Python CLI that exposes structured retrieval over the canon. The pupsik README links to a reference implementation if you want to see one in the wild.
 
-3. **Recommend** - present integrated playbook / draft to the user with WHAT to do and WHY (which BE + Voss + brand mechanic supports each move).
+Probe via the helper:
 
-4. **Only after approval** - implement.
+```bash
+python3 tools/brand_os.py is-configured  # exit 0 if found, 1 if not
+```
+
+**If a Brand OS is configured**, it is the canonical source. Pull canon from it before drafting anything:
+
+```bash
+# strategic frame - positioning + ICP + content vectors
+python3 tools/brand_os.py invoke icp
+
+# tactic stack for a specific vector / situation
+python3 tools/brand_os.py invoke for-vector <vector_name>
+python3 tools/brand_os.py invoke search "<natural-language query>" --top 5
+python3 tools/brand_os.py invoke tactic "<tactic name>"
+```
+
+The Brand OS output supersedes the inline canon below for any conflict. The inline canon is the fallback for capabilities the Brand OS does not yet cover, never the override.
+
+### Step 2 - dispatch the panel
+
+**If a Brand OS is configured**: build the panel ON TOP of the brain's output. Each lens agent reads the brain's stack, then adds its specialist contribution. Verify cross-lens for conflicts. Synthesise. Present.
+
+**If no Brand OS is configured**: dispatch the panel directly using the frameworks below as the inline canon. Minimum three agents, each bringing a distinct framework:
+
+- **Behavioral Economics** lens - Dan Ariely (Predictably Irrational, The Upside of Irrationality) + Kahneman/Tversky (System 1/2, prospect theory, loss aversion) + Thaler (nudge, mental accounting). Map every funnel touchpoint to specific BE principles.
+- **Negotiations** lens - Chris Voss / Never Split the Difference (tactical empathy, labels, accusation audit, no-oriented questions, calibrated questions, mirroring, F-word substitution, that's-right elicitation, Ackerman, Black Swans). Cross-ref to your own 21-tactic playbook if you keep one.
+- **Cross-brand DTC mechanics** lens - Cialdini's 7 principles (reciprocity, commitment, social proof, authority, liking, scarcity, unity) + Rory Sutherland (alchemy / context-effects / status-signaling) + verified competitor patterns from reference brands relevant to your category.
+
+### Step 3 - verify
+
+Each panel agent must flag inferences vs direct evidence (per `feedback_verify_dont_imagine_external_brand.md`). Synthesise the outputs; cross-check claims; remove fabrications.
+
+### Step 4 - recommend
+
+Present integrated playbook / draft to the user with WHAT to do and WHY (which BE + Voss + brand mechanic supports each move). Cite the Brand OS layer ("from Layer 1 cocktail #4", "Brain canon NSTD T7") if you used it.
+
+### Step 5 - only after approval, implement
+
+## Why a Brand OS matters
+
+A Brand OS is shareable. You can give your designer, your social media marketer, your community manager, your copywriter, and any future Claude session a single GitHub URL and they immediately have the same brand tone, the same banned words, the same positioning anchors, the same persuasion-cocktail recipes. No more "wait, are we allowed to say 'wellness' on Instagram?" living in six different freelancers' heads. The Brand OS is one place. One commit history. One traceable answer per question. Pull Requests for proposed changes. Append-only evidence log so the trail is auditable.
+
+The pupsik tooling supports two postures: hard-wired inline canon (the rule below) for users who do not yet have a Brand OS, and opt-in retrieval (the env var + `tools/brand_os.py` helper) for users who do.
 
 ## Why: representative precedent
 
@@ -37,11 +76,17 @@ The integrated playbook must filter every recommendation through:
 - **Honest founder credential** - whatever real authority anchor your brand has, used straight (not inflated, not denied)
 - **No fabrication** - only direct-evidence claims about external brands (see `feedback_verify_dont_imagine_external_brand.md`)
 
+When a Brand OS is configured, the first four items live in the Brand OS itself (`00-foundations/positioning.md`, `00-foundations/brand-voice.md`, `00-foundations/regulatory-frames.md`, `09-people/founder.md` by convention). Pull them, do not duplicate them in your draft framing.
+
 ## How to apply
 
-When you or the user surfaces ANY customer-comms task - capture flow, email, SMS, paid landing page, brand voice work, microcopy, ad copy - open the workflow with a dispatch line:
+When you or the user surfaces ANY customer-comms task - capture flow, email, SMS, paid landing page, brand voice work, microcopy, ad copy - open the workflow with a dispatch line. If a Brand OS is configured:
 
-> Dispatching multi-lens panel: (A) Behavioral Economics - Ariely/Kahneman/Thaler; (B) Negotiations - Voss/NSTD; (C) Cross-brand DTC mechanics - Cialdini/Sutherland + verified competitor patterns. Verify, synthesise, recommend, await approval, implement.
+> Brand OS detected at `<path>`. Pulling canon via `marketing_brain.py icp` + `for-vector <vec>`. Dispatching multi-lens panel on top: (A) BE - Ariely/Kahneman/Thaler; (B) Negotiations - Voss/NSTD; (C) Cross-brand - Cialdini/Sutherland + verified competitor patterns. Verify, synthesise, recommend, await approval, implement.
+
+If no Brand OS is configured:
+
+> No Brand OS configured (run `tools/brand_os.py status` to check). Dispatching multi-lens panel directly: (A) BE - Ariely/Kahneman/Thaler; (B) Negotiations - Voss/NSTD; (C) Cross-brand - Cialdini/Sutherland + verified competitor patterns. Verify, synthesise, recommend, await approval, implement.
 
 Do NOT skip a lens because "this is small". Microcopy is where the cocktail matters most.
 
@@ -49,6 +94,7 @@ Do NOT auto-apply panel output before approval (departure from `feedback_archite
 
 ## Sister rules
 
+- `feedback_email_nstd.md` - outbound emails apply Voss by default + annotated. Same Brand-OS-or-inline split.
 - `feedback_verify_dont_imagine_external_brand.md` - direct-evidence-only for external brand claims. Panels must comply.
 - `feedback_check_model_first.md` - numbers must come from the model, not imagination. Panels must comply for any economic / pricing claim.
 - `feedback_architect_auto_apply.md` - architect proposals auto-apply same-turn. Marketing panel proposals do NOT auto-apply; they get reviewed by the user first.

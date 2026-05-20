@@ -5,6 +5,32 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-20.1] - Brand OS opt-in: customer-comms rules pull canon from your own brand repo
+
+### Added
+- **`tools/brand_os.py`** - integration helper for an opt-in **Brand OS** - a versioned repo holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, and templates - PLUS a Python CLI for structured retrieval over the canon. Reference implementation: [github.com/mishalyalin/pranasalt-brand-os](https://github.com/mishalyalin/pranasalt-brand-os). The helper detects a Brand OS via three discovery paths (env var `BRAND_OS_PATH` > `~/.brand-os` symlink > auto-detect under `~/Desktop/claude/projects/*-brand-os`) and exposes a thin pass-through CLI: `status` / `is-configured` / `invoke <subcommand> ...`. If no Brand OS is configured, the helper exits cleanly and the customer-comms rules fall back to their inline canon - so the toolkit works the same as before.
+
+### Changed
+- **`memory_templates/feedback_marketing_panel_default.md`** - rewritten with a 5-step workflow. **Step 1**: probe for a Brand OS via `tools/brand_os.py is-configured`. **Step 2**: if configured, dispatch the multi-lens panel ON TOP of the brain's output (each lens reads brain canon, then adds specialist contribution); if not configured, dispatch the panel directly using the inline frameworks (Ariely BE / Voss NSTD / Cialdini-Sutherland) as before. **Steps 3-5**: verify, recommend, await approval, implement. The Brand OS output is the canonical source for any conflict; the inline canon is the fallback for capabilities the Brand OS does not yet cover, never the override.
+- **`memory_templates/feedback_email_nstd.md`** (new file in pupsik) - the outbound-email NSTD rule with the same opt-in pattern. **Step 0**: verify the email is actually needed (highest-priority gate - silent waits and standing-process-running checks block needless drafts). **Step 1**: pull tactic stack from the Brand OS if configured. **Step 2**: two-version output (clean + annotated). **Step 3**: inline 21-tactic canon fallback if no Brand OS. **Steps 4-5**: channel escalation rules + reply analysis. Mirrors the Brand-OS-first pattern from the marketing panel.
+
+### Why
+A Brand OS is shareable. You can give your designer, your social-media marketer, your community manager, your copywriter, and any future Claude session a single GitHub URL and they immediately have the same brand tone, the same banned words, the same positioning anchors, the same persuasion-cocktail recipes. No more "wait, are we allowed to say 'wellness' on Instagram?" living in six different freelancers' heads. One place. One commit history. One traceable answer per question. Pull Requests for proposed changes. Append-only evidence log.
+
+The pupsik toolkit supports two postures:
+- **No Brand OS**: hard-wired inline canon (Ariely BE + Voss NSTD + Cialdini-Sutherland cross-brand) as the default. Customer comms still work, the rules still fire, you just lose the shared-canon benefit.
+- **Brand OS configured**: opt-in retrieval via env var + `tools/brand_os.py`. The brain's output supersedes the inline canon for any conflict. The inline canon stays as the fallback for capabilities the Brand OS does not yet cover.
+
+### Privacy invariants (new in this release)
+- `tools/brand_os.py` reads only the local filesystem (env var, symlink, conventional path under `~/Desktop/claude/projects/`). No network calls.
+- The helper invokes only the Brand OS's own CLI (whichever of `tools/marketing_brain.py`, `tools/brand_brain.py`, `tools/brand_cli.py`, or `brain.py` it finds first). It does not exec arbitrary paths.
+- Detection failure mode is silent + safe: returns "not configured" and the rules fall back to inline canon. No leaking of probed paths to stderr unless you call `status`.
+
+### Notes
+- The Brand OS repo itself is **your own** (your GitHub, your domain canon). The pupsik helper is just the bridge. You can wire any retrieval CLI you like as long as it lives at one of the four candidate paths inside the Brand OS root.
+- Existing users on 2026-05-19.2 keep working unchanged - the new rules default to inline canon when no Brand OS is detected.
+- Pick the new behaviour up via `bash tools/update.sh` (smart-merge) or copy `tools/brand_os.py` manually.
+
 ## [2026-05-19.2] - Morning dashboard module (markdown-in, HTML-out, six tabs)
 
 ### Added

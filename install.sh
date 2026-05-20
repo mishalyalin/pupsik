@@ -226,6 +226,7 @@ MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                   
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
 
 # Dashboard module
 say ""
