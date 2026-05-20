@@ -7,7 +7,8 @@
 #
 # What this DOES touch (smart-merge - never clobbers your edits):
 #   - tools/{contacts_db,memory_search,note,doctor,
-#            enrichment_schema_migrate,flag_russian_speakers}.py
+#            enrichment_schema_migrate,flag_russian_speakers,
+#            now,note_graph,note_graph_schema,rules,brand_os}.py
 #                                                 in ~/Desktop/claude/tools/
 #   - hooks/{pre,post}-compact.sh                 in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
