@@ -5,6 +5,36 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-20.3] - Three structural fixes from today's leak + drift incidents
+
+This week's repo had a privacy CI bypass (PR #12 with a flagged check that I merged anyway via a branch-protection gap) and two more incidents in one day: PR #17 + #18 leaked a private repo identifier into public docs, and the dashboard favicon shipped to the VPS drifted off-brand against the locked Brand OS visual spec. All three were caught manually. This release adds three structural enforcements so the same classes fail loudly next time instead of relying on human review.
+
+### Added
+- **`.github/scripts/privacy-check.sh` Pass 11 - private repo identifiers (fires in byline-allowlisted files too).** The leak class Pass 1 misses: byline allows the maintainer's GitHub handle in README / CHANGELOG / LICENSE / etc, but `<handle>/<private-repo-suffix>` together advertises the existence and location of a private repo to the public. Pass 11 scans for bare private-repo slugs across ALL files, regardless of byline allowlist. Pattern loaded from new `PRIVATE_REPOS_PRIVATE` env var in `private-patterns.env` (gitignored) or CI secret with the same name. SKIPPED if unset (forks without private repos see no change).
+- **`.githooks/pre-commit` + `scripts/install-git-hooks.sh` - opt-in pre-commit hook running the privacy scan locally.** Catches the leak before the commit SHA is even minted, not after the push reaches CI. Opt-in: `bash scripts/install-git-hooks.sh` installs (symlink by default so hooks auto-update with pulls; `--copy` for frozen snapshot; `--remove` to uninstall). Emergency bypass: `PUPSIK_SKIP_PRIVACY_CHECK=1 git commit ...`.
+- **`scripts/brand-os-visual-gate.sh` - structural enforcement of Brand OS visual spec.** Catches favicon / theme-color drift against a locked Brand OS spec at build time, before the wrong-brand asset reaches a public URL. Two checks: (a) bytes-identity between `dashboard/favicon.svg` and the canonical favicon in the configured Brand OS clone, and (b) `mask-icon` + `theme-color` hex codes in `dashboard/build.py` match the canonical rect fill. `--fix` mode rewrites drifted files in place against the spec.
+- **`scripts/morning-dashboard.sh` now invokes the visual gate before the VPS push.** Gate failure = skip VPS push (a wrong-brand favicon must never reach a public URL); local view still opens so the user sees the dashboard plus the diff. Bypass: `PUPSIK_SKIP_BRAND_GATE=1 bash scripts/morning-dashboard.sh`.
+
+### Changed
+- **`.github/workflows/privacy-check.yml`** - new `PRIVATE_REPOS_PRIVATE` secret wired alongside the other 5 pattern secrets. Set with: `gh secret set PRIVATE_REPOS_PRIVATE` in your fork.
+- **`.github/scripts/private-patterns.env.example`** - new `PRIVATE_REPOS_PRIVATE` documentation block with an example.
+- **`install.sh`** - now copies `scripts/brand-os-visual-gate.sh` and `scripts/install-git-hooks.sh` into the workspace (smart-merge, never clobbers local edits).
+- **`README.md`** - documents the visual gate, the pre-commit hook installer, and the new private-repo privacy pass.
+
+### Why
+Three real incidents in one week, all the same shape: I pattern-matched something from memory (a file's bytes, a private repo URL, a brand colour) and shipped it without verifying against the live source of truth. Each one cost a hotfix PR. This release shifts those checks from "human discipline" to "build + commit + CI". Same mistake on the next attempt fails loudly and locally.
+
+### Privacy invariants (new in this release)
+- The private-patterns.env.example template ships with the new `PRIVATE_REPOS_PRIVATE` slot empty so forks without private repos see no change.
+- `scripts/brand-os-visual-gate.sh` reads ONLY local files: a Brand OS clone (detected via `BRAND_OS_PATH` env or convention) and the local `dashboard/`. No network calls.
+- The pre-commit hook re-uses the existing privacy-check.sh script unchanged - it does not introduce new patterns, just runs the existing scan earlier in the workflow.
+- Privacy check 11/11 PASS (`--include-untracked`).
+
+### Notes
+- The pre-commit hook is opt-in to avoid surprising new clones. Existing users running `bash tools/update.sh` pick up the hook files but must run `bash scripts/install-git-hooks.sh` once to enable.
+- The Brand OS visual gate is also opt-in by configuration: with no Brand OS clone detected, it prints a yellow "SKIPPED" line and exits 0. Forks with their own Brand OS clone (via env var, symlink, or convention) automatically get drift enforcement.
+- Bump VERSION 2026-05-20.2 -> 2026-05-20.3.
+
 ## [2026-05-20.2] - Brand OS API-first: one canonical canon copy on a server, everyone hits the same URL
 
 ### Changed

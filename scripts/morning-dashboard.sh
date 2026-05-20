@@ -28,9 +28,25 @@ if [[ ! -f "$INDEX_HTML" ]]; then
   exit 1
 fi
 
+# Brand OS visual-spec gate. Catches favicon / theme-color drift against the
+# locked Brand OS spec. SKIPPED gracefully if no Brand OS clone is detected.
+# Drift = abort the VPS push (so a wrong-brand favicon never reaches a public
+# URL); local view still opens so the user sees the dashboard + the diff.
+# Bypass with PUPSIK_SKIP_BRAND_GATE=1 if you intentionally want a divergent
+# favicon for a temporary experiment.
+GATE_SCRIPT="$SCRIPT_DIR/brand-os-visual-gate.sh"
+GATE_OK=1
+if [[ -x "$GATE_SCRIPT" ]] && [[ "${PUPSIK_SKIP_BRAND_GATE:-0}" != "1" ]]; then
+  if ! bash "$GATE_SCRIPT" 2>&1; then
+    echo "[dash] brand-os visual gate FAILED - skipping VPS push to avoid leaking drift." >&2
+    echo "[dash] fix the workspace favicon (try: bash $GATE_SCRIPT --fix) then re-run." >&2
+    GATE_OK=0
+  fi
+fi
+
 # Optional VPS sync (Wave 2 - Telegram-bookmark URL). Skipped unless both
-# env vars are set. Errors are non-fatal - local view still works.
-if [[ -n "${DASHBOARD_VPS_HOST:-}" && -n "${DASHBOARD_VPS_PATH:-}" ]]; then
+# env vars are set AND the brand gate passed.
+if [[ "$GATE_OK" = "1" ]] && [[ -n "${DASHBOARD_VPS_HOST:-}" && -n "${DASHBOARD_VPS_PATH:-}" ]]; then
   (rsync -az --quiet \
     --include='index.html' --include='styles.css' --include='favicon.svg' \
     --exclude='*' \

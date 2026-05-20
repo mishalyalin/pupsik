@@ -238,6 +238,8 @@ smart_merge_file "$SCRIPT_DIR/dashboard/favicon.svg" "$WORKSPACE/dashboard/favic
 smart_merge_file "$SCRIPT_DIR/dashboard/NOTICE.md"  "$WORKSPACE/dashboard/NOTICE.md"  "dashboard/NOTICE.md"
 smart_merge_file "$SCRIPT_DIR/dashboard/README.md"  "$WORKSPACE/dashboard/README.md"  "dashboard/README.md"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/morning-dashboard.sh" "$WORKSPACE/scripts/morning-dashboard.sh" "scripts/morning-dashboard.sh"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/brand-os-visual-gate.sh" "$WORKSPACE/scripts/brand-os-visual-gate.sh" "scripts/brand-os-visual-gate.sh"
+MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/install-git-hooks.sh" "$WORKSPACE/scripts/install-git-hooks.sh" "scripts/install-git-hooks.sh"
 
 # Optional dash shortcut on PATH (~/.local/bin/dash)
 if [ -d "$HOME/.local/bin" ]; then
