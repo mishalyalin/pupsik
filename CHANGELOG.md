@@ -5,6 +5,39 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-20.2] - Brand OS API-first: one canonical canon copy on a server, everyone hits the same URL
+
+### Changed
+- **`tools/brand_os.py`** - upgraded from local-CLI-only to **API-first / local-CLI fallback**. New detection chain:
+  1. API mode - env vars `BRAND_OS_API_URL` + `BRAND_OS_API_USER` + `BRAND_OS_API_PASS`, OR a credentials file at `$BRAND_OS_CREDENTIALS_FILE` (default `~/.brand-os-credentials`, mode 600) with the same three keys as shell-style `key=value` lines.
+  2. Local CLI mode - existing `BRAND_OS_PATH` env > `~/.brand-os` symlink > auto-detect convention.
+  3. Otherwise: not configured (rules fall back to inline canon, helper is silent + safe).
+
+  When the API is configured, `invoke <subcommand>` hits the matching `/api/*` JSON endpoint on the Brand OS server. The full subcommand surface maps to HTTP routes: `stats`, `icp`, `search`, `explain`, `tactic`, `for-vector`, `for-stage`, `canon`, `list-tactics`, `list-stages`. On network failure / 5xx the helper auto-falls-back to the local CLI if detected and emits a `[brand_os] api unreachable` stderr hint. On HTTP 4xx the server's JSON error is surfaced verbatim (no fallback - the request itself was bad).
+
+  Stdlib only: `urllib.request` + `base64` for Basic Auth + `json` for parsing. SSL trust store is auto-fixed for macOS Python.org installs via opportunistic `certifi` import (graceful fallback to default context if `certifi` is not installed).
+
+### Added
+- **`.brand-os-credentials.example`** - documented template for the credentials file. Copy to `~/.brand-os-credentials` and `chmod 600` to enable API mode. Never commit your real credentials file - the pupsik `.gitignore` covers the common locations.
+- **`.gitignore`** - new entries for `.brand-os-credentials*` and `brand-os-credentials*` so accidental drops in either the home dir or the repo dir stay out of git.
+- **`memory_templates/feedback_marketing_panel_default.md`** + **`memory_templates/feedback_email_nstd.md`** - both templates updated to document the new API > local CLI > inline-fallback detection chain. Step 1 workflow + dispatch lines updated.
+- **`README.md`** - Brand OS bullet rewritten to explain the three postures (API / local CLI / not configured) and link to the reference implementation's full `/api/*` route list.
+
+### Why
+A Brand OS that lives only as a local clone tends to drift: different team members have different `git pull` cadences, contractors never have it at all, and "did you pull the latest cocktails?" becomes a recurring question. The API-first mode hands every collaborator and every Claude session one URL. Server-side canon is the single source of truth; clients are stateless.
+
+The local-CLI mode stays as the fallback for offline use, for forks who do not want to host a server, and for resilience when the API is briefly unreachable.
+
+### Privacy invariants (new in this release)
+- `~/.brand-os-credentials` is gitignored and the example file ships with placeholder values only. Privacy-check would catch a real password leak.
+- The helper sends credentials only via the `Authorization: Basic` header to the host configured in the credentials file or env var. No third-party telemetry. No URL logging unless you call `status` or pass `-v`.
+- The `stats` and `is-configured` commands DO NOT print the password or auth header. `status` shows only the URL.
+- The `_ssl_context()` helper uses `certifi.where()` only when `certifi` is already importable (no pip install triggered by the helper itself).
+
+### Notes
+- Migrate without code change: drop a `~/.brand-os-credentials` file with your three keys and re-run `python3 tools/brand_os.py status` to confirm API mode. Existing local-CLI users who do not create the credentials file keep working unchanged.
+- `rebuild-index` remains a server-side admin op. The helper falls back to local CLI for that subcommand if a local clone is present, otherwise prints a clear message pointing at SSH.
+
 ## [2026-05-20.1] - Brand OS opt-in: customer-comms rules pull canon from your own brand repo
 
 ### Added

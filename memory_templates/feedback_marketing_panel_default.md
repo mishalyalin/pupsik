@@ -13,13 +13,19 @@ For any customer-facing work - funnel, capture flow, email sequence, SMS, paid l
 
 ### Step 1 - check for a Brand OS
 
-A Brand OS is a versioned repo (yours, on your GitHub) holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, templates - PLUS a Python CLI that exposes structured retrieval over the canon. The pupsik README links to a reference implementation if you want to see one in the wild.
+A Brand OS is a versioned repo (yours, on your GitHub) holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, and templates - PLUS a retrieval surface (a Python CLI, an HTTP API, or both). The pupsik README links to a reference implementation if you want to see one in the wild.
 
 Probe via the helper:
 
 ```bash
-python3 tools/brand_os.py is-configured  # exit 0 if found, 1 if not
+python3 tools/brand_os.py status        # show whether API mode or local-CLI mode is active
+python3 tools/brand_os.py is-configured # exit 0 if anything found, 1 if not
 ```
+
+The helper picks the best available mode:
+
+- **API mode** (preferred) - one canonical server-side copy hit over HTTPS. Every session (yours, your designer's, your social-media marketer's, future Claude sessions) reads the same canon. Configured via `~/.brand-os-credentials` (mode 600, gitignored) or env vars `BRAND_OS_API_URL` + `BRAND_OS_API_USER` + `BRAND_OS_API_PASS`. See `.brand-os-credentials.example` in the pupsik repo for the file format.
+- **Local CLI mode** (fallback) - `git clone` of the Brand OS repo locally, helper invokes `tools/marketing_brain.py` (or equivalent) via subprocess. Used when no API credentials are set, or when the API is unreachable (offline, VPS outage).
 
 **If a Brand OS is configured**, it is the canonical source. Pull canon from it before drafting anything:
 
@@ -27,10 +33,14 @@ python3 tools/brand_os.py is-configured  # exit 0 if found, 1 if not
 # strategic frame - positioning + ICP + content vectors
 python3 tools/brand_os.py invoke icp
 
-# tactic stack for a specific vector / situation
+# tactic stack for a specific vector / situation / question
 python3 tools/brand_os.py invoke for-vector <vector_name>
 python3 tools/brand_os.py invoke search "<natural-language query>" --top 5
+python3 tools/brand_os.py invoke explain "<question>"
 python3 tools/brand_os.py invoke tactic "<tactic name>"
+python3 tools/brand_os.py invoke canon [<school>]      # list canon principles (BE / NSTD / etc)
+python3 tools/brand_os.py invoke list-tactics          # see the tactic vocabulary
+python3 tools/brand_os.py invoke list-stages           # see the funnel-stage vocabulary
 ```
 
 The Brand OS output supersedes the inline canon below for any conflict. The inline canon is the fallback for capabilities the Brand OS does not yet cover, never the override.
@@ -59,7 +69,7 @@ Present integrated playbook / draft to the user with WHAT to do and WHY (which B
 
 A Brand OS is shareable. You can give your designer, your social media marketer, your community manager, your copywriter, and any future Claude session a single GitHub URL and they immediately have the same brand tone, the same banned words, the same positioning anchors, the same persuasion-cocktail recipes. No more "wait, are we allowed to say 'wellness' on Instagram?" living in six different freelancers' heads. The Brand OS is one place. One commit history. One traceable answer per question. Pull Requests for proposed changes. Append-only evidence log so the trail is auditable.
 
-The pupsik tooling supports two postures: hard-wired inline canon (the rule below) for users who do not yet have a Brand OS, and opt-in retrieval (the env var + `tools/brand_os.py` helper) for users who do.
+The pupsik tooling supports three postures: hard-wired inline canon (the rule below) for users who do not yet have a Brand OS, local-CLI retrieval for users who maintain a Brand OS as a personal repo on their machine, and API retrieval for teams who deploy the Brand OS as a server (one URL handed to every collaborator and every Claude session).
 
 ## Why: representative precedent
 
@@ -82,7 +92,7 @@ When a Brand OS is configured, the first four items live in the Brand OS itself 
 
 When you or the user surfaces ANY customer-comms task - capture flow, email, SMS, paid landing page, brand voice work, microcopy, ad copy - open the workflow with a dispatch line. If a Brand OS is configured:
 
-> Brand OS detected at `<path>`. Pulling canon via `marketing_brain.py icp` + `for-vector <vec>`. Dispatching multi-lens panel on top: (A) BE - Ariely/Kahneman/Thaler; (B) Negotiations - Voss/NSTD; (C) Cross-brand - Cialdini/Sutherland + verified competitor patterns. Verify, synthesise, recommend, await approval, implement.
+> Brand OS detected (`<mode>`: `<api url>` or `<local cli path>`). Pulling canon via `brand_os.py invoke icp` + `for-vector <vec>` + `search "<situation>"`. Dispatching multi-lens panel on top: (A) BE - Ariely/Kahneman/Thaler; (B) Negotiations - Voss/NSTD; (C) Cross-brand - Cialdini/Sutherland + verified competitor patterns. Verify, synthesise, recommend, await approval, implement.
 
 If no Brand OS is configured:
 

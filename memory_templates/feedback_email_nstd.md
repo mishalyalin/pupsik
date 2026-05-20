@@ -24,13 +24,19 @@ This is the highest-priority gate. Skip it and the rest of the framework is wors
 
 This is Voss canon translated to email: *"no deal is better than a bad deal"* -> **"no email is better than a needless email."**
 
-### Step 1 - canon source: Brand OS first, inline fallback
+### Step 1 - canon source: Brand OS first (API > local CLI > inline fallback)
 
-A Brand OS is a versioned repo holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, and templates - PLUS a Python CLI that exposes structured retrieval over the canon. See the pupsik README for a reference implementation.
+A Brand OS is a versioned repo holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, and templates - PLUS a retrieval surface (Python CLI, HTTP API, or both). See the pupsik README for a reference implementation.
+
+The helper picks the best available mode:
+
+- **API mode** (preferred) - hit one server-side canon copy over HTTPS so every session shares the same canon. Configured via `~/.brand-os-credentials` (mode 600, gitignored) or env vars `BRAND_OS_API_URL` + `BRAND_OS_API_USER` + `BRAND_OS_API_PASS`. Template: `.brand-os-credentials.example` in the pupsik repo.
+- **Local CLI mode** (fallback) - `git clone` the repo locally; helper invokes the local Python CLI. Used when no API credentials are configured or when the API is unreachable.
 
 Probe:
 
 ```bash
+python3 tools/brand_os.py status
 python3 tools/brand_os.py is-configured
 ```
 
@@ -38,6 +44,7 @@ python3 tools/brand_os.py is-configured
 
 ```bash
 python3 tools/brand_os.py invoke search "<situation, e.g. 'cart abandon subject line' or 'supplier pricing chase silent 9 days'>"
+python3 tools/brand_os.py invoke explain "<question, e.g. 'how do we re-engage a counterparty after 14 days silent'>"
 python3 tools/brand_os.py invoke tactic "<NSTD tactic, e.g. 'Accusation Audit'>"
 ```
 
@@ -101,7 +108,8 @@ When the user forwards a reply to Claude:
 
 If a Brand OS is configured, these analyses can also be queried via:
 ```bash
-python3 tools/brand_os.py invoke explain "what tactic is the counterparty using?"
+python3 tools/brand_os.py invoke explain "what tactic is the counterparty using when they say X?"
+python3 tools/brand_os.py invoke tactic "f-word counter"
 ```
 
 ## Cross-references
