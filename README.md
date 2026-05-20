@@ -62,6 +62,7 @@ If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't 
 - **5 agent role prompts** (Architect, Discoverer, Packager, Migrator, Tester). I use them when a task warrants a team, not a solo run.
 - **Third-party attribution discipline.** `THIRD_PARTY_ATTRIBUTIONS.md` at the repo root tracks every pattern I borrowed from external OSS (currently: gbrain by Garry Tan, MIT). Source URL, author, license, what I took verbatim vs adapted vs added.
 - **`auto` permission mode by default.** Accepts safe ops, prompts on writes / shell / risky calls. Replaces `bypassPermissions` as the recommendation. Less friction than full bypass, less risk of nuking things.
+- **Structural enforcement against the leak / drift classes that bite repeatedly.** `.github/scripts/privacy-check.sh` Pass 11 catches `<author-handle>/<private-repo-suffix>` combinations even in byline-allowlisted files like README and CHANGELOG (the leak class that byline allowlist misses by design). `scripts/brand-os-visual-gate.sh` byte-diffs `dashboard/favicon.svg` and the `mask-icon` / `theme-color` hexes in `dashboard/build.py` against the locked Brand OS visual spec at build time, then aborts the VPS push when drift is detected. `.githooks/pre-commit` runs the privacy scan locally before the commit SHA is even minted (opt-in via `bash scripts/install-git-hooks.sh`, emergency bypass via `PUPSIK_SKIP_PRIVACY_CHECK=1 git commit`). All three are opt-in by configuration: forks without the relevant private-patterns / Brand OS clone / hook install see no change.
 
 ## Docs
 

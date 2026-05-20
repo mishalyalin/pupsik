@@ -20,6 +20,7 @@ jobs:
       REGISTRY_IDS_PRIVATE: ${{ secrets.REGISTRY_IDS_PRIVATE }}
       ADDRESSES_PRIVATE: ${{ secrets.ADDRESSES_PRIVATE }}
       BUSINESSES_PRIVATE: ${{ secrets.BUSINESSES_PRIVATE }}
+      PRIVATE_REPOS_PRIVATE: ${{ secrets.PRIVATE_REPOS_PRIVATE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

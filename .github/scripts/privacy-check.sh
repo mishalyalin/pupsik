@@ -77,6 +77,7 @@ REGISTRY_IDS_FALLBACK='(\bKVK[:[:space:]]*[0-9]{8}\b|\bNL[0-9]{9}B[0-9]{2}\b|\bE
 REGISTRY_IDS_PATTERN="${REGISTRY_IDS_PRIVATE:-$REGISTRY_IDS_FALLBACK}"
 ADDRESSES_PATTERN="${ADDRESSES_PRIVATE:-}"
 BUSINESSES_PATTERN="${BUSINESSES_PRIVATE:-}"
+PRIVATE_REPOS_PATTERN="${PRIVATE_REPOS_PRIVATE:-}"
 
 
 red()    { printf "\033[1;31m%s\033[0m\n" "$*"; }
@@ -321,7 +322,27 @@ else
 fi
 
 # ============================================================================
-# Pass 10 — Files larger than 500KB (potential blobs / dumps)
+# Pass 11 — Private repository identifiers (fires in byline-allowlisted files too)
+# ============================================================================
+#
+# The leak class this catches: the maintainer's GitHub handle alone is a
+# legitimate author byline (Pass 1 allows it in README / CHANGELOG / LICENSE
+# / etc), but the COMBINATION `<handle>/<private-repo>` advertises a private
+# repository's existence and location to anyone reading the public docs.
+#
+# This pass scans bare private-repo slugs across ALL files including byline
+# allowlisted ones. List the repo names you keep private as
+# PRIVATE_REPOS_PRIVATE in private-patterns.env (gitignored) or as a CI
+# secret. Pass is SKIPPED if no pattern is configured.
+if [ -n "$PRIVATE_REPOS_PATTERN" ]; then
+  run_pass "private repo identifiers (fires in byline files too)" "$PRIVATE_REPOS_PATTERN" 0
+else
+  PASS_COUNT=$((PASS_COUNT + 1))
+  yellow "[pass $PASS_COUNT] private repo identifiers ... SKIPPED (set PRIVATE_REPOS_PRIVATE to enable)"
+fi
+
+# ============================================================================
+# Pass 12 — Files larger than 500KB (potential blobs / dumps)
 # ============================================================================
 PASS_COUNT=$((PASS_COUNT + 1))
 printf "\n[pass %d] oversize files (>500KB) ... " "$PASS_COUNT"
