@@ -5,6 +5,14 @@
 #   bash tools/update.sh           # safe update (refuses if you have local edits)
 #   bash tools/update.sh --force   # stash uncommitted changes, then update
 #
+# Contract: after this returns 0, your workspace matches the pupsik clone.
+# That holds whether or not there were new git commits to pull. If pupsik
+# HEAD already matched origin/main, the script still runs the smart-merge
+# step so workspace files that drifted (style fixes applied locally to
+# tools, freshly added scripts, new feedback rules from an interrupted
+# previous update, etc) get re-synced. Smart-merge is idempotent so the
+# no-drift path is fast + silent.
+#
 # What this DOES touch (smart-merge - never clobbers your edits):
 #   - tools/{contacts_db,memory_search,note,doctor,
 #            enrichment_schema_migrate,flag_russian_speakers,
@@ -96,56 +104,65 @@ git fetch origin --quiet
 
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
-
-if [ "$LOCAL" = "$REMOTE" ]; then
-  echo "[pupsik] already up to date ($(git rev-parse --short HEAD))"
-  exit 0
-fi
-
-# ---------- Show what's coming ----------
-echo "[pupsik] new commits:"
-git log --oneline "$LOCAL..$REMOTE" | head -10
-COUNT=$(git rev-list --count "$LOCAL..$REMOTE")
-if [ "$COUNT" -gt 10 ]; then
-  echo "  ...and $((COUNT - 10)) more"
-fi
-
-echo
-echo "[pupsik] files changing:"
-git diff --stat "$LOCAL" "$REMOTE"
-
-# ---------- Refuse on dirty tree (unless --force) ----------
 STASHED=0
-if ! git diff-index --quiet HEAD --; then
+HAS_NEW_COMMITS=0
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+  HAS_NEW_COMMITS=1
+
+  # ---------- Show what's coming ----------
+  echo "[pupsik] new commits:"
+  git log --oneline "$LOCAL..$REMOTE" | head -10
+  COUNT=$(git rev-list --count "$LOCAL..$REMOTE")
+  if [ "$COUNT" -gt 10 ]; then
+    echo "  ...and $((COUNT - 10)) more"
+  fi
+
   echo
-  echo "[pupsik] WARNING: you have uncommitted local changes."
-  FORCE=0
-  for a in "${PASSTHROUGH_ARGS[@]:-}"; do
-    [ "$a" = "--force" ] && FORCE=1
-  done
-  if [ "$FORCE" = "0" ]; then
-    echo "         Stash or commit them, then re-run. Or pass --force to stash + update."
-    exit 3
-  fi
-  echo "         --force: stashing your local changes before update..."
-  git stash push --include-untracked --quiet --message "pupsik-update-auto-stash-$(date +%s)"
-  STASHED=1
-fi
+  echo "[pupsik] files changing:"
+  git diff --stat "$LOCAL" "$REMOTE"
 
-# ---------- Fast-forward only ----------
-if ! git pull --ff-only origin main --quiet 2>/dev/null; then
-  echo "[pupsik] cannot fast-forward — you have local commits not in origin/main."
-  echo "         Resolve manually:"
-  echo "           git status"
-  echo "           git log origin/main..HEAD"
-  if [ "$STASHED" = "1" ]; then
-    echo "         (Your --force stash is preserved at the top of 'git stash list'.)"
+  # ---------- Refuse on dirty tree (unless --force) ----------
+  if ! git diff-index --quiet HEAD --; then
+    echo
+    echo "[pupsik] WARNING: you have uncommitted local changes."
+    FORCE=0
+    for a in "${PASSTHROUGH_ARGS[@]:-}"; do
+      [ "$a" = "--force" ] && FORCE=1
+    done
+    if [ "$FORCE" = "0" ]; then
+      echo "         Stash or commit them, then re-run. Or pass --force to stash + update."
+      exit 3
+    fi
+    echo "         --force: stashing your local changes before update..."
+    git stash push --include-untracked --quiet --message "pupsik-update-auto-stash-$(date +%s)"
+    STASHED=1
   fi
-  exit 4
-fi
 
-NEW=$(git rev-parse --short HEAD)
-echo "[pupsik] now at $NEW"
+  # ---------- Fast-forward only ----------
+  if ! git pull --ff-only origin main --quiet 2>/dev/null; then
+    echo "[pupsik] cannot fast-forward — you have local commits not in origin/main."
+    echo "         Resolve manually:"
+    echo "           git status"
+    echo "           git log origin/main..HEAD"
+    if [ "$STASHED" = "1" ]; then
+      echo "         (Your --force stash is preserved at the top of 'git stash list'.)"
+    fi
+    exit 4
+  fi
+
+  NEW=$(git rev-parse --short HEAD)
+  echo "[pupsik] now at $NEW"
+else
+  # No new commits, but workspace files may still have drifted (style fixes
+  # to tools, freshly added scripts, new feedback rules from a previous
+  # update that was interrupted, etc). The smart-merge step below is
+  # idempotent and cheap, so we always run it - that is the actual contract
+  # of `update.sh`: "after this returns 0, the workspace matches the pupsik
+  # clone". Set --quiet-no-changes to suppress the noise if the smart-merge
+  # ends up finding nothing to do.
+  echo "[pupsik] no new commits to pull ($(git rev-parse --short HEAD)) - re-syncing workspace files against current pupsik tree..."
+fi
 
 # ---------- Re-apply tools / rules / hooks / templates ----------
 echo "[pupsik] applying updated tools/templates/rules to your workspace..."
