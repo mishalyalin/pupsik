@@ -5,6 +5,37 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-21.1] - update.sh always re-syncs workspace + install.sh template-class force-resync
+
+After yesterday's three-fix release, smoke-testing `update.sh` revealed two complementary bugs in the workspace re-sync flow. (a) `update.sh` early-exited with "already up to date" when `git HEAD == origin/main`, never running the smart-merge phase — so any drift between workspace and pupsik tree that wasn't pulled fresh stayed put indefinitely. (b) `install.sh`'s `smart_merge_file` conservatively dropped `.new` sidecars when there was no `.bak.<ts>` baseline to prove the file pristine — but for files installed before the state-file infrastructure existed (pre-`2026-05-14.1`), no `.bak` ever existed, so legitimate drift (e.g. yesterday's em-dash normalisation on 7 tools) was never overwritten, just queued as sidecars the user had to manually merge. Together they meant the "after update.sh, workspace = pupsik HEAD" contract didn't hold in the common no-new-commits-but-drifted case.
+
+This release closes both gaps and adds the file-class distinction (template / brand-overridable / user-config) that determines which posture each managed file gets.
+
+### Changed
+- **`tools/update.sh` always runs the smart-merge step**, regardless of whether `git pull` brought new commits. The `LOCAL == REMOTE` branch now just prints "no new commits to pull - re-syncing workspace files against current pupsik tree" and falls through to `install.sh --update-only` instead of `exit 0`-ing. The contract is now explicit at the top of the file: "after this returns 0, your workspace matches the pupsik clone."
+- **`install.sh` `smart_merge_file()` accepts `PUPSIK_FORCE_RESYNC=1`** as a per-call env var. When set and there's no `.bak.<ts>` baseline to prove `dst` pristine, the function ASSUMES pristine, saves the current `dst` as `.bak.<ts>.force-resync` (recoverable), then overwrites with `src`. The default behaviour (no env var) stays conservative: drop `.new` sidecar and warn. This closes the "drift accumulates on installs older than 2026-05-14.1 because no `.bak` baseline was ever written" bug — without breaking the safety net for legitimate user customisations.
+- **`install.sh` declares file-class posture per managed file:**
+  - **template-class → `PUPSIK_FORCE_RESYNC=1`** (user shouldn't be editing these; pupsik HEAD is canonical): `tools/*.py`, hooks/`pre-compact.sh` + `post-compact.sh`, `memory_templates/*/_PROTOCOL.md` schemas, `scripts/brand-os-visual-gate.sh`, `scripts/install-git-hooks.sh`.
+  - **brand-overridable → default sidecar** (workspace customisation is expected; pupsik upstream offered side-by-side for review): `dashboard/build.py`, `dashboard/styles.css`, `dashboard/favicon.svg` (favicon is governed by Brand OS visual spec per adopter, not pupsik), `dashboard/NOTICE.md`, `dashboard/README.md`, `scripts/morning-dashboard.sh` (adopters customise VPS config — token files, hardcoded hosts — vs the pupsik generic env-var template).
+  - **user-config → default sidecar** (user-customisable; preserved on update): `memory_templates/feedback_*.md` → workspace `feedback_*.md` rules.
+
+### Why
+The `update.sh` contract — "your workspace matches the pupsik clone after this returns 0" — is the whole point of the script. Yesterday I shipped 7 tools with style-normalisation fixes (em-dashes converted to short hyphens) and discovered today that workspaces with no `.bak` baseline silently queued them as sidecars. That meant the fix that was the whole point of the release didn't actually apply to anyone who installed before the state-file infrastructure shipped. Sidecar-by-default is a great safety net for files users legitimately edit, but for template-class files (where editing is unintended) it just means drift accumulates.
+
+The file-class distinction makes the right call for each file:
+- A `note.py` with em-dashes should be overwritten — the user didn't put those there, they're upstream stale text we patched.
+- A `dashboard/favicon.svg` painted in the adopter's brand colours should NOT be overwritten — the adopter painted it deliberately, and the Brand OS visual gate (a separate tool) handles the brand-vs-workspace sync at build time.
+- A `feedback_short_dashes_only.md` that the user has annotated with their own examples should NOT be overwritten — that's exactly the customisation surface the rule files exist for.
+
+### Privacy invariants
+- `.bak.<ts>.force-resync` files stay on disk so any silent overwrite is recoverable. Nothing is deleted by the resync step.
+- The privacy-check Pass 11 from `2026-05-20.3` runs on every commit (CI + local pre-commit hook), still ensures no private-repo identifier leaks. No regressions in the 11-pass scan.
+- Privacy check 11/11 PASS (`--include-untracked`).
+
+### Notes
+- Bump VERSION `2026-05-20.3` → `2026-05-21.1`.
+- Existing installs picking up this release will see their drift force-resynced on the next `tools/update.sh` run for any template-class file (typically `tools/*.py`, hooks, `_PROTOCOL.md`). The original workspace content is saved as `<file>.bak.<ts>.force-resync` next to the resynced file — diff against it if you want to confirm the resync was lossless. To opt back into sidecar behaviour for a specific file, edit `install.sh` and remove the `PUPSIK_FORCE_RESYNC=1` prefix on that smart_merge_file call.
+
 ## [2026-05-20.3] - Three structural fixes from today's leak + drift incidents
 
 This week's repo had a privacy CI bypass (PR #12 with a flagged check that I merged anyway via a branch-protection gap) and two more incidents in one day: PR #17 + #18 leaked a private repo identifier into public docs, and the dashboard favicon shipped to the VPS drifted off-brand against the locked Brand OS visual spec. All three were caught manually. This release adds three structural enforcements so the same classes fail loudly next time instead of relying on human review.

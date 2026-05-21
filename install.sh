@@ -101,7 +101,7 @@ log_smart() {
   printf "%s\t%s\n" "$1" "$2" >> "$SMART_LOG"
 }
 
-# smart_merge_file SRC DST
+# smart_merge_file SRC DST [LABEL]
 #
 # 3-case logic for files we manage:
 #   a) DST does not exist → copy src → dst, mark `new`.
@@ -114,6 +114,17 @@ log_smart() {
 #       as DST.new, leave the user's version alone, and warn.
 #
 # Caller may set MAKE_EXECUTABLE=1 to chmod +x the destination after a copy.
+#
+# Caller may set PUPSIK_FORCE_RESYNC=1 (per-call env var) to opt into the
+# "template-class" mode: when there is no .bak baseline to prove dst is
+# pristine, ASSUME pristine, save current dst as .bak.<ts>.force-resync
+# (so the user can recover if it was actually their edit), then overwrite.
+# This is the right behaviour for files the user shouldn't be editing
+# directly — tools/, dashboard/, hooks/, _PROTOCOL.md schemas — where a
+# missing .bak is almost always a pre-state-file-infra install, not a
+# legitimate customization. update.sh sets this when calling install.sh
+# in update-only mode. The default behaviour (no env var) stays
+# conservative: drop a .new sidecar and let the user decide.
 smart_merge_file() {
   local src="$1"
   local dst="$2"
@@ -149,7 +160,23 @@ smart_merge_file() {
     return
   fi
 
-  # User modified the file (or there's no .bak to compare). Don't clobber.
+  # No .bak to compare → can't prove dst is pristine.
+  #
+  # Force-resync path (PUPSIK_FORCE_RESYNC=1): the caller has declared this
+  # a template-class file the user shouldn't be editing. Save current dst as
+  # a force-resync backup (recoverable), then overwrite. This closes the
+  # "drift accumulates because old install never wrote .bak baselines" bug.
+  if [ "${PUPSIK_FORCE_RESYNC:-0}" = "1" ]; then
+    cp "$dst" "${dst}.bak.$(date +%Y%m%d-%H%M%S).force-resync"
+    cp "$src" "$dst"
+    [ "${MAKE_EXECUTABLE:-0}" = "1" ] && chmod +x "$dst"
+    SMART_UPDATED=$((SMART_UPDATED + 1))
+    log_smart updated "$dst"
+    say "  resynced: $label (no baseline; saved current as .bak.force-resync)"
+    return
+  fi
+
+  # Conservative default: user may have modified the file. Don't clobber.
   cp "$src" "${dst}.new"
   [ "${MAKE_EXECUTABLE:-0}" = "1" ] && chmod +x "${dst}.new"
   SMART_NEW_FILES+=("${dst}.new")
@@ -214,21 +241,41 @@ mkdir -p "$WORKSPACE"/memory/{learnings,decisions,journal,people,projects}
 mkdir -p "$WORKSPACE"/{briefings,research}
 mkdir -p "$PROJECT_MEMORY_DIR"
 
-# ---------- Step 3: copy tools (smart-merge) ----------
+# ---------- Step 3: copy tools (smart-merge, template-class) ----------
+# tools/ files are templates - users shouldn't edit them directly. If there's
+# no .bak baseline (pre-state-file-infra install) we still want to resync to
+# pupsik HEAD; smart_merge_file saves current as .bak.<ts>.force-resync first
+# so anything customized is recoverable.
 say "Copying tools..."
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"             "$WORKSPACE/tools/contacts_db.py"             "tools/contacts_db.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py"           "$WORKSPACE/tools/memory_search.py"           "tools/memory_search.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/flag_russian_speakers.py"   "$WORKSPACE/tools/flag_russian_speakers.py"   "tools/flag_russian_speakers.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"             "$WORKSPACE/tools/contacts_db.py"             "tools/contacts_db.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py"           "$WORKSPACE/tools/memory_search.py"           "tools/memory_search.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/flag_russian_speakers.py"   "$WORKSPACE/tools/flag_russian_speakers.py"   "tools/flag_russian_speakers.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
 
-# Dashboard module
+# Dashboard module (BRAND-OVERRIDABLE — NOT template-class)
+#
+# Dashboard files (build.py, styles.css, favicon.svg, morning-dashboard.sh)
+# are legitimately customized in workspace: favicon.svg is governed by the
+# Brand OS visual spec (per-adopter), build.py/styles.css carry brand-flavored
+# docstrings, and morning-dashboard.sh often gets adopter-specific VPS config
+# (token file, hardcoded host, etc — pupsik template uses generic env vars).
+#
+# Force-resync would silently overwrite this layer. Use the conservative
+# default (sidecar on drift) so adopters can review pupsik upstream changes
+# and merge selectively. The brand-os-visual-gate.sh handles favicon/theme
+# drift between workspace and Brand OS canonical at morning-dashboard time -
+# that's the right tool for that job, not install.sh.
+#
+# brand-os-visual-gate.sh + install-git-hooks.sh ARE template-class (the user
+# shouldn't be editing those — they're our enforcement scripts). Force-resync
+# stays on for those two only.
 say ""
 say "Step 3.5: Copy dashboard module..."
 mkdir -p "$WORKSPACE/dashboard" "$WORKSPACE/scripts" "$WORKSPACE/state/dashboard/archive"
@@ -238,8 +285,8 @@ smart_merge_file "$SCRIPT_DIR/dashboard/favicon.svg" "$WORKSPACE/dashboard/favic
 smart_merge_file "$SCRIPT_DIR/dashboard/NOTICE.md"  "$WORKSPACE/dashboard/NOTICE.md"  "dashboard/NOTICE.md"
 smart_merge_file "$SCRIPT_DIR/dashboard/README.md"  "$WORKSPACE/dashboard/README.md"  "dashboard/README.md"
 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/morning-dashboard.sh" "$WORKSPACE/scripts/morning-dashboard.sh" "scripts/morning-dashboard.sh"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/brand-os-visual-gate.sh" "$WORKSPACE/scripts/brand-os-visual-gate.sh" "scripts/brand-os-visual-gate.sh"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/install-git-hooks.sh" "$WORKSPACE/scripts/install-git-hooks.sh" "scripts/install-git-hooks.sh"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/brand-os-visual-gate.sh" "$WORKSPACE/scripts/brand-os-visual-gate.sh" "scripts/brand-os-visual-gate.sh"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/install-git-hooks.sh" "$WORKSPACE/scripts/install-git-hooks.sh" "scripts/install-git-hooks.sh"
 
 # Optional dash shortcut on PATH (~/.local/bin/dash)
 if [ -d "$HOME/.local/bin" ]; then
@@ -360,7 +407,8 @@ done
 say "Bootstrapping architect proposals backlog..."
 ARCH_DIR="$WORKSPACE/memory/architect_proposals"
 mkdir -p "$ARCH_DIR/archive"
-smart_merge_file "$SCRIPT_DIR/memory_templates/architect_proposals/_PROTOCOL.md" "$ARCH_DIR/_PROTOCOL.md" "architect_proposals/_PROTOCOL.md"
+# _PROTOCOL.md is schema, not user config → force-resync on drift.
+PUPSIK_FORCE_RESYNC=1 smart_merge_file "$SCRIPT_DIR/memory_templates/architect_proposals/_PROTOCOL.md" "$ARCH_DIR/_PROTOCOL.md" "architect_proposals/_PROTOCOL.md"
 if [ ! -f "$ARCH_DIR/latest.md" ]; then
   cp "$SCRIPT_DIR/memory_templates/architect_proposals/latest.md" "$ARCH_DIR/latest.md"
   say "  new: architect_proposals/latest.md (empty bootstrap)"
@@ -380,7 +428,8 @@ say "Bootstrapping world_knowledge + user_context directories..."
 for kind in world_knowledge user_context; do
   KIND_DIR="$WORKSPACE/memory/$kind"
   mkdir -p "$KIND_DIR"
-  smart_merge_file "$SCRIPT_DIR/memory_templates/$kind/_PROTOCOL.md" "$KIND_DIR/_PROTOCOL.md" "$kind/_PROTOCOL.md"
+  # _PROTOCOL.md is schema, not user config → force-resync on drift.
+  PUPSIK_FORCE_RESYNC=1 smart_merge_file "$SCRIPT_DIR/memory_templates/$kind/_PROTOCOL.md" "$KIND_DIR/_PROTOCOL.md" "$kind/_PROTOCOL.md"
 done
 
 # ---------- Step 6.5: critical-rules.md (smart append-only merge) ----------
@@ -458,10 +507,11 @@ else
   warn "  $RULES_SRC missing, skipping"
 fi
 
-# ---------- Step 7: compact hooks (smart-merge) ----------
+# ---------- Step 7: compact hooks (template-class) ----------
+# Hooks are scripts, not user config → force-resync on drift.
 say "Installing compact hooks..."
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/pre-compact.sh"  "$WORKSPACE/.claude/hooks/pre-compact.sh"  "hooks/pre-compact.sh"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/post-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh" "hooks/post-compact.sh"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/pre-compact.sh"  "$WORKSPACE/.claude/hooks/pre-compact.sh"  "hooks/pre-compact.sh"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/post-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh" "hooks/post-compact.sh"
 
 # ---------- Step 8: print settings.json hook snippet ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
