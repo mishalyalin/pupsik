@@ -72,3 +72,40 @@ Per `CLAUDE.md` 2+ agent rule:
 - **Agent 3 (Checker, optional for high-stakes days)** — verifies no invented facts, no stale items, no missed obvious meeting
 
 For routine daily briefings, Researcher + Writer is usually enough. For Mondays or pre-trip briefings, add the Checker.
+
+## 🔴 MANDATORY Pass 3 — direct compact-list audit by Claude (no subagent delegation)
+
+After Pass 1 (filtered Researcher subagent) + Pass 2 (unfiltered fallback subagent, if used) — Claude itself MUST run a third pass directly in main context.
+
+**Why:** Sub-agents systematically miss or misclassify in-window messages. Two failure modes observed:
+1. **Misattribution** — subagent reads an inbox message in a thread and reports it as the OWNER's outbound action (because owner's name appears in the thread). Briefing then includes a false "OWNER already replied" claim.
+2. **In-window miss** — subagent runs `newer_than:1d` but reports "all silent in last 24h" while a high-signal counter-party reply sits 45 min before the data gather, comfortably in the window.
+
+Both have happened in production. Tightening subagent prompts has not fixed them. The structural fix is direct verification by Claude in main context.
+
+**Procedure:**
+
+1. After Pass 1 + Pass 2 subagents return, BEFORE composing the briefing.
+2. `gmail_search_all` with `newer_than:2d max_per_account=100` (or appropriate equivalent for your owner's account count). Expect ~80-150 messages. The raw JSON is usually too large for context — it auto-spills to a `tool-results/` overflow file. **Do NOT read the full file.**
+3. Inline-Python extract compact list from overflow file:
+   ```python
+   with open("<overflow-file>") as f:
+       d = json.load(f)
+   msgs = sorted(d["messages"], key=lambda m: m.get("date",""), reverse=True)
+   for m in msgs:
+       unread = "🔴" if m.get("isUnread") else "  "
+       print(f"{unread} [{m.get('account','?')[:8]}] {m.get('date','')[:25]} | {(m.get('from','') or '')[:50]:50s} | {(m.get('subject','') or '')[:70]}")
+   ```
+   ~100 lines of output, fits comfortably in main context.
+4. Claude reads compact list DIRECTLY (no Agent tool, no delegation). Scan for:
+   - **Tracker counter-party activity** that Pass 1 said was "silent" — strongest single signal. Names to grep: every counter-party currently in your escalation tracker.
+   - **Gov/regulator** that Pass 2 might have dropped (tax authority, business registry, customs, etc).
+   - **Real-human cold inbound** from unknown senders (warm-network potential).
+5. If MISS found: `gmail_read_message` to read body → correct briefing state inline → update relevant memory file → bump/resolve tracker accordingly.
+6. Mention the miss explicitly in the Architect lens: "Pass 1 missed X — caught by Pass 3 compact-list audit". This creates an audit trail and makes the failure mode visible to the owner.
+
+**Cost:** ~5-10 seconds of main-context tokens (compact list ~100 lines + scan). Trivial vs the cost of missing a high-signal counter-party reply.
+
+**Trigger:** every briefing run, no exceptions. Even on quiet weekends.
+
+Operating rule: `memory_templates/feedback_briefing_pass3_direct_audit.md`
