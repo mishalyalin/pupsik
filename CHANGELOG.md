@@ -5,6 +5,32 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-26.1] - morning-briefing Pass 3 direct compact-list audit (no subagent delegation)
+
+This release adds a structural fix to the morning-briefing skill, addressing a recurring subagent-misclassification failure mode that prompt-tightening hasn't solved.
+
+### What broke (the user-visible incident)
+
+On 2026-05-26 the briefing shipped with Pass 1 (filtered subagent) verdict "No counter-party activity from ESCALATED tracker. All silent in last 24h." A 06:24 BST reply from a high-signal supplier counter-party — 45 minutes before the subagent's data gather, comfortably inside its `newer_than:1d` window — was missed. The reply resolved a tracker item that had been escalating for days. Owner asked verbatim *"you do read all the email yourself, right, not just selectively, and you yourself read the latest?"* — and the honest answer was no: subagents had filtered, I had read their summaries, and a real counter-party reply had fallen through.
+
+This is the second incident in 4 days. The first (2026-05-22) was misattribution — a subagent reported an inbox message as the OWNER's outbound action because the owner's name appeared in the thread byline, leading to a false "owner already replied" claim. Tightening the subagent's prompt did not prevent the second incident.
+
+### Added
+- **`templates/morning_briefing_skill.md.template`** — new "🔴 MANDATORY Pass 3" section between the two-agent pattern and the end of file. After Pass 1 (filtered Researcher subagent) + Pass 2 (unfiltered fallback subagent, if used), Claude itself queries `gmail_search_all newer_than:2d max_per_account=100`, extracts a compact list (account / date / from:50 / subject:70) inline via Python from the tool-results overflow file, and reads the ~100-line compact list directly in main context. Scan targets: tracker counter-party activity that Pass 1 said was "silent"; gov/regulator that Pass 2 might have dropped; real-human cold inbound from unknown senders. On MISS: `gmail_read_message` body → correct briefing state inline → bump/resolve tracker → mention the miss in the Architect lens for audit trail.
+- **`memory_templates/feedback_briefing_pass3_direct_audit.md`** — full operating rule with the two failure modes (misattribution + in-window miss), procedure, trigger, cost, and the reasoning why this is the structural fix vs more subagent rules.
+
+### Why this is structural, not just another subagent rule
+- Tightening subagent prompts has failed across multiple incidents in different shapes (misattribution one week, in-window miss the next).
+- Pass 3 lives in a different layer: it's direct verification by the entity that ships the briefing, not by a delegated subagent. No attribution drift. No summarisation loss.
+- The long-term fix is multi-agent observability hooks (an open backlog item in this workspace's `architect_proposals/`). Pass 3 is the bridge until that lands.
+
+### Cost
+~5-10 seconds of main-context tokens per briefing run (compact list ~100 lines + scan). Trivial vs the cost of missing a high-signal counter-party reply.
+
+### Privacy invariants
+- Privacy check passed 11/11 (`bash .github/scripts/privacy-check.sh`).
+- No private repo identifiers, addresses, supplier names, or owner-specific facts in the template or feedback rule. Both use generic language ("OWNER", "tracker counter-party", "high-signal supplier") that adopters bind to their own context.
+
 ## [2026-05-21.1] - update.sh always re-syncs workspace + install.sh template-class force-resync
 
 After yesterday's three-fix release, smoke-testing `update.sh` revealed two complementary bugs in the workspace re-sync flow. (a) `update.sh` early-exited with "already up to date" when `git HEAD == origin/main`, never running the smart-merge phase — so any drift between workspace and pupsik tree that wasn't pulled fresh stayed put indefinitely. (b) `install.sh`'s `smart_merge_file` conservatively dropped `.new` sidecars when there was no `.bak.<ts>` baseline to prove the file pristine — but for files installed before the state-file infrastructure existed (pre-`2026-05-14.1`), no `.bak` ever existed, so legitimate drift (e.g. yesterday's em-dash normalisation on 7 tools) was never overwritten, just queued as sidecars the user had to manually merge. Together they meant the "after update.sh, workspace = pupsik HEAD" contract didn't hold in the common no-new-commits-but-drifted case.
