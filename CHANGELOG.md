@@ -5,6 +5,44 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-27.1] - five new self-improvement rules + note_graph fuzzy entity fallback
+
+This release propagates five new self-improvement rules from a real workspace's session work (Apr-May 2026 r/ClaudeAI viral threads + AI-PR review checklist adoption) into the public template, plus a small but meaningful upgrade to `tools/note_graph.py` so `entity <name>` is friendlier when you don't remember the exact casing.
+
+### Added
+
+- **`memory_templates/feedback_session_retro.md`** — at session end, run a 2-min retro (learned / surprised / encode) and ACT on it via `note.py learning|decision|research` + propose new feedback rules + architect entries. The moment-of-emergence rule (`feedback_capture_knowledge.md`) is the primary mechanism; this is the safety net for fuzzy / buried / meta-pattern insights that didn't land mid-flight. Triggers: user signals close, final summary about to send, compact threshold near, natural boundary (PR merged / decision made / runbook delivered).
+- **`memory_templates/feedback_claudemd_size_discipline.md`** — `CLAUDE.md` is working memory re-read EVERY session; bloating it permanently subtracts attention. Soft cap 450 lines, hard cap 600. The nightly reflection (`dream-v2`) already trims `## Last Updated` past 7 days to `memory/journal/claude-md-changelog.md` and audits `## Upcoming` for resolved items; this rule adds the discipline that the morning briefing's Architect Lens flags `>500` lines as INFRASTRUCTURE DEBT.
+- **`memory_templates/feedback_context_hygiene.md`** — `/clear` + restart over patching when Claude hallucinates or misclassifies twice in a row, or autocompact fires ≥2x mid-task. Past ~400k tokens of long-context, attention degrades silently — more correction turns add MORE degraded context. Max 3 correction turns before mandatory clear. Restart prompt is a junior-engineer brief (goal + paths + tried+failed + ask), not a recap.
+- **`memory_templates/feedback_ci_red_is_hard_stop.md`** — if any CI check on a Claude-authored PR fails (or yellow-warning-treated-as-FAILURE), the PR does not merge. No exceptions, no pattern-matched justifications. Before `gh pr merge`: `gh pr view <n> --json statusCheckRollup --jq '.statusCheckRollup[].conclusion'` must return all SUCCESS. Branch protection + pre-commit hook are structural enforcement; this rule fills the behavioural gap when human/AI is tempted to bypass structure.
+- **`memory_templates/feedback_pr_reuse_audit.md`** — before any PR adds a new utility / function / script, grep `rg "def <name>"` + 2-3 core-purpose keywords across `tools/` and the repo. If a hit looks similar: CONSOLIDATE (refactor existing) OR JUSTIFY in the PR description OR REJECT (existing already does this). Targets the `tools/` accumulation problem before it becomes irreversible.
+- **`templates/critical-rules.md.template`** — five new one-liners under `## System self-improvement` pointing at the five feedback rules above. These belong with the existing `Architect Lens auto-apply` and `Architect proposals backlog` rules because they share the same purpose: the system improves itself across sessions without each new session re-discovering the same lessons.
+
+### Changed
+
+- **`tools/note_graph.py`** — `fetch_entity_by_name(conn, name)` now returns `(rows, match_kind)` tuple with a four-tier match cascade: exact name → alias → fuzzy substring on name → fuzzy substring on alias. Minimum partial-length is 2 characters. `match_kind ∈ {exact, alias, fuzzy, none}`. The `entity <name>` CLI command surfaces a disambiguation hint when fuzzy matching returns multiple candidates. The old behaviour (exact + alias only) is preserved as the first two tiers, so existing scripts that called `fetch_entity_by_name` and unpacked a single list need a small unpack change — see the docstring. This is a small UX upgrade: when you don't remember "Nikolay Bezborodov" vs "Nikolai", `entity nikol` now lists both with a hint, instead of returning empty.
+
+### Why this is structural, not just five new rules
+
+Each of the five rules closes a real failure mode that more prompt-tightening doesn't fix:
+
+- Session retro closes the "story diluted, structural lesson lost" gap that end-of-session summaries leave.
+- CLAUDE.md size discipline closes the "working memory bloats over months and the top-5 P0s drown" gap.
+- Context hygiene closes the "keep arguing through a degraded session" anti-pattern that compound-frustrates without producing output.
+- CI red = hard stop closes the "pattern-matched justification merges on red, hotfix follows" anti-pattern with a direct in-repo precedent.
+- PR reuse audit closes the "agent-generated PR adds the fifth near-duplicate to `tools/`" pattern that fragments mental models.
+
+Together they form the self-improvement layer that sits ABOVE the architect proposals backlog: backlog captures what to do; these rules govern HOW you work across sessions so the captures land.
+
+### Cost
+
+The five feedback files total ~280 lines. They're loaded only when their topic surfaces (`feedback_*.md` are pointer-described in `critical-rules.md.template` and full-text-read on demand). The note_graph change adds ~30 LOC; the four-tier match still runs in `< 50ms` on a typical 200-entity DB.
+
+### Privacy invariants
+
+- Privacy check passed (`bash .github/scripts/privacy-check.sh --include-untracked`).
+- No private repo identifiers, names, addresses, supplier names, or owner-specific facts in any template or feedback rule. All rules use generic language ("user", "owner", "the repo") that adopters bind to their own context.
+
 ## [2026-05-26.1] - morning-briefing Pass 3 direct compact-list audit (no subagent delegation)
 
 This release adds a structural fix to the morning-briefing skill, addressing a recurring subagent-misclassification failure mode that prompt-tightening hasn't solved.

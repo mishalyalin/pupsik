@@ -874,29 +874,70 @@ def resolve_note(conn: sqlite3.Connection, slug_or_path: str) -> sqlite3.Row | N
     return rows[0] if rows else None
 
 
-def fetch_entity_by_name(conn: sqlite3.Connection, name: str) -> list[sqlite3.Row]:
+def fetch_entity_by_name(
+    conn: sqlite3.Connection, name: str
+) -> tuple[list[sqlite3.Row], str]:
     """Find entities matching `name` on canonical name OR alias.
 
-    Returns ordered list (most-specific match first). Case-insensitive.
+    Match strategy (returns first non-empty tier):
+      1. Exact canonical name (case-insensitive). Match kind: "exact".
+      2. Exact alias (case-insensitive). Match kind: "alias".
+      3. Substring on canonical name (case-insensitive). Match kind: "fuzzy".
+      4. Substring on alias. Match kind: "fuzzy".
+
+    Returns (rows, match_kind). match_kind in {"exact", "alias", "fuzzy", "none"}.
+    Caller surfaces a hint when match_kind == "fuzzy" so the user knows they
+    typed a partial name and can disambiguate if multiple matches return.
+
+    Set 2026-05-27 per arch-2026-05-14-003 — `entity "Joe"` should find
+    "Joe Lound" instead of returning "not found".
     """
-    # Exact canonical name first.
+    # Tier 1: exact canonical.
     exact = conn.execute(
         "SELECT * FROM entities WHERE name = ? COLLATE NOCASE", (name,)
     ).fetchall()
     if exact:
-        return exact
-    # Alias match: scan + JSON-decode. For <300 entities this is cheap.
-    out: list[sqlite3.Row] = []
-    all_ent = conn.execute("SELECT * FROM entities").fetchall()
+        return exact, "exact"
+    # Tier 2: exact alias (scan + JSON-decode, <300 entities is cheap).
     name_low = name.lower()
+    all_ent = conn.execute("SELECT * FROM entities").fetchall()
+    alias_hits: list[sqlite3.Row] = []
     for r in all_ent:
         try:
             aliases = json.loads(r["aliases"] or "[]")
         except (json.JSONDecodeError, TypeError):
             continue
         if any(a.lower() == name_low for a in aliases):
-            out.append(r)
-    return out
+            alias_hits.append(r)
+    if alias_hits:
+        return alias_hits, "alias"
+    # Tier 3: substring on canonical name. Bail if name is too short to be
+    # meaningful (<2 chars would match a huge fraction of entities).
+    if len(name_low) < 2:
+        return [], "none"
+    fuzzy_hits: list[sqlite3.Row] = []
+    seen_ids: set[int] = set()
+    for r in all_ent:
+        if name_low in (r["name"] or "").lower():
+            if r["id"] not in seen_ids:
+                fuzzy_hits.append(r)
+                seen_ids.add(r["id"])
+    # Tier 4: substring on aliases.
+    for r in all_ent:
+        if r["id"] in seen_ids:
+            continue
+        try:
+            aliases = json.loads(r["aliases"] or "[]")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if any(name_low in a.lower() for a in aliases):
+            fuzzy_hits.append(r)
+            seen_ids.add(r["id"])
+    if fuzzy_hits:
+        # Order by length of canonical name (shorter = closer match for partial).
+        fuzzy_hits.sort(key=lambda r: len(r["name"] or ""))
+        return fuzzy_hits, "fuzzy"
+    return [], "none"
 
 
 # ---------- subcommand: related ----------
@@ -1027,10 +1068,26 @@ def cmd_entity(args) -> int:
     db_path = args.db.expanduser().resolve()
     conn = get_db(db_path)
     try:
-        matches = fetch_entity_by_name(conn, args.name)
+        matches, match_kind = fetch_entity_by_name(conn, args.name)
         if not matches:
             print(f"entity not found: {args.name}")
             return 0
+        # If we landed in fuzzy fallback and multiple candidates returned,
+        # show them all so user can re-run with the exact name. Use the
+        # top match (shortest canonical, sorted in fetch_entity_by_name)
+        # for the actual report, but flag the fuzzy disambiguation.
+        if match_kind == "fuzzy":
+            if len(matches) > 1:
+                print(
+                    f"fuzzy match: '{args.name}' matched {len(matches)} entities. "
+                    f"Showing top match. Disambiguate with exact name:"
+                )
+                for m in matches[:10]:
+                    print(f"  - {m['name']} ({m['kind']})")
+                print()
+            else:
+                print(f"fuzzy match: '{args.name}' -> '{matches[0]['name']}'")
+                print()
         ent = matches[0]
         print(f"entity: {ent['name']} ({ent['kind']})")
         print()
