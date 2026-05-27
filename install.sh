@@ -6,7 +6,7 @@
 #   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks,.claude/compact-state}
 #   3. Copies tools/ → ~/Desktop/claude/tools/
 #      (contacts_db.py, memory_search.py, note.py, doctor.py,
-#       enrichment_schema_migrate.py, flag_russian_speakers.py)
+#       enrichment_schema_migrate.py)
 #   4. Renders templates/CLAUDE.md.template → ~/Desktop/claude/CLAUDE.md (prompts for placeholders)
 #   5. Renders templates/wakeup_l0.txt.template → ~/Desktop/claude/memory/wakeup_l0.txt (prompts for placeholders)
 #   6. Copies memory_templates/feedback_*.md → project memory dir
@@ -252,7 +252,6 @@ PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memo
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/flag_russian_speakers.py"   "$WORKSPACE/tools/flag_russian_speakers.py"   "tools/flag_russian_speakers.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"

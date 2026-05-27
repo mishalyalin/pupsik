@@ -44,7 +44,7 @@ If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't 
 - **Multi-account Gmail / Calendar / WhatsApp MCPs.** I have 3 Gmail accounts. `gmail_search_all` searches all of them in one call. Same for Calendar. WhatsApp is read-only on macOS but it pulls into the contact DB.
 - **`tools/doctor.py` health-check + safe auto-fix.** 13 deterministic checks across the workspace. Broken symlinks, stale lock files, ChromaDB orphan rows, oversized CLAUDE.md, dangling memory pointers. `check` is read-only; `fix-safe` only does safe repairs (never rewrites my prose); `orphans` lists unlinked entities for me to review. Cron-safe.
 - **Friction protocol.** `note.py friction --severity blocker --phase X --message Y` captures the moments when something's wrong but I don't have time to fix it now. Re-run the same phase + severity and the counter increments. After 3 hits, my morning briefing surfaces it loud.
-- **Optional contact-enrichment cron, 4 passes.** Gmail signature mining for LinkedIn / Twitter / GitHub / website / phone. Then web search for missing LinkedIn URLs. Then a short bio + Instagram. Then Pass 4: it reads my email and WhatsApp correspondence with the contact and writes a 2-4 sentence private summary into `relationship_context`. That field never leaves my local DB - not in any export, not in briefings (briefings reformulate, never quote), not in this repo. Telegram is never auto-read; a heuristic flags Russian-speaker contacts so I can paste TG history manually if I want their context refreshed. Runs Sunday 06:00 if I enable it.
+- **Optional contact-enrichment cron, 4 passes.** Gmail signature mining for LinkedIn / Twitter / GitHub / website / phone. Then web search for missing LinkedIn URLs. Then a short bio + Instagram. Then Pass 4: it reads my email and WhatsApp correspondence with the contact and writes a 2-4 sentence private summary into `relationship_context`. That field never leaves my local DB - not in any export, not in briefings (briefings reformulate, never quote), not in this repo. Telegram is never auto-read; if I want TG context for a specific contact, I paste the history into an ad-hoc prompt manually. Runs Sunday 06:00 if I enable it.
 - **Auto-compact hooks + 50% threshold.** `PreCompact` saves session state to disk before Claude compacts. `PostCompact` reminds it to restore. `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` fires compaction at half-context instead of waiting until 95% and losing the plot.
 - **2-agent rule.** Every real task spawns a Worker plus an independent Checker. Catches the bugs a single-agent pass misses. I learned this the hard way; it's now non-negotiable for anything I'd actually ship.
 - **Architect proposals backlog.** Every time the morning briefing's Architect Lens spots a structural issue, the proposal gets written to `memory/architect_proposals/latest.md` with a status (`open` / `applied` / `rejected` / etc). Small same-turn fixes apply immediately and log as `applied`; bigger things wait for my sign-off as `open` and the brief surfaces the top-3 each morning. Rejected proposals get a 90-day re-propose suppression so I stop seeing the same noise. Local-only; never goes in any public export.
@@ -112,7 +112,7 @@ What it does:
 
 ### What `update.sh` updates
 
-- `tools/{contacts_db,memory_search,note,doctor,enrichment_schema_migrate,flag_russian_speakers}.py` (smart-merge - see below)
+- `tools/{contacts_db,memory_search,note,doctor,enrichment_schema_migrate}.py` (smart-merge - see below)
 - `~/.claude/rules/critical-rules.md` (append-only smart merge)
 - `~/Desktop/claude/.claude/hooks/{pre,post}-compact.sh` (smart-merge)
 - `memory_templates/feedback_*.md` (smart-merge in your project memory directory)
@@ -222,9 +222,8 @@ Full release notes in [`CHANGELOG.md`](CHANGELOG.md).
 ### What's new (2026-05-09)
 
 1. **Pass 4 of the contact-enrichment cron** - reads my email and WhatsApp correspondence with each contact and synthesizes a 2-4 sentence private `relationship_context` summary. The field never leaves the local DB. Telegram is never auto-read - manual paste only, per the upstream rule.
-2. **Russian-speaker heuristic.** `tools/flag_russian_speakers.py` flags contacts likely to be on Telegram (Cyrillic name / Latin transliteration of a Russian first name / Russian surname suffix / Russian-domain email / opt-in company match via `$RUSSIAN_CONTEXT_COMPANIES`). Idempotent. The cron's Step 0.5 calls it.
-3. **Schema migration: 10 -> 12 columns.** `enrichment_schema_migrate.py` now adds `relationship_context` and `tg_manual_paste_recommended` on top of the original 10. Re-runs are safe.
-4. **Upgrade discipline closed.** `tools/update.sh` and `install.sh` now smart-merge all 6 tools instead of just the original 3. Existing pupsik installs running `update.sh` will pick up `doctor.py`, `enrichment_schema_migrate.py`, and `flag_russian_speakers.py` automatically.
+2. **Schema migration: 10 -> 11 columns.** `enrichment_schema_migrate.py` now adds `relationship_context` on top of the original 10. Re-runs are safe.
+3. **Upgrade discipline closed.** `tools/update.sh` and `install.sh` now smart-merge all 5 tools instead of just the original 3. Existing pupsik installs running `update.sh` will pick up `doctor.py` and `enrichment_schema_migrate.py` automatically.
 5. **UPGRADING.md rewritten.** Per-release format with one-time steps + verification checks for each release back to Phase 2. Backfill recipe included for users who ran the 2026-05-08 cron before this update.
 
 ### What's new (2026-05-07: gbrain pattern imports + privacy)

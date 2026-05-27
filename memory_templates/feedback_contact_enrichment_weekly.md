@@ -26,9 +26,9 @@ personal/tenancy/events categories + distribution-list emails.
 
 Pass 4 is the only pass that reads private correspondence. The output
 is a 2-4 sentence summary stored in the DB column `relationship_context`,
-never exported to public surfaces. Telegram is NEVER auto-read; for
-likely-TG-active contacts (Russian-speaker heuristic) the run surfaces
-a manual-paste prompt instead.
+never exported to public surfaces. Telegram is NEVER auto-read; if you
+want TG context for a specific contact, paste the history into an ad-hoc
+prompt manually.
 
 ## When the task runs
 
@@ -68,41 +68,14 @@ Cap: 50 candidates per run.
    Pass 1) + WhatsApp scan (`whatsapp_messages_with` if `phone`
    populated). Synthesize a 2-4 sentence private
    `relationship_context` summary. Skip if no email evidence.
-   Telegram is NEVER read by the cron - for flagged candidates
-   (`tg_manual_paste_recommended=1`), the run surfaces a manual-paste
-   prompt in the summary instead.
+   Telegram is NEVER read by the cron - if you want TG context for
+   a specific contact, paste the history into an ad-hoc prompt
+   manually.
 
 UPDATE uses COALESCE(existing, new) on every field including
 `relationship_context` - non-NULL values are preserved. Manual
 refresh path: `UPDATE contacts SET relationship_context = NULL WHERE
 id = ?` then re-run Pass 4 for that one row.
-
-## Russian-speaker heuristic (Step 0.5)
-
-Pass 4 needs to know which contacts are likely on Telegram (since TG
-is manual-paste-only and the cron can't read it). The cron's Step 0.5
-runs `tools/flag_russian_speakers.py --apply` to refresh
-`tg_manual_paste_recommended` flags before pulling enrichment
-candidates. The tool is multi-signal (any one matches):
-
-1. Cyrillic in name or full_name
-2. First-name token matches a Latin transliteration of a Russian name
-   (Nikolay, Vlad, Aleksey, Andrey, Dasha, Ilya, Anna, Igor, Anton, etc.)
-3. Last-name token ends with a Russian surname suffix
-   (`-ov` / `-ova` / `-ev` / `-eva` / `-in` / `-ina` / `-sky` / `-skaya` /
-   `-enko` / `-uk` and variants)
-4. Email matches `.ru` / `.by` / `.kz` / `.ua` / `mail.ru` / `yandex.ru`
-5. Company contains a substring from `$RUSSIAN_CONTEXT_COMPANIES`
-   (opt-in env var; leave unset to disable signal 5)
-
-Idempotent (only flips 0 -> 1; never clobbers a manual override). Run
-ad-hoc as a dry-run any time:
-
-```bash
-python3 ~/pupsik/tools/flag_russian_speakers.py
-```
-
-Pass `--apply` to actually update the DB.
 
 ## Hard privacy guards
 
@@ -114,7 +87,7 @@ Pass `--apply` to actually update the DB.
   on common names.
 - Skip Instagram for corporate / legal / tenancy categories.
 - Pass 4 NEVER auto-reads Telegram (per `feedback_telegram_manual.md`).
-  The Russian-speaker heuristic flags candidates for manual paste only.
+  If TG context is needed for a contact, paste it manually.
 - `relationship_context` NEVER leaves the local DB. Not in
   `latest.md`, not in archive runs, not in briefings (briefings
   reformulate, never quote), not in public repos or templates, not in
@@ -168,10 +141,10 @@ rules (c) gmail_search_all is broken.
 
 ## Schema requirement
 
-The task assumes the contacts table has these 12 enrichment columns:
+The task assumes the contacts table has these 11 enrichment columns:
 `linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`,
 `enrichment_source`, `enrichment_date`, `enrichment_confidence`,
-`last_enriched`, `relationship_context`, `tg_manual_paste_recommended`.
+`last_enriched`, `relationship_context`.
 
 If your contacts.db started from an older pupsik schema (pre-Pass-4),
 run the helper once:
@@ -188,7 +161,6 @@ touching the others.
 - Scheduled task: `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md`
 - Template: `~/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template`
 - Schema migration: `~/pupsik/tools/enrichment_schema_migrate.py`
-- Russian-speaker heuristic: `~/pupsik/tools/flag_russian_speakers.py`
 - Run summary: `~/Desktop/claude/memory/contact_enrichment/latest.md`
 - Run archive: `~/Desktop/claude/memory/contact_enrichment/archive/<date>-enrichment.md`
 - DB: `~/Desktop/claude/data/contacts.db`
@@ -203,9 +175,7 @@ architecture pattern adapted from a sibling outbound-deadline poller
 (also original).
 
 Pass 4 (email + WhatsApp correspondence scan + private
-`relationship_context` synthesis) and Step 0.5 (Russian-speaker
-heuristic refresh) added 2026-05-08 same session. The TG-manual-paste
-flag exists because automated Telegram reading is blocked by an
-upstream rule (`feedback_telegram_manual.md`); the heuristic surfaces
-which contacts would benefit from a one-off manual-paste refresh
-without ever auto-reading TG.
+`relationship_context` synthesis) added 2026-05-08 same session.
+Telegram is blocked by an upstream rule (`feedback_telegram_manual.md`);
+if you want TG factored into a contact's `relationship_context`, paste
+the history into an ad-hoc prompt manually for that one row.
