@@ -16,7 +16,7 @@ git pull              # fetch latest main
 bash tools/update.sh  # smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `flag_russian_speakers.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
+`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
 
 Scheduled-task templates (the optional weekly enrichment cron) are NOT auto-installed - they're opt-in. The install command is in "Per-release one-time steps" below.
 
@@ -50,9 +50,7 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 - **`tools/doctor.py`** (new 2026-05-07) - deterministic health-check + safe-auto-fix tool. 13 checks across 3 subcommands (`check`, `fix-safe`, `orphans`). Catches stale lock files, broken symlinks, ChromaDB orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers. SAFE-ops only - never LLM content rewrites.
 
-- **`tools/enrichment_schema_migrate.py`** (new 2026-05-08, updated 2026-05-09) - idempotent migration adding the 12 enrichment columns to your `contacts.db` (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`, `relationship_context`, `tg_manual_paste_recommended`). Re-runs are safe; only adds missing columns.
-
-- **`tools/flag_russian_speakers.py`** (new 2026-05-09) - multi-signal heuristic that flags contacts likely to chat with you on Telegram. Used by Step 0.5 of the contact-enrichment-weekly cron (or runnable ad-hoc). Idempotent (only flips 0 to 1). Optional `$RUSSIAN_CONTEXT_COMPANIES` env var enables company-name-based flagging.
+- **`tools/enrichment_schema_migrate.py`** (new 2026-05-08, updated 2026-05-27) - idempotent migration adding the 11 enrichment columns to your `contacts.db` (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`, `relationship_context`). Re-runs are safe; only adds missing columns.
 
 - **New mandatory rule: capture-knowledge-in-flight** - installed to `~/.claude/projects/<slug>/memory/feedback_capture_knowledge.md`. Tells Claude to call `note.py` the moment an insight surfaces, not when the topic closes.
 
@@ -248,41 +246,32 @@ The contact-enrichment cron is opt-in. To enable:
 
    Just paste the contents of `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md` into a fresh Claude session. The session will run the 4-pass enrichment on rows where `last_enriched IS NULL`.
 
-### 2026-05-09 release: Pass 4 correspondence scan + Russian-speaker heuristic
+### 2026-05-09 release: Pass 4 correspondence scan
 
-The 2026-05-09 release adds Pass 4 to the contact-enrichment cron and a multi-signal Russian-speaker heuristic. If you ran the 2026-05-08 schema migrate, the columns were 10. The 2026-05-09 migrate adds 2 more (`relationship_context`, `tg_manual_paste_recommended`).
+The 2026-05-09 release adds Pass 4 to the contact-enrichment cron. If you ran the 2026-05-08 schema migrate, the columns were 10. The 2026-05-09 migrate adds 1 more (`relationship_context`).
 
-If you're a fresh installer post-2026-05-09, you only run the migrate once (it adds all 12 in one go).
+If you're a fresh installer post-2026-05-09, you only run the migrate once (it adds all 11 in one go).
 
 For existing 2026-05-08 installers, the same migrate command is idempotent:
 
 ```bash
 python3 ~/Desktop/claude/tools/enrichment_schema_migrate.py
-# Output: "+ relationship_context", "+ tg_manual_paste_recommended", "= linkedin" ... etc
+# Output: "+ relationship_context", "= linkedin" ... etc
 ```
 
-The cron template at `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md` is NOT smart-merged automatically (templates under `templates/scheduled-tasks/` are opt-in cron tasks). To pick up the Pass 4 + Step 0.5 changes:
+The cron template at `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md` is NOT smart-merged automatically (templates under `templates/scheduled-tasks/` are opt-in cron tasks). To pick up the Pass 4 changes:
 
 ```bash
 # Backup your existing SKILL.md if you made local edits
 cp ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md \
    ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md.bak.$(date +%Y%m%d)
 
-# Copy the 2026-05-09 template
+# Copy the latest template
 cp ~/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template \
    ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md
 ```
 
-If you set the optional `$RUSSIAN_CONTEXT_COMPANIES` env var (comma-separated company-name substrings), Pass 4's signal 5 (company-based Russian-speaker flagging) is enabled. Leave unset to disable signal 5; the other 4 signals (Cyrillic / Latin transliteration / surname suffix / email domain) work without it.
-
-Run a one-off seed of the heuristic against your existing contacts:
-
-```bash
-python3 ~/Desktop/claude/tools/flag_russian_speakers.py            # dry-run
-python3 ~/Desktop/claude/tools/flag_russian_speakers.py --apply    # commit
-```
-
-The next scheduled cron run will then re-evaluate any rows where `last_enriched IS NULL` OR `< date('now', '-90 days')` and synthesize a private `relationship_context` summary into the local DB. The `relationship_context` column NEVER leaves your local DB - not in run summaries, not in briefings, not in any export.
+The next scheduled cron run will re-evaluate any rows where `last_enriched IS NULL` OR `< date('now', '-90 days')` and synthesize a private `relationship_context` summary into the local DB. The `relationship_context` column NEVER leaves your local DB - not in run summaries, not in briefings, not in any export. Telegram is NEVER auto-read; if you want TG history factored in for a contact, paste it into an ad-hoc prompt manually.
 
 ### Backfill an existing enrichment
 
@@ -309,14 +298,12 @@ After 2026-05-07 release:
 - `cat ~/.claude/rules/critical-rules.md | grep friction` returns a pointer to the friction protocol rule.
 
 After 2026-05-08 release:
-- `sqlite3 ~/Desktop/claude/data/contacts.db ".schema contacts" | grep -E "linkedin|relationship_context"` shows the new columns present (10 in the 2026-05-08 release, 12 in 2026-05-09).
+- `sqlite3 ~/Desktop/claude/data/contacts.db ".schema contacts" | grep -E "linkedin|relationship_context"` shows the new columns present (10 in the 2026-05-08 release, 11 in 2026-05-09).
 - `ls ~/.claude/scheduled-tasks/contact-enrichment-weekly/` shows the cron `SKILL.md` if you opted in.
 - ChromaDB reindex no longer crashes with `DuplicateIDError` (the 2026-05-08 dedup fix).
 
 After 2026-05-09 release:
-- `sqlite3 ~/Desktop/claude/data/contacts.db "PRAGMA table_info(contacts)" | grep -E "tg_manual_paste|relationship_context"` shows both new columns.
-- `python3 ~/Desktop/claude/tools/flag_russian_speakers.py --help` returns the multi-signal heuristic docstring.
-- After running `flag_russian_speakers.py --apply`, `sqlite3 ~/Desktop/claude/data/contacts.db "SELECT COUNT(*) FROM contacts WHERE tg_manual_paste_recommended = 1"` reports a non-zero count (depending on your network composition).
+- `sqlite3 ~/Desktop/claude/data/contacts.db "PRAGMA table_info(contacts)" | grep -E "relationship_context"` shows the new column.
 
 ## Rollback
 

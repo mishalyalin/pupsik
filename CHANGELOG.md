@@ -5,6 +5,53 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-05-27.2] - remove Russian-speaker heuristic + `tg_manual_paste_recommended` column
+
+The Russian-speaker heuristic and its companion column were dropped because the cron never touches Telegram either way - the flag added no operational value, only confusion.
+
+### Removed
+
+- **`tools/flag_russian_speakers.py`** - the multi-signal Cyrillic / Latin-transliteration / surname-suffix / email-domain / `$RUSSIAN_CONTEXT_COMPANIES` heuristic. Deleted entirely. The feature it served (surfacing "TG manual-paste candidates" in the cron's run summary) was an indirection that did not change cron behaviour - Telegram remained NEVER auto-read regardless of the flag, and the manual-paste workflow works the same way without the column hint. If you want TG context for a specific contact, paste the history into an ad-hoc prompt manually for that one row.
+- **`tg_manual_paste_recommended` column** on `contacts`. Removed from `tools/enrichment_schema_migrate.py`. Existing installs with this column in their `contacts.db` can drop it via `ALTER TABLE contacts DROP COLUMN tg_manual_paste_recommended` (SQLite 3.35+). The column was not load-bearing on any cron logic.
+- **Step 0.5** of the contact-enrichment-weekly cron (which called `flag_russian_speakers.py --apply` before the candidate query). The cron template + operating rule + run-summary schema are simpler without it.
+- **`$RUSSIAN_CONTEXT_COMPANIES` env var** support. No replacement.
+
+### Changed
+
+- **`tools/enrichment_schema_migrate.py`** - now migrates 11 columns instead of 12 (drops `tg_manual_paste_recommended` from `ENRICHMENT_COLUMNS`). Re-runs on existing 12-column tables remain safe; the script never deletes columns, it just stops adding the dropped one for fresh installs.
+- **`memory_templates/feedback_contact_enrichment_weekly.md`** - the Russian-speaker heuristic section is gone. Schema requirement updated to 11 columns. Pass 4 description updated to say "paste TG history into an ad-hoc prompt manually" instead of "the heuristic flags candidates for manual paste".
+- **`templates/scheduled-tasks/contact-enrichment-weekly.md.template`** - Step 0.5 removed. SELECT statement drops the `tg_manual_paste_recommended` column. The "TG manual-paste candidates" section of the run summary is removed. The `tg_manual_paste_pending: <int>` field is removed from the summary YAML schema.
+- **`tools/update.sh`**, **`install.sh`** - smart-merge call for `flag_russian_speakers.py` removed. The toolkit count drops from 6 actively-merged tools to 5.
+- **`README.md`**, **`MODULAR.md`**, **`UPGRADING.md`** - all narrative references to the heuristic dropped. The historical 2026-05-09 CHANGELOG entry stays as immutable release-note history.
+
+### Migration for existing 2026-05-27.1 installers
+
+If you adopted 2026-05-27.1 and your `contacts.db` has `tg_manual_paste_recommended INTEGER DEFAULT 0`:
+
+```bash
+# Backup first
+cp ~/Desktop/claude/data/contacts.db \
+   ~/Desktop/claude/data/contacts.db.bak.$(date +%Y%m%d)
+
+# Drop the column (SQLite 3.35+ required - macOS shipped sqlite3 has had this since Big Sur)
+sqlite3 ~/Desktop/claude/data/contacts.db \
+  "ALTER TABLE contacts DROP COLUMN tg_manual_paste_recommended"
+
+# Verify
+sqlite3 ~/Desktop/claude/data/contacts.db ".schema contacts" | grep tg_manual || echo "(clean)"
+```
+
+`flag_russian_speakers.py` in your workspace will be sidecar-noted by the next `update.sh` (`.new` will not exist for a deleted file - you have to `rm` the workspace copy manually). Or run:
+
+```bash
+rm ~/Desktop/claude/tools/flag_russian_speakers.py
+```
+
+### Privacy invariants
+
+- Privacy check passed (`bash .github/scripts/privacy-check.sh --include-untracked`).
+- The removed feature itself was not a privacy concern (it never read TG, only flagged candidates), but the removal makes the codebase smaller and more honest about what the cron actually does.
+
 ## [2026-05-27.1] - five new self-improvement rules + note_graph fuzzy entity fallback
 
 This release propagates five new self-improvement rules from a real workspace's session work (Apr-May 2026 r/ClaudeAI viral threads + AI-PR review checklist adoption) into the public template, plus a small but meaningful upgrade to `tools/note_graph.py` so `entity <name>` is friendlier when you don't remember the exact casing.

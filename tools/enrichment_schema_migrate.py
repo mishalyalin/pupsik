@@ -9,14 +9,13 @@ Adaptation type: original work (NOT adapted from gbrain or any external
 project). Designed 2026-05-08 alongside the contact-enrichment-weekly
 scheduled task.
 
-The contact-enrichment-weekly task expects 12 columns on the `contacts`
+The contact-enrichment-weekly task expects 11 columns on the `contacts`
 table: linkedin, twitter, github, website, instagram, bio,
 enrichment_source, enrichment_date, enrichment_confidence,
-last_enriched, relationship_context, tg_manual_paste_recommended.
+last_enriched, relationship_context.
 If your contacts.db was created from an older pupsik schema (pre-enrichment
-or pre-Pass-4), run this script once to add them. The last 2 columns
-(`relationship_context` + `tg_manual_paste_recommended`) were added
-2026-05-08 alongside Pass 4 (email + WhatsApp correspondence scan).
+or pre-Pass-4), run this script once to add them. `relationship_context`
+was added 2026-05-08 alongside Pass 4 (email + WhatsApp correspondence scan).
 
 The script is safe to re-run. Already-existing columns are detected
 via SQLite's `OperationalError: duplicate column name` and reported
@@ -46,15 +45,11 @@ import sqlite3
 import sys
 from pathlib import Path
 
-# The 12 enrichment columns the contact-enrichment-weekly task expects.
+# The 11 enrichment columns the contact-enrichment-weekly task expects.
 # Order matters only for human readability; SQLite stores them by name.
-# Last 2 columns were added 2026-05-08 alongside Pass 4 (correspondence scan):
-#   - relationship_context: 2-4 sentence private summary distilled from email
-#     + WhatsApp correspondence. Stays in local DB only; never exported.
-#   - tg_manual_paste_recommended: 0/1 flag. Set by tools/flag_russian_speakers.py
-#     using a multi-signal heuristic. Surfaces "TG manual-paste candidates"
-#     in the cron's run summary so the operator can paste TG history into a
-#     one-off prompt for any specific row.
+# `relationship_context` was added 2026-05-08 alongside Pass 4 (correspondence
+# scan): a 2-4 sentence private summary distilled from email + WhatsApp
+# correspondence. Stays in local DB only; never exported.
 ENRICHMENT_COLUMNS = [
     ("linkedin", "TEXT"),
     ("twitter", "TEXT"),
@@ -67,7 +62,6 @@ ENRICHMENT_COLUMNS = [
     ("enrichment_confidence", "TEXT"),
     ("last_enriched", "DATE"),
     ("relationship_context", "TEXT"),
-    ("tg_manual_paste_recommended", "INTEGER DEFAULT 0"),
 ]
 
 

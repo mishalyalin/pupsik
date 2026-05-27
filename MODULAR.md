@@ -135,8 +135,8 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
 ### i) Contact enrichment cron (4-pass)
 
-- **What it does:** Optional weekly cron task (Sunday 06:00 local) that tops up your `contacts.db` with publicly available bio/social data (Passes 1-3) AND a private `relationship_context` summary distilled from your own email + WhatsApp correspondence with each contact (Pass 4). Pass 1 mines email signatures via `gmail_search_all`. Pass 2 runs targeted WebSearch for missing LinkedIn URLs. Pass 3 fetches a short bio + Instagram handle for PR-active contacts. Pass 4 reads the email threads from Pass 1 + the WhatsApp chat history (when phone is populated) and synthesizes a 2-4 sentence summary of the channel state, last topic, and outstanding asks. All updates use `COALESCE(existing, new)` so existing values are preserved. Privacy-guarded: skips `category IN ('personal','tenancy','events')` + distribution-list email patterns. Telegram is NEVER auto-read - a multi-signal Russian-speaker heuristic (`flag_russian_speakers.py`) flags TG-likely contacts for manual paste only.
-- **Files:** `templates/scheduled-tasks/contact-enrichment-weekly.md.template` (the cron SKILL prompt), `memory_templates/feedback_contact_enrichment_weekly.md` (the operating rule), `tools/enrichment_schema_migrate.py` (idempotent migration adding the 12 enrichment columns), `tools/flag_russian_speakers.py` (Russian-speaker heuristic, used by Step 0.5 of the cron).
+- **What it does:** Optional weekly cron task (Sunday 06:00 local) that tops up your `contacts.db` with publicly available bio/social data (Passes 1-3) AND a private `relationship_context` summary distilled from your own email + WhatsApp correspondence with each contact (Pass 4). Pass 1 mines email signatures via `gmail_search_all`. Pass 2 runs targeted WebSearch for missing LinkedIn URLs. Pass 3 fetches a short bio + Instagram handle for PR-active contacts. Pass 4 reads the email threads from Pass 1 + the WhatsApp chat history (when phone is populated) and synthesizes a 2-4 sentence summary of the channel state, last topic, and outstanding asks. All updates use `COALESCE(existing, new)` so existing values are preserved. Privacy-guarded: skips `category IN ('personal','tenancy','events')` + distribution-list email patterns. Telegram is NEVER auto-read - if you want TG context for a contact, paste the history into an ad-hoc prompt manually.
+- **Files:** `templates/scheduled-tasks/contact-enrichment-weekly.md.template` (the cron SKILL prompt), `memory_templates/feedback_contact_enrichment_weekly.md` (the operating rule), `tools/enrichment_schema_migrate.py` (idempotent migration adding the 11 enrichment columns).
 - **Depends on:** `tools/contacts_db.py` (module c) for the DB. The `multi-gmail` MCP from module f for Pass 1+4 email scans. The `whatsapp` MCP from module f for Pass 4 WhatsApp scans (skipped per-row if no phone). `tools/memory_search.py` (module d) for the post-run reindex.
 - **Doesn't depend on:** Hooks, capture tool (module b), Critical rules (module a) - the cron is opt-in and self-contained.
 - **Install:**
@@ -144,10 +144,9 @@ Each component below has: what it does, what files it is, what it depends on, wh
   ```bash
   # 1. Copy + executable
   cp pupsik/tools/enrichment_schema_migrate.py ~/Desktop/claude/tools/
-  cp pupsik/tools/flag_russian_speakers.py ~/Desktop/claude/tools/
-  chmod +x ~/Desktop/claude/tools/{enrichment_schema_migrate,flag_russian_speakers}.py
+  chmod +x ~/Desktop/claude/tools/enrichment_schema_migrate.py
 
-  # 2. Migrate schema (idempotent - adds 12 columns or reports already-present)
+  # 2. Migrate schema (idempotent - adds 11 columns or reports already-present)
   python3 ~/Desktop/claude/tools/enrichment_schema_migrate.py
 
   # 3. Install the cron template
@@ -163,9 +162,7 @@ Each component below has: what it does, what files it is, what it depends on, wh
   #    cron: "0 6 * * 0" (Sunday 06:00 local), enabled: true
   ```
 
-  Optional: set `RUSSIAN_CONTEXT_COMPANIES` env var to a comma-separated list of company-name substrings to enable Pass 4's signal 5 (company-based Russian-speaker flagging). Leave unset to disable that signal.
-
-- **Privacy invariants:** `relationship_context` content NEVER leaves your local `contacts.db`. Not in run summaries, not in archive files, not in briefings (briefings reformulate via `memory_search.py search`, never quote), not in Telegram notifications, not in any pupsik-public template. Telegram is NEVER auto-read; only flagged for manual paste.
+- **Privacy invariants:** `relationship_context` content NEVER leaves your local `contacts.db`. Not in run summaries, not in archive files, not in briefings (briefings reformulate via `memory_search.py search`, never quote), not in Telegram notifications, not in any pupsik-public template. Telegram is NEVER auto-read; if needed, paste history into an ad-hoc prompt manually.
 
 - **Provenance:** `source: original` (NOT a gbrain pattern). Cron architecture inherited from a sibling outbound-deadline poller (also original). See `templates/scheduled-tasks/contact-enrichment-weekly.md.template` Step 0 for the design history.
 
