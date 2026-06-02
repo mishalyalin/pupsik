@@ -58,6 +58,8 @@ target subdir (regardless of date prefix), it is opened and rewritten:
 Filename keeps the ORIGINAL date prefix (captures when the topic first emerged).
 """
 
+from __future__ import annotations  # PEP 563: lets `str | None` annotations parse on Python 3.9 (macOS system Python)
+
 import argparse
 import os
 import re
