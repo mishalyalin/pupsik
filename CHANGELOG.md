@@ -5,6 +5,24 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-02.3] - `feedback_fix_mcp_proactively.md`: two hard-won MCP-debug lessons
+
+Amends the MCP-debug rule shipped in 2026-06-02.1 with two lessons from a live incident where three local MCP servers went down and the obvious fixes misled.
+
+### Changed
+
+- **`memory_templates/feedback_fix_mcp_proactively.md`** — two additions to the dependency-corruption guidance:
+  - **Targeted-install footgun.** When a server's dependency tree is broken, run the FULL `rm -rf node_modules && npm install`, NOT a targeted `npm install <one-package>`. A single-package install on top of an already-partial tree fixes that one package but leaves the rest inconsistent (mismatched peers/transitives) — and the server can then *silently hang on connect* (no error, no crash, just no handshake response) even though the package you "fixed" is now present. Real example folded in: an `npm install zod@^3.25` to fix one crash left the server hanging because the rest of the tree was half-installed.
+  - **Verify with the right signal.** Confirm a fix with the host's own health check (e.g. `claude mcp list`) **plus a live tool call** — NOT a hand-rolled JSON-RPC handshake probe. A minimal probe (`spawn` + `initialize` + wait for `"result"`) can false-negative (time out) on a server the host connects to fine, because the host's real handshake includes follow-ups (`notifications/initialized`) and stdin-keepalive that a quick probe omits. A probe timeout is not proof a server is down; use the probe only to extract the error from a server *already* confirmed down by the health check. Two matching "What NOT to do" bullets added.
+
+### Why
+
+Direct incident (2026-06-02): three servers showed ✗ at session start; one had an obviously corrupt tree (a core dependency entirely missing), but two others looked healthy by size yet still failed — a prior targeted single-package install had left their trees inconsistent. During the fix, a hand-rolled handshake probe reported one server as timed-out while the host's own `claude mcp list` reported it ✓ and a live call returned data — the probe was wrong, the host was right. Both lessons generalise to any adopter running local MCP servers.
+
+### Privacy
+
+- Privacy check **11/11 PASS** (`--include-untracked`). Generic language only; no real account names, tokens, or owner-specific server names in the rule text.
+
 ## [2026-06-02.2] - fix `note.py` crash on macOS system Python (3.9)
 
 ### Fixed
