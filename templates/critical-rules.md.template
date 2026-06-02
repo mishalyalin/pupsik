@@ -28,8 +28,9 @@ This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Cla
 
 - **Default workspace** — `~/Desktop/claude/`, `auto` permission mode. → `feedback_default_workspace.md`
 - **Save outputs** — generated files go to `~/Desktop/claude/outputs/YYYY-MM-DD-<topic>/`. → `feedback_save_outputs.md`
+- **Keep working files off iCloud (macOS)** — if Desktop & Documents iCloud sync is on, Optimize Storage evicts file contents to dataless placeholders and corrupts git clones (`fatal: bad object HEAD`), node_modules (`MODULE_NOT_FOUND` for a submodule), and MCP runtimes. Keep git clones in `~/code/`; a suspiciously small `node_modules` (< 10% of normal size) = evicted, fix by `rm -rf node_modules && npm install` (not reauth). → `feedback_keep_working_files_off_icloud.md`
 - **Local MCP only** — prefer locally-installed MCP servers (multi-gmail, multi-gcal, whatsapp). Don't silently fall back to built-in connectors. → `feedback_use_local_mcp.md`
-- **Fix MCP proactively** — a broken MCP = debug the source, not "re-run setup reauth". → `feedback_fix_mcp_proactively.md`
+- **Fix MCP proactively** — a broken MCP = debug the source, not "re-run setup reauth". (Exception: if `node_modules` is corrupted/evicted per the iCloud rule above, reinstall IS the fix — the source is fine.) → `feedback_fix_mcp_proactively.md`
 
 ## Time / scheduling
 
