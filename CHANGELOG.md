@@ -5,6 +5,12 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-02.2] - fix `note.py` crash on macOS system Python (3.9)
+
+### Fixed
+
+- **`tools/note.py`** — added `from __future__ import annotations` after the module docstring. The file uses PEP 604 `X | None` union type annotations (26 of them) which only parse natively on Python 3.10+. macOS ships **Python 3.9.6 as the system `python3`**, so on a stock macOS install `python3 tools/note.py ...` crashed at import time with `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'` — meaning the knowledge-capture CLI was unusable for any adopter running it under the default interpreter. The `__future__` import makes all annotations lazy strings (PEP 563), so the union syntax parses on 3.9 with zero runtime-behaviour change. No other toolkit tool has this issue (verified by parsing every `tools/*.py` under 3.9).
+
 ## [2026-06-02.1] - macOS iCloud-eviction rule + close the fix-MCP orphan pointer
 
 This toolkit installs to `~/Desktop/claude/` by default. On macOS with "Desktop & Documents Folders" iCloud sync on, that path is iCloud-synced — and iCloud's Optimize Storage silently evicts file contents to dataless placeholders, which corrupts git working clones, `node_modules`, and MCP server runtimes living under the workspace. This release documents the gotcha + the reinstall drill, and closes a pre-existing orphan pointer in the critical-rules template.
