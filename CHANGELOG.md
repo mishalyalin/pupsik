@@ -5,6 +5,28 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-02.1] - macOS iCloud-eviction rule + close the fix-MCP orphan pointer
+
+This toolkit installs to `~/Desktop/claude/` by default. On macOS with "Desktop & Documents Folders" iCloud sync on, that path is iCloud-synced — and iCloud's Optimize Storage silently evicts file contents to dataless placeholders, which corrupts git working clones, `node_modules`, and MCP server runtimes living under the workspace. This release documents the gotcha + the reinstall drill, and closes a pre-existing orphan pointer in the critical-rules template.
+
+### Added
+
+- **`memory_templates/feedback_keep_working_files_off_icloud.md`** — new rule. On macOS with Desktop & Documents iCloud sync on, Optimize Storage evicts file contents to dataless placeholders and corrupts anything needing a complete on-disk tree: git clones (`fatal: bad object HEAD`), `node_modules` (`MODULE_NOT_FOUND` for a *submodule* — `.d.ts` stubs survive, `.js` runtime evicted), MCP runtimes (crash on startup `require()`). Rules: keep git clones in `~/code/` (a clone is a disposable working copy — the remote is canonical, no reason to pay sync cost on it); keep node_modules-heavy projects off iCloud-synced paths. Diagnostic: a `node_modules` folder under ~10% of normal size is evicted; fix is `rm -rf node_modules && npm install`, NOT reauth (the compiled output + OAuth tokens are fine, only the dependency tree got truncated). Includes the safe-move checklist for relocating an existing clone (`git log @{u}..HEAD` / `git branch -vv` / `git stash list` before trusting any "clean/pushed" claim; `mv` intact, never delete-and-re-clone). Scoped with an explicit "not applicable if Linux/Windows or iCloud sync off" footer.
+- **`memory_templates/feedback_fix_mcp_proactively.md`** — NEW FILE that closes a pre-existing orphan: `templates/critical-rules.md.template` referenced this rule but the file was never shipped. Generic version: when a local MCP server breaks, reproduce standalone (`node dist/index.js`) and read the real require-stack error, then triage by class — auth/token-expiry (missing `oauth2Client.on("tokens", ...)` persistence), crash-on-error (missing `uncaughtException`/`unhandledRejection` guards), or dependency corruption (`MODULE_NOT_FOUND` for a submodule → reinstall per the iCloud rule). Don't reflex-punt to reauth; don't assume the source is broken when `node_modules` is the culprit.
+
+### Changed
+
+- **`templates/critical-rules.md.template`** — added the iCloud one-liner under `## Workspace / files` (keep clones in `~/code/`; small `node_modules` = evicted → reinstall). Refined the existing "Fix MCP proactively" line with the explicit exception that when `node_modules` is corrupted/evicted, reinstall IS the fix (the source is fine) — these two rules interact and the cross-reference prevents a future reader treating "debug the source, not reauth" as forbidding a legitimate dependency reinstall.
+
+### Why these belong in the public template
+
+The iCloud rule is not a power-user edge case for this toolkit specifically — the toolkit's documented install path *is* `~/Desktop/claude/`, which is exactly the iCloud-synced location when Desktop sync is on. Any adopter on that default with sync enabled will eventually hit the eviction corruption. The `feedback_fix_mcp_proactively.md` addition is pure orphan-closure: the pointer already shipped in `critical-rules.md.template`, only the target file was missing.
+
+### Privacy invariants
+
+- Privacy check passed (`bash .github/scripts/privacy-check.sh --include-untracked`).
+- Both new files use generic language (no real repo names, no owner-specific paths beyond the toolkit's own documented `~/Desktop/claude/` + `~/code/` convention). The owner-specific source incidents (specific PranaSalt repo clones, specific MCP server names + zod version pins) were deliberately left in the private workspace and NOT propagated — only the generalizable mechanism + diagnostic + fix made it into the template.
+
 ## [2026-05-27.2] - remove Russian-speaker heuristic + `tg_manual_paste_recommended` column
 
 The Russian-speaker heuristic and its companion column were dropped because the cron never touches Telegram either way - the flag added no operational value, only confusion.
