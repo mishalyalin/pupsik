@@ -5,6 +5,22 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-05.1] - new rule: check if the user already sent it before proposing/drafting outbound
+
+### Added
+
+- **`memory_templates/feedback_check_already_communicated.md`** — before suggesting OR drafting any outbound message to a person (email / chat / DM / follow-up / confirmation), first scan the user's sent mail (all connected accounts) + chat history for an existing message from them on that topic in the last ~14 days. If it exists, do NOT propose the draft — surface what they already sent and track the pending reply instead. Only draft if nothing matching exists. This is the proactive-proposal corollary of "verify the message is needed before drafting": it fires earlier (before you even SUGGEST a draft) and catches the recurring failure where an agent helpfully offers to draft an email the user sent two days ago.
+- **`templates/critical-rules.md.template`** — one-liner under `## 🔴 MANDATORY protocols`, next to "Verify project state before answering".
+
+### Why
+
+Direct trigger: an agent proposed drafting a logistics/insurance email to a counterparty when the owner had already sent that exact email days earlier. A 30-second sent-mail search would have changed the response from a redundant draft offer to "already handled, awaiting their reply." The check is cheap and belongs before the proposal, not after.
+
+### Privacy
+
+Privacy check 11/11 PASS (`--include-untracked`). Generic language only — no real names, recipients, or owner-specific facts in the rule text.
+
+
 ## [2026-06-02.3] - `feedback_fix_mcp_proactively.md`: two hard-won MCP-debug lessons
 
 Amends the MCP-debug rule shipped in 2026-06-02.1 with two lessons from a live incident where three local MCP servers went down and the obvious fixes misled.
