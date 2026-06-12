@@ -5,6 +5,28 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-12.1] - stable-key token store (travel fix) + MCP servers install off iCloud
+
+Two hard-won reliability fixes, both root-causing "my MCPs randomly broke" failure modes.
+
+### Fixed
+
+- **`mcp-servers/multi-gmail/src/services/token-store.ts`** — stable-key token store. The encrypted token store (`~/.multi-gmail-mcp/tokens.enc`) used an AES-256-GCM key derived from `os.hostname()`. On macOS the hostname can be DHCP-assigned, so when the laptop moves between WiFi networks the hostname silently changes, the derived key changes with it, decryption fails — and a silent `catch` made the server report "no accounts" with zero diagnostics. The fix: (a) a **stable per-install key** (random 32 bytes, persisted once to `~/.multi-gmail-mcp/key`, mode 0600) replaces the hostname-derived key for all writes; (b) the legacy hostname-derived key is kept **read-only** as a fallback — if it still decrypts, the store is **auto-migrated** to the stable key in place (one stderr line logs the migration); (c) if **both** keys fail, the server now writes a LOUD stderr message ("Re-auth needed: `npm run setup reauth`") instead of silently returning an empty account list. Existing users: tokens migrate automatically on first read, no action needed — unless the hostname already drifted since the store was last written, in which case re-add accounts once (`npm run setup add <label>`).
+
+### Changed
+
+- **`install_mcps.sh`** — MCP servers now install to **`$HOME/code/mcp-servers`** by default (override with `MCP_INSTALL_DIR`), with a compatibility symlink at `$WORKSPACE/mcp-servers`. Why: the old default put the servers under `~/Desktop/claude/mcp-servers`, which on macOS with "Desktop & Documents Folders" iCloud sync is an iCloud-synced path — Optimize Storage evicts `node_modules` files to dataless placeholders, node fails at spawn with `MODULE_NOT_FOUND`, and the MCP servers randomly "disconnect" until reinstalled. Installing outside iCloud root-causes that whole failure class. If a real (pre-existing) `$WORKSPACE/mcp-servers` directory is found, the script does NOT touch it — it prints a migration recipe (`rsync -a` then swap, NOT a bare `mv`, which Finder/fileproviderd can cancel out of an iCloud-synced dir with "Operation canceled").
+- **`register_mcps.sh`** — registers the servers' **real path** (symlinks resolved via `pwd -P`), honours `MCP_INSTALL_DIR`, prefers `~/code/mcp-servers`, falls back to the legacy `$WORKSPACE/mcp-servers` layout with a migration warning when the resolved path sits under `~/Desktop` / `~/Documents`.
+- Docs updated consistently: `README.md` (uninstall), `SETUP_PROMPT.md` (Phase 4), `HOW_IT_WORKS.md`, `docs/WHATSAPP_SETUP.md`, `memory_templates/feedback_use_local_mcp.md`, `memory_templates/feedback_keep_working_files_off_icloud.md`. Migration steps for existing installs in `UPGRADING.md`.
+
+### Why
+
+Both fixes come from live incidents: the hostname-derived key broke Gmail access twice while the author was traveling (network change → DHCP hostname change → undecryptable tokens → "no accounts" with no error), and the iCloud eviction of `node_modules` under the workspace was the root cause of months of intermittent MCP disconnects. Any adopter on a Mac with default iCloud settings inherits both failure modes; both are now structural rather than documented-around.
+
+### Privacy
+
+Privacy check **11/11 PASS** (`--include-untracked`). Comments and docs use neutral phrasing (generic "laptop moves between networks / DHCP-assigned hostname changes") — no real hostnames, locations, accounts, or owner-specific incident details.
+
 ## [2026-06-05.1] - new rule: check if the user already sent it before proposing/drafting outbound
 
 ### Added

@@ -20,7 +20,7 @@ Two practical rules:
 1. **Keep GitHub-backed git clones under `~/code/`** (a dedicated directory OUTSIDE iCloud and OUTSIDE any cloud-sync folder like Google Drive / Dropbox). The clone is a disposable working copy — the repo already lives on the remote, so there is no reason to pay sync cost (and corruption risk) on it.
 2. **Keep node_modules-heavy projects off iCloud-synced paths**, OR exclude their `node_modules/` from sync, OR accept that you will periodically reinstall.
 
-> ⚠️ **This toolkit installs to `~/Desktop/claude/` by default.** If you have Desktop & Documents iCloud sync on, your workspace + its `tools/`, `data/`, and any `mcp-servers/` live on an iCloud-synced path and are subject to the eviction corruption above. Either turn off Optimize Storage, move the workspace off `~/Desktop`, or know the reinstall drill below.
+> ⚠️ **This toolkit installs the workspace to `~/Desktop/claude/` by default.** If you have Desktop & Documents iCloud sync on, your workspace + its `tools/` and `data/` live on an iCloud-synced path and are subject to the eviction corruption above. Either turn off Optimize Storage, move the workspace off `~/Desktop`, or know the reinstall drill below. Since 2026-06-12, `install_mcps.sh` installs the MCP servers (the most eviction-sensitive piece, because of `node_modules/`) to `~/code/mcp-servers/` and only symlinks them from the workspace — if your servers still physically live under `~/Desktop/claude/mcp-servers/`, migrate them (see `UPGRADING.md`).
 
 ## Diagnostic: corrupted node_modules
 

@@ -200,7 +200,7 @@ Give Claude a real task (not a one-shot lookup) and watch it spawn multiple agen
 ## Uninstall
 
 ```bash
-rm -rf ~/Desktop/claude/.claude/hooks ~/Desktop/claude/mcp-servers
+rm -rf ~/Desktop/claude/.claude/hooks ~/Desktop/claude/mcp-servers ~/code/mcp-servers
 rm ~/Desktop/claude/tools/contacts_db.py ~/Desktop/claude/tools/memory_search.py
 claude mcp remove multi-gmail
 claude mcp remove multi-gcal

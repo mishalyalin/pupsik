@@ -31,9 +31,12 @@ When you run `bash install.sh`, four things land on disk:
    - `tools/` - Python scripts that read and write the above.
    - `outputs/` - anywhere you ask Claude to save a generated file.
    - `.claude/hooks/` - auto-compact hooks (pre-compact, post-compact).
-2. **MCP servers** at `mcp-servers/multi-gmail/`, `mcp-servers/multi-gcal/`,
-   `mcp-servers/whatsapp/`. Three local Node servers that give Claude
-   cross-account inbox / calendar / chat access.
+2. **MCP servers** installed to `~/code/mcp-servers/multi-gmail/`,
+   `~/code/mcp-servers/multi-gcal/`, `~/code/mcp-servers/whatsapp/` (kept
+   OUTSIDE iCloud-synced paths so Optimize Storage can't evict their
+   `node_modules/`; a compatibility symlink lives at the workspace's
+   `mcp-servers`). Three local Node servers that give Claude cross-account
+   inbox / calendar / chat access.
 3. **A rules file** at `~/.claude/rules/critical-rules.md`. Claude Code
    auto-loads everything in `~/.claude/rules/` at session start, so the
    MANDATORY behaviour rules ride along on every session, in every project.
