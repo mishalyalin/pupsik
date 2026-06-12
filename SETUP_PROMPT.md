@@ -37,7 +37,7 @@ Spawn **Packager** (Worker) and **Tester** (Checker) in parallel.
 - Tester writes `.tester-report.md`. On FAIL → Packager fixes → Tester re-verifies.
 
 ### Phase 4 — Install MCP servers
-Packager runs `bash pupsik/install_mcps.sh`. This builds multi-gmail, multi-gcal, whatsapp in `~/Desktop/claude/mcp-servers/` (or wherever install.sh placed them). **Does not** wire OAuth tokens yet.
+Packager runs `bash pupsik/install_mcps.sh`. This builds multi-gmail, multi-gcal, whatsapp in `~/code/mcp-servers/` (deliberately OUTSIDE iCloud-synced paths — override with `MCP_INSTALL_DIR`) and creates a compatibility symlink at `~/Desktop/claude/mcp-servers`. **Does not** wire OAuth tokens yet.
 
 Tester verifies: each `dist/index.js` exists, `node dist/index.js --help` (if supported) doesn't crash, `package.json` version matches source.
 

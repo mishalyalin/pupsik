@@ -109,6 +109,39 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
 
+### 2026-06-12 release: stable-key token store + MCP servers move off iCloud
+
+Two reliability fixes for existing installs. New installs get both automatically.
+
+**1. Move your MCP servers out of the iCloud-synced workspace.** The new default install location is `~/code/mcp-servers` (outside `~/Desktop` / `~/Documents`, so iCloud Optimize Storage can't evict `node_modules` and randomly break the servers). Migrate an existing install with rsync + swap — NOT a bare `mv`, which Finder/fileproviderd can cancel out of an iCloud-synced dir with "Operation canceled":
+
+```bash
+mkdir -p ~/code
+rsync -a ~/Desktop/claude/mcp-servers/ ~/code/mcp-servers/   # carries over your .env files
+rm -rf ~/Desktop/claude/mcp-servers
+ln -s ~/code/mcp-servers ~/Desktop/claude/mcp-servers        # compatibility symlink
+```
+
+Then rebuild on the latest source and re-point Claude's MCP config at the new real path:
+
+```bash
+cd ~/pupsik && git pull
+bash install_mcps.sh      # rebuilds in ~/code/mcp-servers (override: MCP_INSTALL_DIR)
+bash register_mcps.sh     # re-registers using the real (non-symlink) path
+```
+
+Non-default layouts: set `MCP_INSTALL_DIR=/your/path` before running both scripts.
+
+**2. Gmail tokens migrate automatically — usually.** The multi-gmail token store no longer derives its encryption key from the hostname (which changes when the laptop moves between WiFi networks, silently breaking decryption). On first read after the upgrade, the server tries the new stable key, falls back to the old hostname-derived key, and if that still works it re-encrypts the store under the stable key in place (you'll see one `migrated tokens.enc` line on stderr). **No action needed — IF your hostname hasn't changed since the tokens were last written.** If it has (you'll see a loud `tokens.enc could not be decrypted` message on stderr instead of a silent empty account list), re-add your accounts once:
+
+```bash
+cd ~/code/mcp-servers/multi-gmail
+source .env && export GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET
+npm run setup add <label>     # repeat per account
+```
+
+From then on the key lives in `~/.multi-gmail-mcp/key` (mode 0600) and survives any network/hostname change.
+
 ### 2026-05-19 release: PRIMARY rule (verify-don't-imagine) + rules.py retrieval tool + 4 new feedback rules
 
 This release adds a NEW top-priority rule ("NEVER IMAGINE, ALWAYS VERIFY") that sits above every other MANDATORY protocol, plus a tool (`rules.py`) for pulling full rule content into a session on demand, plus 4 supporting rules (check-model-first, verify-don't-imagine-external-brand, marketing-panel-default, no-jargon).

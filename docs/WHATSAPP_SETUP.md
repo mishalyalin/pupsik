@@ -19,7 +19,7 @@ The WhatsApp MCP server reads your local WhatsApp for Mac database to give Claud
 This happens automatically when you run `install_mcps.sh` from the Pupsik repo. To do it manually:
 
 ```bash
-cd ~/Desktop/claude/mcp-servers/whatsapp
+cd ~/code/mcp-servers/whatsapp   # pre-2026-06-12 installs: ~/Desktop/claude/mcp-servers/whatsapp
 npm install
 npm run build
 ```
@@ -55,7 +55,7 @@ WhatsApp's database lives in a protected location (`~/Library/Group Containers/.
 The `register_mcps.sh` script does this automatically. Manually:
 
 ```bash
-claude mcp add whatsapp -- node ~/Desktop/claude/mcp-servers/whatsapp/dist/index.js
+claude mcp add whatsapp -- node ~/code/mcp-servers/whatsapp/dist/index.js
 ```
 
 Restart Claude Code so it picks up the new MCP registration.

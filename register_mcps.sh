@@ -12,11 +12,40 @@
 set -euo pipefail
 
 WORKSPACE="${1:-$HOME/Desktop/claude}"
-MCP_DIR="$WORKSPACE/mcp-servers"
 
 say()  { printf "\033[1;36m[reg]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[warn]\033[0m %s\n" "$*"; }
 die()  { printf "\033[1;31m[error]\033[0m %s\n" "$*" >&2; exit 1; }
+
+# Locate the servers. Preference order:
+#   1. MCP_INSTALL_DIR env override (matches install_mcps.sh)
+#   2. ~/code/mcp-servers              — default since 2026-06-12 (off-iCloud)
+#   3. $WORKSPACE/mcp-servers          — pre-2026-06-12 layout (or the symlink)
+if [ -n "${MCP_INSTALL_DIR:-}" ]; then
+  MCP_DIR="$MCP_INSTALL_DIR"
+elif [ -d "$HOME/code/mcp-servers" ]; then
+  MCP_DIR="$HOME/code/mcp-servers"
+elif [ -d "$WORKSPACE/mcp-servers" ]; then
+  MCP_DIR="$WORKSPACE/mcp-servers"
+else
+  die "No mcp-servers directory found (tried \$MCP_INSTALL_DIR, $HOME/code/mcp-servers, $WORKSPACE/mcp-servers). Run install_mcps.sh first."
+fi
+[ -d "$MCP_DIR" ] || die "$MCP_DIR missing — run install_mcps.sh first."
+
+# Register the REAL path, not a path through the workspace symlink — the
+# registration must keep working even if the symlink moves, and must never
+# route node through an iCloud-synced parent dir.
+MCP_DIR="$(cd "$MCP_DIR" && pwd -P)"
+say "Using MCP servers at $MCP_DIR"
+
+HOME_REAL="$(cd "$HOME" && pwd -P)"
+case "$MCP_DIR" in
+  "$HOME/Desktop/"*|"$HOME/Documents/"*|"$HOME_REAL/Desktop/"*|"$HOME_REAL/Documents/"*)
+    warn "MCP servers live under an iCloud-syncable path ($MCP_DIR)."
+    warn "iCloud Optimize Storage can evict node_modules and break the servers."
+    warn "Recommended: re-run install_mcps.sh (installs to ~/code/mcp-servers) and migrate."
+    ;;
+esac
 
 command -v claude >/dev/null 2>&1 || die "'claude' CLI not found. Install Claude Code first."
 

@@ -6,7 +6,7 @@ type: feedback
 
 # 🔴 Local MCP only
 
-The user has locally installed MCP servers at `~/Desktop/claude/mcp-servers/` (or wherever `pupsik/install.sh` placed them). **Use those.**
+The user has locally installed MCP servers at `~/code/mcp-servers/` (pre-2026-06-12 installs: `~/Desktop/claude/mcp-servers/`; or wherever `pupsik/install_mcps.sh` placed them via `MCP_INSTALL_DIR`). **Use those.**
 
 ## Tools to prefer
 

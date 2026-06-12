@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# install_mcps.sh — copy MCP server source into the workspace and build each one.
+# install_mcps.sh — copy MCP server source OUTSIDE iCloud-synced paths and build each one.
+#
+# WHY outside iCloud: on macOS with "Desktop & Documents Folders" iCloud sync,
+# iCloud's Optimize Storage silently evicts file contents to dataless
+# placeholders. A partially-evicted node_modules/ makes node fail with
+# MODULE_NOT_FOUND at spawn — the MCP servers randomly "disconnect" until
+# reinstalled. Installing under $HOME/code/ (never synced) root-causes that.
+# See memory_templates/feedback_keep_working_files_off_icloud.md.
 #
 # Placement:
-#   ~/Desktop/claude/mcp-servers/multi-gmail/
-#   ~/Desktop/claude/mcp-servers/multi-gcal/
-#   ~/Desktop/claude/mcp-servers/whatsapp/
+#   ~/code/mcp-servers/multi-gmail/        (real install; override: MCP_INSTALL_DIR)
+#   ~/code/mcp-servers/multi-gcal/
+#   ~/code/mcp-servers/whatsapp/
+#   $WORKSPACE/mcp-servers -> ~/code/mcp-servers   (compatibility symlink)
 #
 # Prerequisites:
 #   - Node.js >= 18
@@ -15,7 +23,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="${1:-$HOME/Desktop/claude}"
-MCP_DST="$WORKSPACE/mcp-servers"
+# Real install location — kept OUTSIDE iCloud-synced paths (~/Desktop, ~/Documents)
+# and outside any cloud-sync folder. Override for non-default layouts:
+#   MCP_INSTALL_DIR=/opt/mcp-servers bash install_mcps.sh
+MCP_DST="${MCP_INSTALL_DIR:-$HOME/code/mcp-servers}"
+LINK_PATH="$WORKSPACE/mcp-servers"
 
 say()  { printf "\033[1;36m[mcp]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[warn]\033[0m %s\n" "$*"; }
@@ -63,16 +75,47 @@ for srv in "${SERVERS[@]}"; do
   say "  $srv done."
 done
 
+# ---------- compatibility symlink: $WORKSPACE/mcp-servers -> $MCP_DST ----------
+# Only when the install dir and the workspace path differ (a custom
+# MCP_INSTALL_DIR could legitimately point INTO the workspace).
+if [ "$LINK_PATH" != "$MCP_DST" ]; then
+  if [ -L "$LINK_PATH" ]; then
+    # Existing symlink — refresh it to the current install dir.
+    ln -sfn "$MCP_DST" "$LINK_PATH"
+    say "Refreshed symlink: $LINK_PATH -> $MCP_DST"
+  elif [ -d "$LINK_PATH" ]; then
+    # Real directory from an older install — do NOT touch it. Tell the user how
+    # to migrate. NOTE: use rsync + swap, NOT a bare `mv` — Finder/fileproviderd
+    # can cancel a rename out of an iCloud-synced dir ("Operation canceled").
+    warn "$LINK_PATH already exists as a real directory (pre-2026-06-12 layout)."
+    warn "Your servers were built fresh in $MCP_DST, but your old install (and"
+    warn "any .env files in it) is still at $LINK_PATH. To migrate:"
+    warn ""
+    warn "    rsync -a \"$LINK_PATH/\" \"$MCP_DST/\"     # carries over .env files"
+    warn "    rm -rf \"$LINK_PATH\""
+    warn "    ln -s \"$MCP_DST\" \"$LINK_PATH\""
+    warn "    bash $SCRIPT_DIR/install_mcps.sh $WORKSPACE   # rebuild on top, then"
+    warn "    bash $SCRIPT_DIR/register_mcps.sh $WORKSPACE  # re-point Claude at the new path"
+    warn ""
+  else
+    ln -s "$MCP_DST" "$LINK_PATH"
+    say "Created symlink: $LINK_PATH -> $MCP_DST"
+  fi
+fi
+
 cat <<EOF
 
 ===============================================================================
  MCP servers built.
 ===============================================================================
 
-Locations:
+Locations (real path, outside iCloud-synced folders):
   $MCP_DST/multi-gmail
   $MCP_DST/multi-gcal
   $MCP_DST/whatsapp
+
+Compatibility symlink:
+  $LINK_PATH -> $MCP_DST
 
 Next:
 
