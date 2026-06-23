@@ -5,6 +5,26 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-23.1] - auto-compact threshold doc fix + deterministic-code rule
+
+Two changes out of a live debugging session, both root-causing "I set the threshold and it did nothing."
+
+### Fixed
+
+- **`docs/COMPACT_SETUP.md`** — the doc told users to put `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` in the `settings.json` `"env"` block and "watch for it firing at ~50%". That does NOT work for this variable. The var is read from the agent process's **launch environment** at startup; the `settings.json` env block is NOT applied to the app's own auto-compact logic (open bug [anthropics/claude-code#63186](https://github.com/anthropics/claude-code/issues/63186)) — the value set there is visible to subprocess tool calls (a `Bash` call can `echo` it) but never changes the threshold, so the wrong-way setup fails silently. The fix rewrites every part of the doc that describes HOW to set the threshold and splits it by surface: **CLI / terminal** (`export` in `~/.zshrc`/`~/.bashrc` works, because the CLI inherits the shell's launch env; `launchctl setenv` also works on macOS) vs **Claude Desktop** (neither shell `export` nor `settings.json` env reaches the Dock/Finder-spawned agent, per the [official desktop docs](https://code.claude.com/docs/en/desktop.md) — the ONLY channel is the in-app **Local environment editor**: prompt-box environment dropdown → hover **Local** → gear icon → add the var → restart). New `## Setting the threshold (per surface)` section, plus corrected `## Tuning the threshold`, the step-2 `settings.json` snippet note (env block kept for its other legitimate uses, with a clear "does NOT set the threshold" warning), `## Verification`, and `## Troubleshooting` (a Desktop user who set it the wrong way is now told the real reason it "still fires near the end"). Added the `[1m]`-model caveat (threshold may be computed against a hardcoded ~200K window rather than the advertised 1M — issues [#53801](https://github.com/anthropics/claude-code/issues/53801) / [#53358](https://github.com/anthropics/claude-code/issues/53358)) and the semantics note (value = percent of the auto-compaction window USED at which compaction fires; lower = earlier — [env-vars docs](https://code.claude.com/docs/en/env-vars)). The hooks content (`pre-compact.sh` / `post-compact.sh` / the `CLAUDE.md` "Compact Instructions" block / the hook verification commands) is unchanged — only the env-var setup guidance was wrong.
+
+### Added
+
+- **`memory_templates/feedback_code_for_deterministic_tasks.md`** — new generic feedback-rule template. If a task has one correct answer a function could compute the same way every run (date math, currency at a fixed rate, weekday-from-ISO, parsing a known format, dedup/sort/count, sums/totals/margins, regex over a fixed format) → WRITE CODE; don't hand-do or eyeball it (it drifts between runs and is where invented numbers enter). If the task genuinely needs judgment (language, tone, intent classification, "same entity?") → reason it; do NOT fake it with a brittle keyword/regex imitation that looks authoritative while silently mis-firing. Mixed → split (deterministic spine in code, judgment in prose). EITHER way the output is ALWAYS independently verified — run code against known I/O + a checker reads it, judgment re-derived by a checker; "the script ran without error" ≠ correct. Cross-references `feedback_always_two_agents.md`, `feedback_never_imagine_always_verify.md`, `feedback_compute_weekday_dont_guess.md`, `feedback_pr_reuse_audit.md`.
+
+### Why
+
+The doc fix comes straight from a live incident: the threshold env var was set in `settings.json` and silently did nothing because #63186 means that block isn't applied to compaction — and on Claude Desktop even a shell `export` doesn't reach the agent, so the only working channel (the in-app Local environment editor) wasn't documented at all. Any adopter following the old doc inherited the same dead-end. The deterministic-code rule generalises a recurring failure mode that prompt-tightening doesn't fix: hand-doing a deterministic task drifts and lets invented numbers in, while coding a judgment task ships a confident-looking imitation that mis-fires on the next input — matching the method to the task (and verifying either way) closes both.
+
+### Privacy
+
+Privacy check **PASS** (`bash .github/scripts/privacy-check.sh --include-untracked`). The new feedback template is fully generic — no verbatim quotes, person names, individual dates, or real `/Users/...` paths. The doc fix cites only public GitHub issue numbers and public `code.claude.com` doc URLs.
+
 ## [2026-06-12.1] - stable-key token store (travel fix) + MCP servers install off iCloud
 
 Two hard-won reliability fixes, both root-causing "my MCPs randomly broke" failure modes.
