@@ -1069,7 +1069,7 @@ def build_parser() -> argparse.ArgumentParser:
         parser.add_argument(
             "--phase",
             required=True,
-            help="One-line phase/context (e.g. 'morning briefing', 'tupak production confirm'). "
+            help="One-line phase/context (e.g. 'morning briefing', 'vendor-a production confirm'). "
                  "This + severity is the upsert key.",
         )
         parser.add_argument(

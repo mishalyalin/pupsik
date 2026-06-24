@@ -24,6 +24,8 @@
 #   4. Government/registry IDs (NI, UTR, EIN, KVK, VAT, NVWA client #).
 #   5. Specific home addresses.
 #   6. Project codenames, supplier names, business specifics.
+#   6b. Hardcoded vendor/bank/advisor denylist (ALWAYS ON, case-insensitive,
+#       not behind an env var) — see VENDOR_DENYLIST_PATTERN.
 #   7. API tokens, OAuth secrets, JWTs, AWS keys.
 #   8. Hidden / large / suspicious files (.env, *.key, *.pem, .DS_Store, >500KB).
 #   9. Compiled bytecode that may carry source paths (.pyc).
@@ -78,6 +80,28 @@ REGISTRY_IDS_PATTERN="${REGISTRY_IDS_PRIVATE:-$REGISTRY_IDS_FALLBACK}"
 ADDRESSES_PATTERN="${ADDRESSES_PRIVATE:-}"
 BUSINESSES_PATTERN="${BUSINESSES_PRIVATE:-}"
 PRIVATE_REPOS_PATTERN="${PRIVATE_REPOS_PRIVATE:-}"
+
+# ----------------------------------------------------------------------------
+# Hardcoded vendor/bank/advisor denylist — ALWAYS ON (not behind an env var).
+# ----------------------------------------------------------------------------
+# Unlike the optional *_PRIVATE patterns above (which forkers/CI configure for
+# their own network), this is a fixed set of real vendor / bank / advisor names
+# and one known-leaked ID that have appeared in early ports of THIS workspace.
+# Baking them in (rather than relying on the gitignored private-patterns.env or
+# a CI secret) means a future PR that reintroduces any of them FAILS the scan
+# even on a fork or a fresh clone with no secrets set.
+#
+# Matched case-insensitively (the real regression was a lowercase "tupak" that
+# slipped past a case-sensitive pattern). Common-word names are scoped:
+#   - "Mercury" / "Shiva" — distinctive enough in a dev-toolkit repo; denied bare.
+#   - "Kata" — too common a word (martial-arts form / test concept) → scoped to
+#     "Kata Logistics" only, so bare "kata" does not false-positive.
+#   - "Wise Business" / "ANNA Money" — scoped to the full phrase.
+# This pass runs with allow_byline=0: vendor names are NOT excused anywhere
+# (the author byline allowlist only ever covered the maintainer's OWN name).
+# The script's universal self-exclusion (it contains these patterns by
+# definition) still applies — see the grep -vE for this file in run_pass.
+VENDOR_DENYLIST_PATTERN='(\bTupak\b|\bGenofoods\b|\bShiva\b|\bRevolut\b|\bMercury\b|\bWise[[:space:]]+Business\b|\bANNA[[:space:]]+Money\b|\bGrayver\b|\bFlexado\b|\bEurofins\b|\bHuboo\b|\bKata[[:space:]]+Logistics\b|\bDelamode\b|\bBelastingdienst\b|\b3951377\b)'
 
 
 red()    { printf "\033[1;31m%s\033[0m\n" "$*"; }
@@ -149,9 +173,12 @@ list_files() {
 }
 
 # A grep helper that scans only text files, suppresses binaries, and is BSD/GNU portable.
+# Optional 2nd arg: "1" makes the match case-insensitive (adds grep -i).
 grep_text() {
   local pattern="$1"
-  shift
+  local ci="${2:-0}"
+  local gflags="-aIEn"
+  if [ "$ci" = "1" ]; then gflags="-aIEni"; fi
   local rel
   while IFS= read -r rel; do
     local abs="$ROOT/$rel"
@@ -161,7 +188,7 @@ grep_text() {
       *.png|*.jpg|*.jpeg|*.gif|*.pdf|*.zip|*.tar|*.gz|*.bz2|*.so|*.dylib|*.dll|*.class|*.pyc) continue ;;
     esac
     # Use grep -aE to handle accidental high-bytes; -I skips binaries by content sniff.
-    if matches=$(grep -aIEn -- "$pattern" "$abs" 2>/dev/null); then
+    if matches=$(grep $gflags -- "$pattern" "$abs" 2>/dev/null); then
       while IFS= read -r line; do
         echo "$rel:$line"
       done <<< "$matches"
@@ -174,6 +201,7 @@ run_pass() {
   local pattern="$2"
   local allow_byline="${3:-0}"   # 1 = allow byline files
   local extra_allow="${4:-}"     # optional extra grep -vE filter
+  local ci="${5:-0}"             # 1 = case-insensitive match
 
   PASS_COUNT=$((PASS_COUNT + 1))
   PASS_NAMES+=("$name")
@@ -181,7 +209,7 @@ run_pass() {
   printf "\n[pass %d] %s ... " "$PASS_COUNT" "$name"
 
   local hits
-  hits=$(list_files | grep_text "$pattern")
+  hits=$(list_files | grep_text "$pattern" "$ci")
 
   if [ -z "$hits" ]; then
     green "PASS"
@@ -298,6 +326,13 @@ if [ -n "$BUSINESSES_PATTERN" ]; then
 else
   yellow "[pass 6] project codenames + supplier/business specifics ... SKIPPED (set BUSINESSES_PRIVATE to enable)"
 fi
+
+# ============================================================================
+# Pass 6b — Hardcoded vendor / bank / advisor denylist (ALWAYS ON)
+# ============================================================================
+# Always runs regardless of env config. allow_byline=0 (vendors never excused),
+# case-insensitive (5th arg = 1). See VENDOR_DENYLIST_PATTERN above for scope.
+run_pass "vendor/bank/advisor denylist (always on)" "$VENDOR_DENYLIST_PATTERN" 0 "" 1
 
 # ============================================================================
 # Pass 7 — API tokens / secrets / OAuth

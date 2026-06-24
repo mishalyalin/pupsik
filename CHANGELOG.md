@@ -5,6 +5,28 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-06-24.1] - scrub real vendor/bank names from public files + always-on privacy denylist
+
+Privacy hardening. A few real vendor/bank names and one real incident had survived from early ports into public files; this scrubs them and makes the privacy scan catch the whole class going forward, with no dependency on a configured secret.
+
+### Fixed
+
+- **`README.md`** — the "Semantic search" example query named a real packaging supplier. Genericised to a `Vendor-A` placeholder (intent of the example unchanged: a semantic search over past notes).
+- **`tools/note.py`** — the `--phase` help text example for `note.py friction` named the same real supplier (`... production confirm`). Genericised to a neutral `vendor-a production confirm` placeholder. This one had slipped past the privacy scan because it was lowercase and the old pattern was case-sensitive — now fixed by the case-insensitive denylist below.
+- **`memory_templates/feedback_never_ignore_own_rules.md`** — the "Why" example narrated a real past incident with a specific date, a real bank, a real supplier, a real shipment courier, and a real tracking number. Rewritten as a generic illustrative incident: a plan was built on stale working-memory while fresh email clearly showed a bank account had opened (with transfers running) and a supplier payment + shipment with a tracking number had gone out — and the user was rightly annoyed. The lesson is identical; the real specifics are gone.
+
+### Changed
+
+- **`.github/scripts/privacy-check.sh`** — added an **always-on vendor/bank/advisor denylist** pass (new `VENDOR_DENYLIST_PATTERN`, runs regardless of whether the optional `private-patterns.env` / CI secrets are configured). A future PR that reintroduces any of the denied real vendor / bank / advisor names — including the known-leaked tracking number — now FAILS the "Paranoid privacy scan" even on a fork with no secrets set. The pass is **case-insensitive** (the real regression was a lowercase name that slipped a case-sensitive pattern), runs with `allow_byline=0` (vendor names are never excused, not even in README/CHANGELOG/LICENSE — the byline allowlist only ever covered the maintainer's own name), and the script's existing universal self-exclusion (it contains these patterns by definition) is preserved so it does not trip on itself. Common-word names are scoped to avoid false positives (the more generic ones are matched only as their full multi-word company phrase; the distinctive ones are matched bare, low false-positive risk in a dev-toolkit repo — see the in-script comment for the exact scoping rationale). Generic placeholders (`Vendor-A`, `Vendor-B`, `supplier production confirm`) are deliberately NOT denied. The `grep_text` / `run_pass` helpers gained an optional case-insensitive flag to support this; all existing callers are unaffected.
+
+### Why
+
+These names were low-signal but real — a vendor or bank name in a public dev toolkit identifies a real-world relationship and adds nothing to the documentation. The bigger fix is structural: the scan previously caught these only when the maintainer's gitignored `private-patterns.env` (or a CI secret) was configured, and even then a lowercase variant slipped through. Baking a small fixed denylist into the public script — always on, case-insensitive — closes both gaps so the class can't silently recur on a fork or after a fresh clone.
+
+### Privacy
+
+Privacy check **PASS** (`bash .github/scripts/privacy-check.sh`, 12 passes, 0 failures) on the scrubbed tree. Verified the new pass FAILS (exit 1) when a real vendor name is reintroduced — including lowercase, and including inside a byline-allowlisted file — and that genericised placeholders still pass. This CHANGELOG entry is itself written without naming the scrubbed vendors so it does not reintroduce them.
+
 ## [2026-06-23.1] - auto-compact threshold doc fix + deterministic-code rule
 
 Two changes out of a live debugging session, both root-causing "I set the threshold and it did nothing."
