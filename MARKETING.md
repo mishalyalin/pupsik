@@ -43,7 +43,7 @@ github.com/mishalyalin/pupsik
 ```
 For a few months now I've been running my entire company through Claude Code. Sales, ops, finance, taxes, customer success, kids' school logistics. Not just code.
 
-The bottleneck was never Claude's intelligence. It was state. Every session started from zero. Every morning I was re-explaining who Marco at the box supplier was, what was happening with the BV setup, which deals were live.
+The bottleneck was never Claude's intelligence. It was state. Every session started from zero. Every morning I was re-explaining who my contact at the box supplier was, what was happening with the company setup, which deals were live.
 
 So I built the missing layer. Persistent contact graph. Semantic memory across 9 ChromaDB collections. Multi-account Gmail / Calendar / WhatsApp through local MCP servers. A 2-agent worker + checker rule that catches the bugs a single-agent pass misses. Auto-capture knowledge base that surfaces decisions I made three weeks ago.
 

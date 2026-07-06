@@ -59,7 +59,7 @@ If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't 
 
   A typical Brand OS is structured as a multi-layer canon (positioning anchors / persuasion-cocktail recipes / canon principles drawn from Behavioral Economics + Voss/NSTD + Cialdini-Sutherland + LLM SEO / a Vault of evidence rows tying each principle to a primary source). Its retrieval surface is whatever you build - a Python CLI works, and a small Flask wrapper that exposes the same retrieval as `/api/*` JSON endpoints (e.g. `/api/icp`, `/api/search`, `/api/explain`, `/api/tactic/<name>`, `/api/for-vector/<key>`, `/api/for-stage/<name>`, `/api/canon`, `/api/list-tactics`, `/api/list-stages`, `/api/stats`) is the pattern `tools/brand_os.py` targets in API mode. The value of a Brand OS: one URL to your designer, social-media marketer, copywriter, and any future Claude session - same brand tone, same banned words, same persuasion-cocktail recipes everywhere. Keep your Brand OS repo PRIVATE - the canon is your competitive advantage; only the bridge helper here is public.
 - **`~/.claude/rules/critical-rules.md` auto-loads every session.** This is where the MANDATORY rules live - the FIRST bullet is now "NEVER IMAGINE, ALWAYS VERIFY" (the parent of every verify-* rule), then contact DB before mentioning a person, never use em-dashes in my voice, never write Excel files (I don't use Office), all 3 Gmail accounts always, etc.
-- **27 generic feedback rules** in `memory_templates/feedback_*.md`. Each one is a thing I corrected Claude on enough times to make it permanent. Not opinion-shaped advice - corrected behaviour pinned to disk.
+- **38 generic feedback rules** in `memory_templates/feedback_*.md`. Each one is a thing I corrected Claude on enough times to make it permanent. Not opinion-shaped advice - corrected behaviour pinned to disk.
 - **5 agent role prompts** (Architect, Discoverer, Packager, Migrator, Tester). I use them when a task warrants a team, not a solo run.
 - **Third-party attribution discipline.** `THIRD_PARTY_ATTRIBUTIONS.md` at the repo root tracks every pattern I borrowed from external OSS (currently: gbrain by Garry Tan, MIT). Source URL, author, license, what I took verbatim vs adapted vs added.
 - **`auto` permission mode by default.** Accepts safe ops, prompts on writes / shell / risky calls. Replaces `bypassPermissions` as the recommendation. Less friction than full bypass, less risk of nuking things.
@@ -221,6 +221,14 @@ PRs are welcome. The bar: changes should make sense to a fresh user who has neve
 ## Releases
 
 Full release notes in [`CHANGELOG.md`](CHANGELOG.md).
+
+### What's new (2026-07-06)
+
+1. **Telegram read-only MCP (opt-in)** - a local userbot server that reads an explicit allowlist of chats and structurally cannot do anything else: 3 read tools, no write code path, encrypted session, interactive-only login. `mcp-servers/telegram-readonly/`.
+2. **Dashboard: stale-briefing guard** - if no briefing exists for today, the Today tab shows the most recent one **with a visible STALE note** instead of silently presenting yesterday's agenda as today's.
+3. **Dashboard: asset cache-buster** - `styles.css` / favicon links carry `?v=<build-ts>` so a rebuild always serves fresh assets (matters once you push to a VPS).
+4. **VPS deploy hardening** - `rsync --chmod` so a local `600` can't become an nginx 403 (unstyled dashboard), plus an optional post-deploy smoke test (`DASHBOARD_VPS_URL`) that curls each shipped asset and expects 200.
+5. **verify-ticks template** - manual-only agent skill that verifies your checked-off dashboard items against your real sent mail + chats, with evidence-based verdicts. `templates/scheduled-tasks/verify-ticks.md.template`.
 
 ### What's new (2026-05-09)
 
