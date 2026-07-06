@@ -69,10 +69,16 @@ Want the dashboard accessible from your phone via Telegram? Push the rebuilt HTM
 ```bash
 export DASHBOARD_VPS_HOST="root@your.vps.tld"
 export DASHBOARD_VPS_PATH="/var/www/m-<token>/"
+export DASHBOARD_VPS_URL="https://your.vps.tld/m-<token>/"   # optional: enables the smoke test
 bash scripts/morning-dashboard.sh
 ```
 
 The URL `https://your.vps.tld/m-<token>/` is unguessable unless leaked. Use `X-Robots-Tag: noindex` in your nginx block to keep search engines out.
+
+Two deploy-reliability details baked into the script:
+
+- **`rsync --chmod=D755,F644`** — forces web-readable permissions on the VPS. Without it, `rsync -a` faithfully preserves a local `600` on `styles.css` or `favicon.svg`, nginx serves 403, and the dashboard loads *unstyled* with no error anywhere on the laptop side.
+- **Post-deploy smoke test** — when `DASHBOARD_VPS_URL` is set, the script curls each shipped asset (`index.html`, `styles.css`, `favicon.svg`) and expects HTTP 200. "Uploaded" is not "served": a 403/404 here catches perms, nginx-alias, and cert problems the moment they happen instead of the next time you open the bookmark on your phone.
 
 ## Design
 
