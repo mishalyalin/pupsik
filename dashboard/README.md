@@ -41,6 +41,10 @@ State is stored in `localStorage`, keyed by a stable hash of section + card titl
 
 The toolbar at the top of the page also has **export state** — downloads `dashboard-closed.json` listing every closed card id with its first-checked timestamp. Drop the file in `state/dashboard/` and your morning-briefing skill can pick it up to update trackers and `CLAUDE.md` automatically.
 
+### Trust, but verify the ticks
+
+A checkbox records that you *believe* you did the thing — humans mis-remember. `templates/scheduled-tasks/verify-ticks.md.template` is an optional, **manual-only** agent skill that takes the exported closed state and verifies each checked item against your real communications (sent mail + chat read-MCPs), returning per-item verdicts: ✅ verified (with a quoted message as evidence), ⚠️ no evidence found, or ℹ️ not verifiable. It never runs on a schedule and never invents proof.
+
 ## Pulse — deep research
 
 Want richer Pulse content than the briefing's summary? Generate it separately via an agent (WebSearch competitors + new launches + interviews + case studies) and write the output to `dashboard/pulse-deep.md`. `build.py` prefers that file over the briefing extract.

@@ -1,0 +1,80 @@
+<!--
+# How to install:
+# 1. Copy this file to ~/.claude/scheduled-tasks/verify-ticks/SKILL.md
+#    (drop the .template suffix; ensure the parent directory exists).
+# 2. Adjust paths if your workspace is not at $HOME/Desktop/claude.
+# 3. Do NOT register a cron for this task. It is MANUAL-ONLY by design —
+#    the skill fires only when the operator explicitly asks (see trigger
+#    phrases below). If your scheduled-tasks runner requires an entry,
+#    register it with enabled: false.
+# 4. Prerequisite: the dashboard module (dashboard/build.py) with its
+#    checkbox feature. Export the checkbox state via the dashboard's
+#    "export state" button and drop dashboard-closed.json into
+#    <workspace>/state/dashboard/ — that file is this skill's input.
+-->
+
+---
+name: verify-ticks
+description: Verify the operator's checked-off dashboard items against their real communications (sent mail + chat history) before trusting them. MANUAL-ONLY — runs only when explicitly asked. Evidence-based verdicts; never invents proof.
+---
+
+# verify-ticks — verify checked-off items against real communications
+
+🔴🔴 **MANUAL ONLY. Never run automatically.** This skill runs ONLY when the operator explicitly asks — trigger phrases: "verify ticks", "check my checkboxes", "did I actually do those", "проверь отмеченное". Do NOT run it on every tick, NOT on a schedule, NOT inside the morning briefing.
+
+## Why
+
+On the dashboard, the operator ticks a checkbox = "I did this, stop reminding me." But humans mis-remember — they think they replied / called / paid, and in reality they didn't (or it isn't reflected anywhere). This skill applies the never-imagine-always-verify rule to the operator's *own* checkmarks: for every checked item, go to the REAL communications (all connected mail accounts + chat read-MCPs) and either confirm it with evidence, or say honestly "no evidence found — you may not have done it."
+
+The point is trust calibration, not policing: a ⚠️ verdict is a calm "you ticked this but I can't find proof — double-check?", never an accusation.
+
+## Steps
+
+### 1. Pull the checked items
+
+Read `<workspace>/state/dashboard/dashboard-closed.json` (produced by the dashboard's **export state** button; see `dashboard/README.md`). It lists every closed `card_id` with its first-checked timestamp.
+
+Recover each item's text from the current `dashboard/index.html`: for each `card_id`, find `data-card-id="<id>"` and take the adjacent card/line text (title + body). `card_id`s that no longer exist in `index.html` (the item aged out of the source markdown) — **skip**.
+
+Skip items already verified: read `<workspace>/state/dashboard/tick-verifications.json` (card_id → {verdict, verified_at}). If a verdict exists and the item's checked-at timestamp hasn't changed, don't re-verify (unless the operator says "re-check everything").
+
+### 2. For each item — define what "done" means
+
+From the item text, work out the action + counterparty + channel: "call the packaging vendor back" → was there a call/message to that vendor; "send the tracking numbers to the 3PL" → did an email/chat message with tracking numbers go out; "pay the counsel invoice" → is there a payment confirmation or a receipt reply; "reply to X" → is there an outbound message to X. Some items are not verifiable from communications at all (personal: "pack the suitcase", "sign on the portal") → mark them ℹ️ not-verifiable; do not guess.
+
+### 3. Launch one verifier agent per verifiable item (in parallel)
+
+For each item, a separate subagent (worker) with this brief:
+
+- Given: the item text + counterparty + what "done" means.
+- Scan: all connected mail accounts (`in:sent` AND inbox, by counterparty/topic, `newer_than:21d`) + chat read-MCPs (search / messages-with by counterparty, including relevant group chats).
+- 🔴 Only REAL messages count as evidence — quote + date + channel. Invent nothing. Never web-search private people or deals.
+- Return a verdict: **✅ VERIFIED** (evidence: "<quote>" — <channel>, <date>) / **⚠️ NO EVIDENCE** (searched X, Y — found nothing; possibly not done or not reflected) / **ℹ️ N/A** (not verifiable from communications).
+
+Launch the agents together (parallel), not one at a time.
+
+### 4. Report to the operator (inline in chat, or to the channel the trigger came from)
+
+Per item: icon + short verdict + evidence (for ✅) / what was searched (for ⚠️). Format:
+
+```
+Checked-item verification (N items):
+✅ Vendor-A callback — chat "spoke, all good" <date>
+✅ Counsel invoice — "Payment received" <date> (inbox)
+⚠️ 3PL tracking numbers — no outbound message with the numbers found (their last message to you is <date>, no reply from you). Sure you sent it?
+ℹ️ Portal signature — personal, not verifiable from communications.
+```
+
+The ⚠️ items are the whole point: calmly surface "ticked but unproven — worth a re-check", without accusation.
+
+### 5. Persist the result
+
+Update `<workspace>/state/dashboard/tick-verifications.json`: `{card_id: {verdict, evidence, verified_at}}`. This (a) prevents re-verification, (b) lets the morning-briefing skill optionally mark ⚠️-verdict items as "ticked-but-unverified" and gently resurface them. The morning briefing reads this file optionally; only verify-ticks writes it.
+
+## Hard rules
+
+- MANUAL ONLY (see top). Auto-running this = a bug.
+- Only the operator's own communications (mail / chat MCPs). No web-searching private people or deals.
+- Evidence = a real quote from a real message. No message → ⚠️, NOT ✅. Never "probably did it".
+- 2+ agents: each item is verified by a subagent; for borderline calls ("not sure it's the same thread") — a second independent pass before saying ✅.
+- This skill only READS the closed state + index.html. It never modifies the dashboard or its sync layer.
