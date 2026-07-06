@@ -3,7 +3,7 @@
 Morning dashboard. Markdown-in, HTML-out. Python stdlib only.
 
 Pulls from existing workspace artifacts:
-  01 Today      <- briefings/briefing-{today}.md   (fallback: most recent)
+  01 Today      <- briefings/briefing-{today}.md   (fallback: most recent, labeled STALE)
   02 Projects   <- CLAUDE.md ## Active Projects        (cards w/ checkboxes)
   03 Upcoming   <- CLAUDE.md ## Upcoming               (cards w/ checkboxes)
   04 Pulse      <- dashboard/pulse-deep.md OR briefing ## Pulse section
@@ -245,19 +245,24 @@ def latest_changelog_entry(md: str) -> str:
     return blocks[0].strip() if blocks else section
 
 
-def todays_briefing() -> tuple[str, str]:
-    """Return (label, body) for today, falling back to most recent .md."""
+def todays_briefing() -> tuple[str, str, bool]:
+    """Return (label, body, stale) for today, falling back to most recent .md.
+
+    stale=True means no briefing exists for TODAY's date and we fell back to an
+    older file. Callers must surface that visibly - silently rendering
+    yesterday's briefing as if it were today's is exactly the failure mode a
+    morning dashboard exists to prevent (yesterday's agenda read as today's)."""
     today = dt.date.today().isoformat()
     todays = BRIEFINGS_DIR / f"briefing-{today}.md"
     if todays.exists():
-        return f"briefing-{today}.md", todays.read_text(encoding="utf-8")
+        return f"briefing-{today}.md", todays.read_text(encoding="utf-8"), False
     candidates = sorted(
         [p for p in BRIEFINGS_DIR.glob("briefing-*.md") if not p.name.endswith("-final.md")],
         reverse=True,
     )
     if candidates:
-        return candidates[0].name, candidates[0].read_text(encoding="utf-8")
-    return "no briefing found", "_No briefing file in `briefings/`._"
+        return candidates[0].name, candidates[0].read_text(encoding="utf-8"), True
+    return "no briefing found", "_No briefing file in `briefings/`._", False
 
 
 def recent_knowledge() -> str:
@@ -539,7 +544,7 @@ def render_pulse_section() -> str:
             pass
 
     # 2. Today's briefing Pulse section
-    today_label, today_body = todays_briefing()
+    today_label, today_body, today_stale = todays_briefing()
     pulse = extract_pulse_section(today_body) if today_body else ""
     source_label = today_label
 
@@ -617,7 +622,7 @@ CARD_SECTIONS = {"projects", "upcoming"}
 def build_html() -> str:
     claude_md = read_file(CLAUDE_MD)
 
-    today_label, today_body = todays_briefing()
+    today_label, today_body, today_stale = todays_briefing()
     projects_body = extract_h2_section(claude_md, "Active Projects")
     upcoming_body = extract_h2_section(claude_md, "Upcoming")
     architect_body = read_file(ARCHITECT_FILE)
@@ -636,7 +641,8 @@ def build_html() -> str:
     # subtitle line
     today = dt.date.today()
     weekday = today.strftime("%A")
-    subtitle = f"{weekday}, {today.isoformat()}  -  source: {today_label}"
+    source_label_full = today_label + ("  (STALE - not today's)" if today_stale else "")
+    subtitle = f"{weekday}, {today.isoformat()}  -  source: {source_label_full}"
 
     nav_html = "\n".join(
         f'<a class="nav-item" href="#{anchor}"><span class="num">{num}</span>'
@@ -653,6 +659,14 @@ def build_html() -> str:
             body_html = render_card_list(body_md, anchor)
         else:
             body_html = render_markdown(body_md)
+        if anchor == "today" and today_stale:
+            # Date-staleness guard: never present an old briefing as today's
+            # without saying so. The note names the file actually shown.
+            body_html = (
+                '<p class="stale-note">STALE - no briefing for today. Showing the '
+                f"most recent one (<code>{html.escape(today_label)}</code>). "
+                "Run your morning-briefing task to refresh.</p>\n" + body_html
+            )
         sections_html_parts.append(
             f'<section id="{anchor}" class="section">\n'
             f'  <header class="section-head">\n'
@@ -665,6 +679,10 @@ def build_html() -> str:
     sections_html = "\n\n".join(sections_html_parts)
 
     build_ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    # Cache-buster for linked assets: every rebuild serves fresh CSS + favicon
+    # instead of a browser-cached copy (matters once the dashboard is pushed to
+    # a VPS - without it a restyle only shows up after a manual hard-reload).
+    asset_ver = build_ts.replace("-", "").replace(":", "").replace(" ", "")
     today_iso = today.isoformat()
     preloaded_closed_json = json.dumps(closed_today)
 
@@ -674,10 +692,10 @@ def build_html() -> str:
 <meta charset="utf-8">
 <title>Dashboard - {today_iso}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v={asset_ver}">
 <link rel="mask-icon" href="favicon.svg" color="#DD3D1F">
 <meta name="theme-color" content="#DD3D1F">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v={asset_ver}">
 </head>
 <body>
 <main class="page">

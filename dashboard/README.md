@@ -4,7 +4,7 @@ A six-tab single-page HTML dashboard for your morning routine. Pulls live state 
 
 ## What it shows
 
-- **01 Today** — the latest briefing markdown (`briefings/briefing-{today}.md`)
+- **01 Today** — the latest briefing markdown (`briefings/briefing-{today}.md`). If no briefing exists for today's date, the most recent one is shown **with a visible STALE note** (in the tab and in the subtitle) — the dashboard never silently presents yesterday's agenda as today's.
 - **02 Projects** — the `## Active Projects` section of `CLAUDE.md`, rendered as a 3-column grid of cards with checkboxes
 - **03 Upcoming** — the `## Upcoming` section of `CLAUDE.md`, same card layout
 - **04 Pulse** — curated industry narrative from `dashboard/pulse-deep.md` if present, falling back to the briefing's `## Pulse` section
@@ -18,6 +18,8 @@ python3 dashboard/build.py
 ```
 
 Writes `dashboard/index.html`. Open it in any browser.
+
+Linked assets (`styles.css`, `favicon.svg`) carry a `?v=<build-timestamp>` cache-buster, so every rebuild serves fresh CSS/favicon — no stale styles lingering behind a browser cache until a manual hard-reload (this matters once you push the dashboard to a VPS).
 
 For a one-liner that rebuilds and opens:
 
@@ -38,6 +40,10 @@ State is stored in `localStorage`, keyed by a stable hash of section + card titl
 - you click **reset**, which wipes the persistent state
 
 The toolbar at the top of the page also has **export state** — downloads `dashboard-closed.json` listing every closed card id with its first-checked timestamp. Drop the file in `state/dashboard/` and your morning-briefing skill can pick it up to update trackers and `CLAUDE.md` automatically.
+
+### Trust, but verify the ticks
+
+A checkbox records that you *believe* you did the thing — humans mis-remember. `templates/scheduled-tasks/verify-ticks.md.template` is an optional, **manual-only** agent skill that takes the exported closed state and verifies each checked item against your real communications (sent mail + chat read-MCPs), returning per-item verdicts: ✅ verified (with a quoted message as evidence), ⚠️ no evidence found, or ℹ️ not verifiable. It never runs on a schedule and never invents proof.
 
 ## Pulse — deep research
 
@@ -67,10 +73,16 @@ Want the dashboard accessible from your phone via Telegram? Push the rebuilt HTM
 ```bash
 export DASHBOARD_VPS_HOST="root@your.vps.tld"
 export DASHBOARD_VPS_PATH="/var/www/m-<token>/"
+export DASHBOARD_VPS_URL="https://your.vps.tld/m-<token>/"   # optional: enables the smoke test
 bash scripts/morning-dashboard.sh
 ```
 
 The URL `https://your.vps.tld/m-<token>/` is unguessable unless leaked. Use `X-Robots-Tag: noindex` in your nginx block to keep search engines out.
+
+Two deploy-reliability details baked into the script:
+
+- **`rsync --chmod=D755,F644`** — forces web-readable permissions on the VPS. Without it, `rsync -a` faithfully preserves a local `600` on `styles.css` or `favicon.svg`, nginx serves 403, and the dashboard loads *unstyled* with no error anywhere on the laptop side.
+- **Post-deploy smoke test** — when `DASHBOARD_VPS_URL` is set, the script curls each shipped asset (`index.html`, `styles.css`, `favicon.svg`) and expects HTTP 200. "Uploaded" is not "served": a 403/404 here catches perms, nginx-alias, and cert problems the moment they happen instead of the next time you open the bookmark on your phone.
 
 ## Design
 

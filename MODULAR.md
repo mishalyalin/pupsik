@@ -95,6 +95,18 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
   Substitute `multi-gcal` or `whatsapp` for the same flow with the other two.
 
+- **Fourth server (opt-in, Python): `mcp-servers/telegram-readonly/`** — reads an explicit allowlist of Telegram chats via your own account (Telethon userbot), read-only **by construction** (3 tools; no send/edit/delete/forward code path exists; no account-wide enumeration; Fernet-encrypted session; interactive-only login). Depends on Python 3.10+ only — independent of Node, the other servers, and everything else here. Install:
+
+  ```bash
+  cd pupsik/mcp-servers/telegram-readonly
+  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+  cp config.example.json config.json    # api_id/api_hash from my.telegram.org + your allowlist
+  .venv/bin/python login.py             # interactive: you type phone/code/2FA
+  claude mcp add telegram-readonly -- $(pwd)/.venv/bin/python $(pwd)/server.py
+  ```
+
+  Full walkthrough + security model: `mcp-servers/telegram-readonly/README.md`.
+
 ### g) Health diagnostics + friction capture
 
 - **What it does:** Two complementary modules for keeping the system healthy. `tools/doctor.py` runs 13 deterministic checks across the workspace (broken symlinks, stale locks, ChromaDB orphan rows, file-size limits, dead scheduled-task dirs, unindexed recent notes). `check` is read-only; `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe); `orphans` lists unlinked entities for human review. `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y` captures repeat-correction patterns. Upsert by `(phase, severity)` increments a counter so a third recurrence of the same friction surfaces escalated in the morning briefing.

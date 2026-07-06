@@ -9,9 +9,12 @@
 #
 # Optional: to also push the rebuilt HTML to a VPS for Telegram-web access,
 # set DASHBOARD_VPS_HOST + DASHBOARD_VPS_PATH env vars (or override below).
+# Optionally also set DASHBOARD_VPS_URL to enable the post-deploy smoke test
+# (curl each shipped asset, expect HTTP 200).
 # Example:
 #   export DASHBOARD_VPS_HOST="root@your.vps.tld"
 #   export DASHBOARD_VPS_PATH="/var/www/m-<secret-token>/"
+#   export DASHBOARD_VPS_URL="https://your.vps.tld/m-<secret-token>/"
 
 set -euo pipefail
 
@@ -46,13 +49,37 @@ fi
 
 # Optional VPS sync (Wave 2 - Telegram-bookmark URL). Skipped unless both
 # env vars are set AND the brand gate passed.
+#
+# --chmod=D755,F644 forces web-readable perms on the VPS regardless of local
+# file modes. Without it, rsync -a preserves a local 600 on styles.css or
+# favicon.svg -> nginx serves 403 -> the dashboard loads UNSTYLED and the
+# favicon 404s, with no error anywhere on the laptop side.
 if [[ "$GATE_OK" = "1" ]] && [[ -n "${DASHBOARD_VPS_HOST:-}" && -n "${DASHBOARD_VPS_PATH:-}" ]]; then
-  (rsync -az --quiet \
-    --include='index.html' --include='styles.css' --include='favicon.svg' \
-    --exclude='*' \
-    "$DASHBOARD_DIR/" "$DASHBOARD_VPS_HOST:$DASHBOARD_VPS_PATH" \
-    && echo "[dash] vps synced" \
-    || echo "[dash] vps sync failed (local still works)") &
+  (
+    if rsync -az --quiet \
+      --chmod=D755,F644 \
+      --include='index.html' --include='styles.css' --include='favicon.svg' \
+      --exclude='*' \
+      "$DASHBOARD_DIR/" "$DASHBOARD_VPS_HOST:$DASHBOARD_VPS_PATH"; then
+      echo "[dash] vps synced"
+      # Post-deploy smoke test: "uploaded" is not "served". A 403/404 here
+      # means an unstyled or broken dashboard at the public URL even though
+      # the rsync exited 0 (perms, nginx alias, or cert issues). Needs
+      # DASHBOARD_VPS_URL; skipped silently when unset.
+      if [[ -n "${DASHBOARD_VPS_URL:-}" ]]; then
+        for asset in index.html styles.css favicon.svg; do
+          code="$(curl -s -o /dev/null -m 15 -w '%{http_code}' "${DASHBOARD_VPS_URL%/}/$asset" || echo 000)"
+          if [[ "$code" == "200" ]]; then
+            echo "[dash] smoke ok: $asset (200)"
+          else
+            echo "[dash] smoke FAIL: $asset ($code) - check perms/nginx at $DASHBOARD_VPS_URL" >&2
+          fi
+        done
+      fi
+    else
+      echo "[dash] vps sync failed (local still works)"
+    fi
+  ) &
 fi
 
 case "$(uname -s)" in

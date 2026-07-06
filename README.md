@@ -42,6 +42,7 @@ If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't 
 - **Semantic search across 9 ChromaDB collections.** My notes, briefings, journal, decisions, learnings, research, plus the contact DB. One query, all of it. `memory_search.py search "что было с Vendor-A в апреле"` and it pulls the relevant chunks.
 - **Capture knowledge the second it happens.** `note.py learning "Title" "body"` writes a learning note and reindexes it in 50ms. Re-run the same title later and it upserts - one note per topic, kept current. The `decision`, `research`, `world_knowledge`, and `user_context` variants do the same. World knowledge (VAT rates, regulatory limits, industry conventions) and user context (working style, schedule, environmental constraints) live as their own ChromaDB sub-collections, separate from prescriptive `feedback_*.md` rules. Cherry-picked from obra/private-journal-mcp.
 - **Multi-account Gmail / Calendar / WhatsApp MCPs.** I have 3 Gmail accounts. `gmail_search_all` searches all of them in one call. Same for Calendar. WhatsApp is read-only on macOS but it pulls into the contact DB.
+- **Telegram read-only MCP (opt-in).** A local userbot server that reads a small, explicit **allowlist** of chats — and nothing else. Read-only **by construction**: exactly 3 tools, no send/edit/delete/forward code path exists at all, no account-wide chat enumeration, session Fernet-encrypted at rest, and the login (phone / code / 2FA) is interactive-only — the assistant never sees credentials. This is the security shape I'd suggest for ANY account-powerful MCP: cap the blast radius structurally, not with a prompt. Python + Telethon, manual setup: `mcp-servers/telegram-readonly/README.md`. (Different thing from `docs/TELEGRAM_SETUP.md`, which is the message-Claude-from-your-phone bot.)
 - **`tools/doctor.py` health-check + safe auto-fix.** 13 deterministic checks across the workspace. Broken symlinks, stale lock files, ChromaDB orphan rows, oversized CLAUDE.md, dangling memory pointers. `check` is read-only; `fix-safe` only does safe repairs (never rewrites my prose); `orphans` lists unlinked entities for me to review. Cron-safe.
 - **Friction protocol.** `note.py friction --severity blocker --phase X --message Y` captures the moments when something's wrong but I don't have time to fix it now. Re-run the same phase + severity and the counter increments. After 3 hits, my morning briefing surfaces it loud.
 - **Optional contact-enrichment cron, 4 passes.** Gmail signature mining for LinkedIn / Twitter / GitHub / website / phone. Then web search for missing LinkedIn URLs. Then a short bio + Instagram. Then Pass 4: it reads my email and WhatsApp correspondence with the contact and writes a 2-4 sentence private summary into `relationship_context`. That field never leaves my local DB - not in any export, not in briefings (briefings reformulate, never quote), not in this repo. Telegram is never auto-read; if I want TG context for a specific contact, I paste the history into an ad-hoc prompt manually. Runs Sunday 06:00 if I enable it.
@@ -58,7 +59,7 @@ If Claude paraphrases it back, you're done. If it shrugs, the rules file didn't 
 
   A typical Brand OS is structured as a multi-layer canon (positioning anchors / persuasion-cocktail recipes / canon principles drawn from Behavioral Economics + Voss/NSTD + Cialdini-Sutherland + LLM SEO / a Vault of evidence rows tying each principle to a primary source). Its retrieval surface is whatever you build - a Python CLI works, and a small Flask wrapper that exposes the same retrieval as `/api/*` JSON endpoints (e.g. `/api/icp`, `/api/search`, `/api/explain`, `/api/tactic/<name>`, `/api/for-vector/<key>`, `/api/for-stage/<name>`, `/api/canon`, `/api/list-tactics`, `/api/list-stages`, `/api/stats`) is the pattern `tools/brand_os.py` targets in API mode. The value of a Brand OS: one URL to your designer, social-media marketer, copywriter, and any future Claude session - same brand tone, same banned words, same persuasion-cocktail recipes everywhere. Keep your Brand OS repo PRIVATE - the canon is your competitive advantage; only the bridge helper here is public.
 - **`~/.claude/rules/critical-rules.md` auto-loads every session.** This is where the MANDATORY rules live - the FIRST bullet is now "NEVER IMAGINE, ALWAYS VERIFY" (the parent of every verify-* rule), then contact DB before mentioning a person, never use em-dashes in my voice, never write Excel files (I don't use Office), all 3 Gmail accounts always, etc.
-- **27 generic feedback rules** in `memory_templates/feedback_*.md`. Each one is a thing I corrected Claude on enough times to make it permanent. Not opinion-shaped advice - corrected behaviour pinned to disk.
+- **38 generic feedback rules** in `memory_templates/feedback_*.md`. Each one is a thing I corrected Claude on enough times to make it permanent. Not opinion-shaped advice - corrected behaviour pinned to disk.
 - **5 agent role prompts** (Architect, Discoverer, Packager, Migrator, Tester). I use them when a task warrants a team, not a solo run.
 - **Third-party attribution discipline.** `THIRD_PARTY_ATTRIBUTIONS.md` at the repo root tracks every pattern I borrowed from external OSS (currently: gbrain by Garry Tan, MIT). Source URL, author, license, what I took verbatim vs adapted vs added.
 - **`auto` permission mode by default.** Accepts safe ops, prompts on writes / shell / risky calls. Replaces `bypassPermissions` as the recommendation. Less friction than full bypass, less risk of nuking things.
@@ -205,6 +206,8 @@ rm ~/Desktop/claude/tools/contacts_db.py ~/Desktop/claude/tools/memory_search.py
 claude mcp remove multi-gmail
 claude mcp remove multi-gcal
 claude mcp remove whatsapp
+claude mcp remove telegram-readonly   # only if you enabled it
+rm -rf ~/.telegram-readonly-mcp       # its encryption key, if you enabled it
 # If you want to nuke everything:
 rm ~/Desktop/claude/CLAUDE.md ~/Desktop/claude/data/contacts.db
 ```
@@ -218,6 +221,14 @@ PRs are welcome. The bar: changes should make sense to a fresh user who has neve
 ## Releases
 
 Full release notes in [`CHANGELOG.md`](CHANGELOG.md).
+
+### What's new (2026-07-06)
+
+1. **Telegram read-only MCP (opt-in)** - a local userbot server that reads an explicit allowlist of chats and structurally cannot do anything else: 3 read tools, no write code path, encrypted session, interactive-only login. `mcp-servers/telegram-readonly/`.
+2. **Dashboard: stale-briefing guard** - if no briefing exists for today, the Today tab shows the most recent one **with a visible STALE note** instead of silently presenting yesterday's agenda as today's.
+3. **Dashboard: asset cache-buster** - `styles.css` / favicon links carry `?v=<build-ts>` so a rebuild always serves fresh assets (matters once you push to a VPS).
+4. **VPS deploy hardening** - `rsync --chmod` so a local `600` can't become an nginx 403 (unstyled dashboard), plus an optional post-deploy smoke test (`DASHBOARD_VPS_URL`) that curls each shipped asset and expects 200.
+5. **verify-ticks template** - manual-only agent skill that verifies your checked-off dashboard items against your real sent mail + chats, with evidence-based verdicts. `templates/scheduled-tasks/verify-ticks.md.template`.
 
 ### What's new (2026-05-09)
 

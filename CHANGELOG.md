@@ -5,6 +5,36 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-07-06.1] - telegram-readonly MCP + dashboard reliability patterns + verify-ticks template
+
+Four generic patterns from two weeks of live use, plus small repo-health fixes.
+
+### Added
+
+- **`mcp-servers/telegram-readonly/`** — a local, **read-only** Telegram MCP server (Python + Telethon + FastMCP, stdio). The security shape is the point, and it is structural rather than prompt-based: exactly **3 read tools** (`telegram_list_allowed_chats` / `telegram_read_chat` / `telegram_search_chat`); a **per-chat allowlist** enforced on every read (no `get_dialogs`, no account-wide enumeration is exposed at all — the blast radius of the account-powerful session is capped at the chats you listed); **no write code path** — no send/edit/delete/forward/join/mark-read helper is defined or even imported, so a prompt-injected "send a message" has nothing to call; the Telethon **StringSession is Fernet-encrypted at rest** under a stable per-install key (`~/.telegram-readonly-mcp/key`, mode 0600 — same stable-key pattern as the 2026-06-12 multi-gmail token store); and **login is interactive-only** (`login.py` refuses argv/env credentials — phone/code/2FA go from your keyboard straight to Telethon; the assistant never sees them). Ships like the other local servers: copied (not built) by `install_mcps.sh`, registered by `register_mcps.sh` **only when the user has created the venv** (a dead spawn every session helps no one). Distinct from `docs/TELEGRAM_SETUP.md` (the message-Claude-from-your-phone bot — opposite direction).
+- **`templates/scheduled-tasks/verify-ticks.md.template`** — manual-only agent skill: verify the operator's checked-off dashboard items against their REAL communications before trusting them. Reads the dashboard's exported closed-state JSON, recovers each item's text from `index.html`, launches one verifier subagent per item in parallel (sent mail across all connected accounts + chat read-MCPs, 21-day window), and returns evidence-based verdicts — ✅ VERIFIED (with a quoted real message + date + channel), ⚠️ NO EVIDENCE (with what was searched), ℹ️ N/A (not verifiable from communications). Verdicts persist to `state/dashboard/tick-verifications.json` for the morning briefing to gently resurface ticked-but-unproven items. Hard rules: MANUAL ONLY (auto-run = bug), a verdict is never ✅ without a real quoted message, no web-searching private people, read-only against the dashboard state.
+
+### Changed
+
+- **`dashboard/build.py`** — two reliability patterns. (1) **Stale-briefing guard**: `todays_briefing()` now returns a stale flag when no briefing exists for today's date and the renderer fell back to an older file; the Today tab shows a visible `STALE` note naming the file actually rendered, and the page subtitle is marked too. A morning dashboard must never silently present yesterday's agenda as today's — that is the exact failure mode it exists to prevent. (2) **Asset cache-buster**: `styles.css` + favicon links carry `?v=<build-timestamp>` so every rebuild serves fresh assets instead of a browser-cached copy (bites as soon as the dashboard is served from a VPS). The `mask-icon` line is deliberately untouched — the brand-os visual gate greps it by shape.
+- **`scripts/morning-dashboard.sh`** — two VPS-deploy failure classes closed. (1) `rsync --chmod=D755,F644`: `rsync -a` faithfully preserves a local `600` on `styles.css`/`favicon.svg`, nginx then serves 403, and the dashboard loads *unstyled* with zero error on the laptop side. (2) Optional **post-deploy smoke test** (new `DASHBOARD_VPS_URL` env var): curl each shipped asset and expect HTTP 200 — "uploaded" is not "served"; a 403/404 prints a loud per-asset FAIL at deploy time instead of at the next phone-bookmark open. Fully backwards compatible: skipped silently when the URL is unset.
+- **`install_mcps.sh` / `register_mcps.sh`** — copy + conditionally register the new Python server alongside the three Node servers (see Added).
+
+### Fixed
+
+- **`README.md`** — the feedback-rule count had drifted: "27 generic feedback rules" vs 38 actually shipped in `memory_templates/`. Corrected; "What's new" section topped up (it had been sitting at 2026-05-09 while five releases landed in CHANGELOG).
+- **`dashboard/README.md`** — documents the stale note, the cache-buster, the two deploy-reliability details, and the verify-ticks pairing.
+- **`UPGRADING.md`** — per-release one-time steps for this release (all optional).
+- **Three pre-existing privacy nits scrubbed** (caught by this release's manual sweep, all survived earlier passes because they sit in byline-allowlisted files or use bare first names): a real colleague's full name used as the fuzzy-match example in an older CHANGELOG entry (now a generic name pair); an owner-company mention in the 2026-06-02.1 entry (now "specific project repo clones"); a real supplier-contact first name + entity-type detail in `MARKETING.md` (now generic). Same class as the 2026-06-24.1 scrub, closing the remainder.
+
+### Why
+
+The Telegram server generalises the hardest lesson of account-powerful MCPs: read-only must be a property of the CODE (no write path exists), not of the prompt. The dashboard items are the "boring correctness" layer of a daily-driver dashboard: never lie about the date of what's on screen, never serve stale CSS, never trust that an upload was actually served. verify-ticks applies the toolkit's never-imagine-always-verify rule to the operator's own memory — the checkbox is a claim, not a fact.
+
+### Privacy
+
+Privacy check **PASS** (`bash .github/scripts/privacy-check.sh --include-untracked`) on the full tree including all new files. The Telegram server ships with placeholder credentials and generic chat labels only; its `.gitignore` excludes `config.json` / `session.enc` / the venv as a backstop. The verify-ticks template uses `Vendor-A`-style counterparties. No real names, chat labels, amounts, tokens, IDs, or personal workflow specifics were ported; the always-on vendor denylist needed no new terms (no new vendor/bank/advisor names appear in any added content).
+
 ## [2026-06-24.1] - scrub real vendor/bank names from public files + always-on privacy denylist
 
 Privacy hardening. A few real vendor/bank names and one real incident had survived from early ports into public files; this scrubs them and makes the privacy scan catch the whole class going forward, with no dependency on a configured secret.
@@ -129,7 +159,7 @@ The iCloud rule is not a power-user edge case for this toolkit specifically — 
 ### Privacy invariants
 
 - Privacy check passed (`bash .github/scripts/privacy-check.sh --include-untracked`).
-- Both new files use generic language (no real repo names, no owner-specific paths beyond the toolkit's own documented `~/Desktop/claude/` + `~/code/` convention). The owner-specific source incidents (specific PranaSalt repo clones, specific MCP server names + zod version pins) were deliberately left in the private workspace and NOT propagated — only the generalizable mechanism + diagnostic + fix made it into the template.
+- Both new files use generic language (no real repo names, no owner-specific paths beyond the toolkit's own documented `~/Desktop/claude/` + `~/code/` convention). The owner-specific source incidents (specific project repo clones, specific MCP server names + zod version pins) were deliberately left in the private workspace and NOT propagated — only the generalizable mechanism + diagnostic + fix made it into the template.
 
 ## [2026-05-27.2] - remove Russian-speaker heuristic + `tg_manual_paste_recommended` column
 
@@ -193,7 +223,7 @@ This release propagates five new self-improvement rules from a real workspace's 
 
 ### Changed
 
-- **`tools/note_graph.py`** — `fetch_entity_by_name(conn, name)` now returns `(rows, match_kind)` tuple with a four-tier match cascade: exact name → alias → fuzzy substring on name → fuzzy substring on alias. Minimum partial-length is 2 characters. `match_kind ∈ {exact, alias, fuzzy, none}`. The `entity <name>` CLI command surfaces a disambiguation hint when fuzzy matching returns multiple candidates. The old behaviour (exact + alias only) is preserved as the first two tiers, so existing scripts that called `fetch_entity_by_name` and unpacked a single list need a small unpack change — see the docstring. This is a small UX upgrade: when you don't remember "Nikolay Bezborodov" vs "Nikolai", `entity nikol` now lists both with a hint, instead of returning empty.
+- **`tools/note_graph.py`** — `fetch_entity_by_name(conn, name)` now returns `(rows, match_kind)` tuple with a four-tier match cascade: exact name → alias → fuzzy substring on name → fuzzy substring on alias. Minimum partial-length is 2 characters. `match_kind ∈ {exact, alias, fuzzy, none}`. The `entity <name>` CLI command surfaces a disambiguation hint when fuzzy matching returns multiple candidates. The old behaviour (exact + alias only) is preserved as the first two tiers, so existing scripts that called `fetch_entity_by_name` and unpacked a single list need a small unpack change — see the docstring. This is a small UX upgrade: when you don't remember "Aleksandr" vs "Alexander", `entity alex` now lists both with a hint, instead of returning empty.
 
 ### Why this is structural, not just five new rules
 

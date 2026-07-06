@@ -109,6 +109,23 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
 
+### 2026-07-06 release: telegram-readonly MCP + dashboard staleness/cache/deploy fixes + verify-ticks template
+
+All optional; nothing breaks if you skip everything.
+
+**1. Dashboard fixes (stale-briefing note, asset cache-buster) + morning-dashboard smoke test.** Re-run the smart-merge to pick them up:
+
+```bash
+cd ~/pupsik && git pull
+bash install.sh --update-only
+```
+
+If you customised `dashboard/build.py` or `scripts/morning-dashboard.sh`, the new versions land side-by-side as `<file>.new` — diff and merge. To enable the post-deploy smoke test, additionally export `DASHBOARD_VPS_URL` next to your existing `DASHBOARD_VPS_HOST`/`DASHBOARD_VPS_PATH`.
+
+**2. Telegram read-only MCP (opt-in).** Follow `mcp-servers/telegram-readonly/README.md` (venv → api credentials → allowlist → interactive login → re-run `register_mcps.sh`). Nothing is registered until you create the venv.
+
+**3. verify-ticks skill (opt-in, manual-only).** Install per the header comment in `templates/scheduled-tasks/verify-ticks.md.template`. Do NOT wire it to a cron — it is designed to run only when you explicitly ask.
+
 ### 2026-06-12 release: stable-key token store + MCP servers move off iCloud
 
 Two reliability fixes for existing installs. New installs get both automatically.

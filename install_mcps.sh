@@ -75,6 +75,32 @@ for srv in "${SERVERS[@]}"; do
   say "  $srv done."
 done
 
+# ---------- telegram-readonly (Python, opt-in — copy only, no build) ----------
+# Unlike the three Node servers above, telegram-readonly is a Python server and
+# its setup is deliberately manual: it needs YOUR Telegram api_id/api_hash and an
+# interactive login that only you should perform. We copy the source next to the
+# other servers so everything lives in one place; the venv + login are yours.
+say "Copying telegram-readonly (setup is manual — see its README)..."
+tg_src="$SCRIPT_DIR/mcp-servers/telegram-readonly"
+tg_dst="$MCP_DST/telegram-readonly"
+if [ -d "$tg_src" ]; then
+  rsync -a \
+    --exclude='.venv' \
+    --exclude='__pycache__' \
+    --exclude='config.json' \
+    --exclude='session.enc' \
+    --exclude='*.enc' \
+    --exclude='.DS_Store' \
+    "$tg_src/" "$tg_dst/"
+  say "  copied to $tg_dst. To enable (optional):"
+  say "    cd $tg_dst && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  say "    cp config.example.json config.json   # fill api_id/api_hash + allowlist"
+  say "    .venv/bin/python login.py            # interactive — you type phone/code/2FA"
+  say "  then re-run register_mcps.sh (it registers this server only when .venv exists)."
+else
+  warn "  source $tg_src missing, skipping"
+fi
+
 # ---------- compatibility symlink: $WORKSPACE/mcp-servers -> $MCP_DST ----------
 # Only when the install dir and the workspace path differ (a custom
 # MCP_INSTALL_DIR could legitimately point INTO the workspace).
