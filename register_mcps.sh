@@ -105,6 +105,20 @@ say "Registering whatsapp..."
 claude mcp remove whatsapp 2>/dev/null || true
 claude mcp add whatsapp -- node "$MCP_DIR/whatsapp/dist/index.js" || warn "  whatsapp register failed"
 
+# ---------- telegram-readonly (Python; only if its venv exists) ----------
+# Opt-in server: registering it without the venv would give Claude a dead spawn
+# every session. We register only when the user has completed the venv step
+# (see mcp-servers/telegram-readonly/README.md). Login state does NOT gate
+# registration — the server starts fine pre-login and says so in-tool.
+if [ -x "$MCP_DIR/telegram-readonly/.venv/bin/python" ]; then
+  say "Registering telegram-readonly..."
+  claude mcp remove telegram-readonly 2>/dev/null || true
+  claude mcp add telegram-readonly -- "$MCP_DIR/telegram-readonly/.venv/bin/python" "$MCP_DIR/telegram-readonly/server.py" \
+    || warn "  telegram-readonly register failed"
+else
+  say "Skipping telegram-readonly (no .venv — optional; see mcp-servers/telegram-readonly/README.md to enable)."
+fi
+
 say "Current registrations:"
 claude mcp list || warn "'claude mcp list' failed."
 
@@ -117,7 +131,8 @@ cat <<EOF
 Verify in Claude Code:
   - Restart your Claude Code session
   - Ask: "List my connected MCP servers."
-  - You should see multi-gmail, multi-gcal, whatsapp.
+  - You should see multi-gmail, multi-gcal, whatsapp
+    (and telegram-readonly, if you enabled its venv).
 
 If Gmail or Calendar calls fail with auth errors:
   1. Run:  cd $MCP_DIR/multi-gmail && source .env && \\

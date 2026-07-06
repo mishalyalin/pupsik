@@ -1,0 +1,10 @@
+# telegram-readonly MCP server — pinned dependencies.
+# Install into the local venv:  .venv/bin/pip install -r requirements.txt
+#
+# Telethon (Telegram MTProto client). The project repo moved to Codeberg in Feb 2026,
+# but the PyPI package still publishes — install from PyPI. 1.44.0 = current stable.
+telethon==1.44.0
+# FastMCP / Model Context Protocol SDK (stdio transport).
+mcp>=1.2
+# Fernet symmetric encryption for the session-at-rest (session.enc).
+cryptography==49.0.0

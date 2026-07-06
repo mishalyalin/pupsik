@@ -1,0 +1,8 @@
+{
+  "api_id": 0,
+  "api_hash": "PUT_API_HASH_HERE",
+  "allowlist": [
+    { "label": "Example Group", "id": null, "username": "example_group" },
+    { "label": "Example DM by id", "id": 123456789, "username": null }
+  ]
+}

@@ -1,0 +1,12 @@
+# telegram-readonly — NEVER commit secrets or the session.
+# Only the code + config.example.json belong in git. Your real config.json
+# (api_id/api_hash + your allowlist), the encrypted session, and the venv
+# stay local to your machine, always.
+config.json
+session.enc
+*.enc
+.venv/
+__pycache__/
+*.session
+*.session-journal
+.DS_Store
