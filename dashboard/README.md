@@ -4,7 +4,7 @@ A six-tab single-page HTML dashboard for your morning routine. Pulls live state 
 
 ## What it shows
 
-- **01 Today** — the latest briefing markdown (`briefings/briefing-{today}.md`)
+- **01 Today** — the latest briefing markdown (`briefings/briefing-{today}.md`). If no briefing exists for today's date, the most recent one is shown **with a visible STALE note** (in the tab and in the subtitle) — the dashboard never silently presents yesterday's agenda as today's.
 - **02 Projects** — the `## Active Projects` section of `CLAUDE.md`, rendered as a 3-column grid of cards with checkboxes
 - **03 Upcoming** — the `## Upcoming` section of `CLAUDE.md`, same card layout
 - **04 Pulse** — curated industry narrative from `dashboard/pulse-deep.md` if present, falling back to the briefing's `## Pulse` section
@@ -18,6 +18,8 @@ python3 dashboard/build.py
 ```
 
 Writes `dashboard/index.html`. Open it in any browser.
+
+Linked assets (`styles.css`, `favicon.svg`) carry a `?v=<build-timestamp>` cache-buster, so every rebuild serves fresh CSS/favicon — no stale styles lingering behind a browser cache until a manual hard-reload (this matters once you push the dashboard to a VPS).
 
 For a one-liner that rebuilds and opens:
 

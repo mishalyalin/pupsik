@@ -496,3 +496,14 @@ html, body {
   .section { margin-bottom: 56px; }
   .section-head h2 { font-size: 22px; }
 }
+
+/* stale-data note (Today tab when no briefing exists for today's date) */
+.stale-note {
+  border: 1px solid #d9b23a;
+  background: #fbf3d9;
+  color: #6b5411;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin: 0 0 20px;
+}
