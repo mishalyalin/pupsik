@@ -527,6 +527,24 @@ html, body {
   gap: 6px 14px;
   margin-bottom: 14px;
 }
+/* Baby logo mark + wordmark travel together as one lockup so the icon stays
+   optically centred against the cap-height of the wordmark. */
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pupsik-logo-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: block;
+  flex: none;
+  /* The mark is self-contained (blue chip + white face); it reads on both
+     light and dark surfaces. A hairline ring keeps its edge crisp on the
+     brand-blue chip whichever theme is active. */
+  box-shadow: 0 0 0 1px rgba(36, 59, 74, 0.12);
+}
 .wordmark {
   font-family: var(--rounded);
   font-weight: 800;
@@ -693,4 +711,6 @@ html, body {
 @media (prefers-color-scheme: dark) {
   .whatsnew code, .whatsnew-hint code { background: rgba(255, 255, 255, 0.12); }
   .brand-link { border-bottom-color: rgba(255, 255, 255, 0.25); }
+  /* Lighten the logo hairline so the chip's edge stays crisp on a dark page. */
+  .pupsik-logo-icon { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
 }

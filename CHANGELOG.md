@@ -5,6 +5,25 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-07-13.2] - pupsik baby logo — favicon + header logo mark
+
+The dashboard now shows the pupsik baby (a friendly blue chip with a baby face) everywhere it shows identity: as the browser-tab **favicon** and as a small **logo mark** immediately left of the **pupsik** wordmark in the masthead. This supersedes the "favicon deliberately untouched" note from `2026-07-13.1` — the identity is now the baby, not the placeholder red "P".
+
+### Changed
+
+- **`dashboard/favicon.svg`** — replaced the placeholder red-"P" tile with the pupsik baby mark (rounded blue chip `#5BB8E8`, white face, dot eyes, pink cheeks, smile). This is the browser-tab / pinned-tab icon.
+- **`dashboard/build.py` — masthead logo mark.** An inline ~20px `<svg class="pupsik-logo-icon">` of the same baby now sits immediately before the `pupsik` wordmark, so the header reads **[baby] pupsik**. The wordmark + repo byline/link from `2026-07-13.1` are unchanged. The `mask-icon` + `theme-color` hex are updated from `#DD3D1F` → **`#5BB8E8`** to match the new favicon's rect fill (the invariant `scripts/brand-os-visual-gate.sh` enforces: dashboard theme hex == favicon rect fill).
+- **`dashboard/styles.css`** — added `.brand-lockup` (icon + wordmark travel together, optically centred) and `.pupsik-logo-icon` (20px, 5px radius, hairline ring, theme-aware in light + dark). Wordmark gradient untouched.
+- **`dashboard/README.md`** — the "favicon intentionally left untouched" note is replaced: the favicon and header mark are now the pupsik baby, and the theme hex tracks the favicon rect fill.
+
+### Gate
+
+- `scripts/brand-os-visual-gate.sh` is **unchanged** — it hardcodes **no** favicon hash or hex; it detects a Brand OS spec dynamically and is opt-in (SKIP/exit 0 when none is present, the case for pupsik's own repo and generic forks). The favicon + theme-hex change keeps pupsik internally self-consistent (favicon rect fill `#5BB8E8` == `mask-icon`/`theme-color`), and forks with their own Brand OS are still reconciled to *their* spec via `--fix`.
+
+### Privacy
+
+- No personal data added. The masthead byline/link (`github.com/mishalyalin/pupsik`, "by Misha Lyalin") already shipped in `2026-07-13.1` and is covered by the byline allowlist. `privacy-check.sh --include-untracked` clean.
+
 ## [2026-07-13.1] - "What's new in pupsik" dashboard panel + local update-check + pupsik header branding
 
 Every pupsik user now SEES, on their own dashboard, what changed since the version they installed — and gets a one-command way to pull the latest. Plus the dashboard header is branded as pupsik. No new updater was built: this is the vitrine + a lightweight check that feeds it, both wired around the existing `tools/update.sh`.

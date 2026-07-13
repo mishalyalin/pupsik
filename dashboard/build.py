@@ -827,15 +827,27 @@ def build_html() -> str:
 <title>Dashboard - {today_iso}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v={asset_ver}">
-<link rel="mask-icon" href="favicon.svg" color="#DD3D1F">
-<meta name="theme-color" content="#DD3D1F">
+<link rel="mask-icon" href="favicon.svg" color="#5BB8E8">
+<meta name="theme-color" content="#5BB8E8">
 <link rel="stylesheet" href="styles.css?v={asset_ver}">
 </head>
 <body>
 <main class="page">
   <header class="masthead">
     <div class="brand">
-      <span class="wordmark">pupsik</span>
+      <span class="brand-lockup">
+        <svg class="pupsik-logo-icon" viewBox="0 0 100 100" width="20" height="20" aria-hidden="true" focusable="false">
+          <rect width="100" height="100" rx="24" fill="#5BB8E8"/>
+          <circle cx="50" cy="55" r="27" fill="#ffffff"/>
+          <path d="M50 28 c8 -1 9 7 3 9" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="40" cy="53" r="3.4" fill="#243b4a"/>
+          <circle cx="60" cy="53" r="3.4" fill="#243b4a"/>
+          <circle cx="34" cy="61" r="4.5" fill="#ff9fb0"/>
+          <circle cx="66" cy="61" r="4.5" fill="#ff9fb0"/>
+          <path d="M43 64 q7 6 14 0" fill="none" stroke="#243b4a" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <span class="wordmark">pupsik</span>
+      </span>
       <span class="brand-meta">
         <a class="brand-link" href="https://github.com/mishalyalin/pupsik" target="_blank" rel="noopener noreferrer">github.com/mishalyalin/pupsik</a>
         <span class="brand-sep">&middot;</span>
