@@ -97,6 +97,11 @@ Slower than `bash install.sh`. More transparent. Pick whichever you prefer.
 
 ## Staying up to date
 
+The "Auto-update: enabled" badge means updates are **surfaced and one-command**,
+not silently pulled behind your back. Your dashboard shows what's new since you
+installed (see [the panel](#the-dashboard-whats-new-panel) below), and a single
+command applies it. Nothing updates without you running it.
+
 From inside your clone:
 
 ```bash
@@ -148,11 +153,42 @@ After the update, `update.sh` prints which `.new` files are waiting on you.
 
 `~/.claude/rules/critical-rules.md` is special - it's **never replaced**. New rule references from the upstream template get appended at the bottom under a `## Updates from upstream <date>` header. Your existing content stays put, including any rules you wrote yourself.
 
+### The dashboard "What's new" panel
+
+Your morning dashboard (`dashboard/build.py`) renders a **"What's new in pupsik"**
+panel at the top of the **Architect** tab. When your clone is behind upstream it
+lists the new CHANGELOG entries (version · title · summary) and gives you an
+**Update pupsik** button that copies `cd <clone> && git pull && bash tools/update.sh`
+to your clipboard. When you're current it shows a quiet "✓ pupsik up to date".
+
+The panel is fed by a lightweight probe, `tools/check-update.sh`:
+
+- It's a **local `git fetch`** on the clone you already have — the same thing
+  `git pull` does. It sends **no** data about you anywhere, keeping the
+  "Local. No telemetry, no cloud sync" promise. (Outside a git clone it falls
+  back to a read-only GET of the public `VERSION` + `CHANGELOG.md`.)
+- The session-start hook runs it in the background (throttled to once per 6h,
+  never blocking session start), so the panel stays fresh on its own.
+- **Opt out** any time: `export PUPSIK_NO_UPDATE_CHECK=1`. Then it does nothing.
+
+Full details, plus the optional **"update pupsik"** Claude skill (say "update
+pupsik" and Claude runs the update for you), are in
+[`docs/UPDATE_PUPSIK.md`](docs/UPDATE_PUPSIK.md).
+
 ### Optional: weekly auto-update via cron
 
 ```
 # Every Monday at 09:00 local. Adjust the path to wherever you cloned.
+# update.sh also refreshes the dashboard "What's new" panel's version marker.
 0 9 * * 1 cd ~/pupsik && bash tools/update.sh >> ~/pupsik/.update.log 2>&1
+```
+
+Prefer to be *notified* but pull manually? Run the check only (no pull) — it
+just refreshes the dashboard panel:
+
+```
+# Every day at 08:00 local — refresh the panel without updating.
+0 8 * * * cd ~/pupsik && bash tools/check-update.sh >/dev/null 2>&1
 ```
 
 ### Privacy-checked at the source

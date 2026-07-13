@@ -45,6 +45,12 @@ ARCHITECT_FILE = WORKSPACE / "memory" / "architect_proposals" / "latest.md"
 CLAUDE_MD = WORKSPACE / "CLAUDE.md"
 DIGEST_DIR = Path("/tmp")
 CLOSED_STATE_DIR = WORKSPACE / "state" / "dashboard"
+# "What's new in pupsik" panel data. Written by tools/check-update.sh (which
+# owns the git-fetch / network). build.py only READS this file — it never
+# touches the network. If the file is missing or malformed, the panel degrades
+# to a quiet one-liner and the build proceeds.
+UPDATE_STATUS_FILE = WORKSPACE / "state" / "pupsik" / "update-status.json"
+WHATSNEW_MAX_ENTRIES = 6  # cap how many changelog entries the panel lists
 
 OUT_DIR = WORKSPACE / "dashboard"
 OUT_HTML = OUT_DIR / "index.html"
@@ -604,6 +610,130 @@ def previously_closed_today() -> list[str]:
     return sorted(closed_ids)
 
 
+# ---------- "What's new in pupsik" panel ----------
+#
+# Reads state/pupsik/update-status.json (written by tools/check-update.sh) and
+# renders a panel at the TOP of the Architect tab. This function makes NO
+# network call — all it does is read a local JSON file and format it. Any
+# error (missing file, bad JSON, unexpected shape) degrades to a subtle line
+# or nothing; it never breaks the build.
+
+
+def read_update_status() -> dict | None:
+    """Read the update-status.json written by check-update.sh. Fail-soft."""
+    try:
+        raw = UPDATE_STATUS_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def render_whatsnew_panel() -> str:
+    """HTML for the 'What's new in pupsik' block above the Architect backlog.
+
+    Returns "" only if we want to render nothing; otherwise a small panel.
+    Never raises — a malformed status file yields a quiet 'not run yet' line.
+    """
+    status = read_update_status()
+    if status is None:
+        # No check has run yet (or the file is unreadable). Say so quietly.
+        return (
+            '<div class="whatsnew whatsnew-quiet">'
+            '<span class="whatsnew-dim">pupsik update check hasn\'t run yet '
+            "— it refreshes on session start, or run "
+            "<code>bash tools/check-update.sh</code> in your clone.</span>"
+            "</div>"
+        )
+
+    installed = html.escape(str(status.get("installed") or "?"))
+    latest = html.escape(str(status.get("latest") or "?"))
+    behind = bool(status.get("behind"))
+    clone_path = str(status.get("clone_path") or "").strip()
+    err = status.get("error")
+
+    if not behind:
+        # Up to date (or we couldn't determine — show the quiet reassuring line).
+        note = ""
+        if err:
+            note = (
+                ' <span class="whatsnew-dim">(couldn\'t reach upstream this time; '
+                "showing last known state)</span>"
+            )
+        return (
+            '<div class="whatsnew whatsnew-ok">'
+            f'<span class="whatsnew-check">&#10003;</span> '
+            f"pupsik up to date <code>v{installed}</code>{note}"
+            "</div>"
+        )
+
+    # Behind: build the "what's new" block.
+    entries = status.get("new_entries")
+    if not isinstance(entries, list):
+        entries = []
+    shown = entries[:WHATSNEW_MAX_ENTRIES]
+    hidden = len(entries) - len(shown)
+
+    # The honest one-click: copy the exact update command. There is no
+    # dashboard server, so we cannot literally run a shell from a button.
+    clone_ref = clone_path if clone_path else "your pupsik clone"
+    update_cmd = f"cd {clone_ref} && git pull && bash tools/update.sh"
+    cmd_attr = html.escape(update_cmd, quote=True)
+
+    n = len(entries)
+    plural = "update" if n == 1 else "updates"
+    header = (
+        f'<div class="whatsnew-head">'
+        f'<span class="whatsnew-arrow">&#8593;</span>'
+        f'<span class="whatsnew-title">What\'s new in pupsik</span>'
+        f'<span class="whatsnew-count">{n} {plural} since '
+        f"<code>v{installed}</code> &rarr; <code>v{latest}</code></span>"
+        f"</div>"
+    )
+
+    items = []
+    for e in shown:
+        if not isinstance(e, dict):
+            continue
+        ver = html.escape(str(e.get("version") or ""))
+        title = html.escape(str(e.get("title") or ""))
+        summary = html.escape(str(e.get("summary") or ""))
+        items.append(
+            '<li class="whatsnew-item">'
+            f'<span class="whatsnew-ver">{ver}</span>'
+            f'<span class="whatsnew-entry-title">{title}</span>'
+            + (f'<span class="whatsnew-summary">{summary}</span>' if summary else "")
+            + "</li>"
+        )
+    if hidden > 0:
+        items.append(
+            f'<li class="whatsnew-item whatsnew-more">&hellip; and {hidden} '
+            f"more in CHANGELOG.md</li>"
+        )
+    items_html = "\n".join(items)
+
+    actions = (
+        '<div class="whatsnew-actions">'
+        f'<button type="button" class="whatsnew-btn" data-copy-cmd="{cmd_attr}">'
+        "Update pupsik</button>"
+        f'<code class="whatsnew-cmd">{html.escape(update_cmd)}</code>'
+        "</div>"
+        '<p class="whatsnew-hint">Copies the command &mdash; run it in your '
+        'terminal. Or tell Claude: <code>update pupsik</code>.</p>'
+    )
+
+    return (
+        '<div class="whatsnew whatsnew-behind">'
+        f"{header}"
+        f'<ul class="whatsnew-list">{items_html}</ul>'
+        f"{actions}"
+        "</div>"
+    )
+
+
 # ---------- HTML assembly ----------
 
 SECTIONS = [
@@ -659,6 +789,10 @@ def build_html() -> str:
             body_html = render_card_list(body_md, anchor)
         else:
             body_html = render_markdown(body_md)
+        if anchor == "architect":
+            # "What's new in pupsik" sits ABOVE the architect backlog so every
+            # user sees, on their dashboard, what changed since they installed.
+            body_html = render_whatsnew_panel() + "\n" + body_html
         if anchor == "today" and today_stale:
             # Date-staleness guard: never present an old briefing as today's
             # without saying so. The note names the file actually shown.
@@ -700,6 +834,16 @@ def build_html() -> str:
 <body>
 <main class="page">
   <header class="masthead">
+    <div class="brand">
+      <span class="wordmark">pupsik</span>
+      <span class="brand-meta">
+        <a class="brand-link" href="https://github.com/mishalyalin/pupsik" target="_blank" rel="noopener noreferrer">github.com/mishalyalin/pupsik</a>
+        <span class="brand-sep">&middot;</span>
+        <span class="brand-byline">by Misha Lyalin</span>
+        <span class="brand-sep">&middot;</span>
+        <span class="brand-home">~/Desktop/claude</span>
+      </span>
+    </div>
     <h1>Dashboard</h1>
     <p class="subtitle">{html.escape(subtitle)}</p>
   </header>
@@ -903,6 +1047,47 @@ def build_html() -> str:
     }});
     document.querySelectorAll(".card-zones").forEach(updateClosedZone);
     updateClosedStrip();
+  }});
+
+  // "What's new in pupsik" — Update button copies the update command to the
+  // clipboard. There is no dashboard server, so we can't literally run a shell
+  // from the page; copy-to-clipboard is the honest one-click. A small toast
+  // confirms and tells the user to paste it in their terminal.
+  function showToast(msg) {{
+    var t = document.getElementById("pupsik-toast");
+    if (!t) {{
+      t = document.createElement("div");
+      t.id = "pupsik-toast";
+      t.className = "pupsik-toast";
+      document.body.appendChild(t);
+    }}
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(function() {{ t.classList.remove("show"); }}, 3200);
+  }}
+  document.querySelectorAll(".whatsnew-btn[data-copy-cmd]").forEach(function(btn) {{
+    btn.addEventListener("click", function() {{
+      var cmd = btn.getAttribute("data-copy-cmd") || "";
+      function ok() {{ showToast("Copied \\u2014 run it in your terminal"); }}
+      function fail() {{ showToast("Copy failed \\u2014 select the command and copy manually"); }}
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(cmd).then(ok, fail);
+      }} else {{
+        // Fallback for older browsers / non-secure contexts.
+        try {{
+          var ta = document.createElement("textarea");
+          ta.value = cmd;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          ok();
+        }} catch (e) {{ fail(); }}
+      }}
+    }});
   }});
 }})();
 </script>

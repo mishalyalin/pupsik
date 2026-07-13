@@ -5,6 +5,32 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-07-13.1] - "What's new in pupsik" dashboard panel + local update-check + pupsik header branding
+
+Every pupsik user now SEES, on their own dashboard, what changed since the version they installed — and gets a one-command way to pull the latest. Plus the dashboard header is branded as pupsik. No new updater was built: this is the vitrine + a lightweight check that feeds it, both wired around the existing `tools/update.sh`.
+
+### Added
+
+- **`tools/check-update.sh`** — a lightweight, fail-soft "am I behind upstream?" probe (git + stdlib only, no dependencies). It's a **local `git fetch`** on the clone you already have — the same thing `git pull` does, sending **no** data about you anywhere — with a read-only GitHub-raw fallback (`VERSION` + `CHANGELOG.md`) only if run outside a git clone. It writes `state/pupsik/update-status.json` (`{installed, latest, behind, new_entries, clone_path, checked_at, source, error?}`), computing which CHANGELOG entries are newer than the installed version (date-based `YYYY-MM-DD[.N]` compare). Self-throttling (skips the network if checked <6h ago, via the status file's mtime), opt-out via `PUPSIK_NO_UPDATE_CHECK=1`, and fail-soft on every path (any git/network/parse error writes a status with `error` set and `behind:false`, then exits 0). Keeps the "Local. No telemetry, no cloud sync" promise intact.
+- **`dashboard/build.py` — "What's new in pupsik" panel** at the TOP of the Architect tab, above the backlog. When behind: a header ("⬆ What's new in pupsik — N updates since vX → vY"), the new CHANGELOG entries (version · title · summary, capped with "…and N more"), an **Update pupsik** button, and the exact update command. When current: a quiet "✓ pupsik up to date". `build.py` stays **stdlib-only and makes no network call** — it only READS the JSON (the git-fetch lives in `check-update.sh`); a missing/malformed file degrades to a subtle one-liner and never breaks the build. The button copies `cd <clone> && git pull && bash tools/update.sh` to the clipboard with a confirmation toast — honest one-click for a static, server-less dashboard (it does not fake running a shell).
+- **`templates/update-pupsik-skill.md.template`** — an optional Claude skill so "update pupsik" in any session runs `git pull` + `tools/update.sh` and reports what changed. Reuses the existing updater; never runs on a schedule.
+- **`docs/UPDATE_PUPSIK.md`** — how the panel, the check, the opt-out, throttling, and the skill fit together.
+
+### Changed
+
+- **`dashboard/build.py` + `dashboard/styles.css` — pupsik header branding.** The masthead now carries a **pupsik** wordmark (warm rounded system font + brand-gradient text-fill, **no external/CDN font**, theme-aware) with a quiet byline linking to `github.com/mishalyalin/pupsik` (opens in a new tab), "by Misha Lyalin", and the local home `~/Desktop/claude`. The prior header was a bare "Dashboard" with no personal branding leaked — nothing sensitive to replace. The `favicon.svg`, `mask-icon`, and `theme-color` hex are deliberately **untouched** (they're byte-checked by `scripts/brand-os-visual-gate.sh`).
+- **`install.sh`** — Step 11 now also records `state/pupsik/installed-version.txt` (the VERSION this workspace runs) and `state/pupsik/clone-path.txt` (where the clone lives) in the workspace. `update.sh` reaches this via `install.sh --update-only`, so both fresh installs and updates keep the markers current. These feed `check-update.sh` (installed-version compare) and the session-start hook (locating the clone).
+- **`hooks/session-start-reminder.sh`** — fires `check-update.sh` in the **background** on session start (fully non-blocking; never delays session start), locating the clone via `clone-path.txt`, respecting the 6h throttle and `PUPSIK_NO_UPDATE_CHECK=1`. So the panel stays fresh with zero user effort.
+- **`README.md` / `dashboard/README.md`** — document the panel, the local git-fetch check, the opt-out flag, the "update pupsik" skill, and a check-only cron variant; reconcile the "Auto-update: enabled" badge as "surfaced + one-command, never a silent background pull".
+
+### Why
+
+pupsik's updater already existed and works well; what was missing was **discoverability** — users had no way to know a better version had shipped without remembering to run `update.sh`. The panel makes "there's something new" a passive, always-visible fact on the dashboard they already open every morning, and collapses acting on it to one copy-paste (or one sentence to Claude). The privacy shape is deliberate: a check that only ever does what `git pull` does, opt-out in one env var, so surfacing updates never becomes telemetry.
+
+### Privacy
+
+`check-update.sh` sends no user data on any path (local `git fetch`, or a read-only GET of two public files as fallback). `build.py` makes no network call at all. Byline "by Misha Lyalin" + the repo URL are privacy-allowlisted. No real third-party names, amounts, IDs, tokens, or personal workflow specifics were added. Privacy check **PASS** (`bash .github/scripts/privacy-check.sh --include-untracked`).
+
 ## [2026-07-06.1] - telegram-readonly MCP + dashboard reliability patterns + verify-ticks template
 
 Four generic patterns from two weeks of live use, plus small repo-health fixes.

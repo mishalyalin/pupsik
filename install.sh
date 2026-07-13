@@ -654,6 +654,12 @@ fi
 #     instead of letting update.sh spam the user with the entire history.
 PUPSIK_STATE_DIR="$HOME/.pupsik-state"
 PUPSIK_STATE_FILE="$PUPSIK_STATE_DIR/last-applied-version"
+# Workspace-side markers used by the dashboard "What's new" panel + check-update.sh:
+#   installed-version.txt — the VERSION this workspace is running.
+#   clone-path.txt        — where this pupsik clone lives, so the session-start
+#                           hook can find tools/check-update.sh to run.
+# update.sh reaches this via `install.sh --update-only`, so both paths record it.
+WS_PUPSIK_STATE_DIR="$WORKSPACE/state/pupsik"
 if [ -f "$SCRIPT_DIR/VERSION" ]; then
   CURRENT_VERSION="$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo)"
   if [ -n "$CURRENT_VERSION" ]; then
@@ -663,6 +669,9 @@ if [ -f "$SCRIPT_DIR/VERSION" ]; then
       say "Future update.sh runs will only show notifications for NEW releases."
     fi
     echo "$CURRENT_VERSION" > "$PUPSIK_STATE_FILE"
+    mkdir -p "$WS_PUPSIK_STATE_DIR"
+    echo "$CURRENT_VERSION" > "$WS_PUPSIK_STATE_DIR/installed-version.txt"
+    echo "$SCRIPT_DIR"      > "$WS_PUPSIK_STATE_DIR/clone-path.txt"
   fi
 fi
 
