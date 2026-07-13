@@ -48,6 +48,18 @@ TODAY=$(date +%Y-%m-%d)
 # from stale conversation context. See feedback_know_current_datetime.md.
 NOW_ANCHOR=$(python3 "$NOW_PY" --anchor 2>/dev/null || echo "NOW: $(date '+%Y-%m-%d %H:%M:%S %Z %A')")
 
+# ---------- Refresh the "What's new in pupsik" panel data (non-blocking) ----------
+# Fire check-update.sh in the BACKGROUND so it never delays session start. It
+# throttles itself (skips the network if checked <6h ago), is opt-out via
+# PUPSIK_NO_UPDATE_CHECK=1, and is fully fail-soft. We locate the pupsik clone
+# via the marker install.sh wrote to <workspace>/state/pupsik/clone-path.txt.
+if [ "${PUPSIK_NO_UPDATE_CHECK:-0}" != "1" ]; then
+  PUPSIK_CLONE_PATH="$(cat "$WORKSPACE/state/pupsik/clone-path.txt" 2>/dev/null || true)"
+  if [ -n "$PUPSIK_CLONE_PATH" ] && [ -x "$PUPSIK_CLONE_PATH/tools/check-update.sh" ]; then
+    ( CLAUDE_WORKSPACE="$WORKSPACE" bash "$PUPSIK_CLONE_PATH/tools/check-update.sh" >/dev/null 2>&1 & ) 2>/dev/null || true
+  fi
+fi
+
 LAST_UPDATED=$(grep -A1 "^## Last Updated" "$CLAUDE_MD" 2>/dev/null | tail -1 | grep -oE "20[0-9]{2}-[0-9]{2}-[0-9]{2}" | head -1)
 
 if [ -n "$LAST_UPDATED" ]; then

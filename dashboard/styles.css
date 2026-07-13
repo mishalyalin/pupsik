@@ -507,3 +507,190 @@ html, body {
   font-size: 14px;
   margin: 0 0 20px;
 }
+
+/* ===================================================================
+   pupsik branding — header wordmark + repo byline
+   Self-contained: no external/CDN font. "pupsik" ("cutie") gets a warm,
+   rounded, friendly-but-clean display treatment via a rounded system stack
+   plus a subtle brand-gradient text fill. Theme-aware (light + dark).
+   =================================================================== */
+:root {
+  --brand-1: #dd3d1f;   /* matches theme-color / mask-icon (do not touch those) */
+  --brand-2: #f0793a;   /* warmer orange for the gradient tail */
+  --rounded: "SF Pro Rounded", ui-rounded, "Hiragino Maru Gothic ProN",
+             "Varela Round", "Quicksand", var(--sans);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+}
+.wordmark {
+  font-family: var(--rounded);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  /* Gradient text fill; falls back to solid brand colour where unsupported. */
+  color: var(--brand-1);
+  background: linear-gradient(100deg, var(--brand-1), var(--brand-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
+}
+.brand-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.brand-link:hover { color: var(--brand-1); border-bottom-color: var(--brand-1); }
+.brand-sep { color: var(--ink-faint); margin: 0 2px; }
+.brand-byline, .brand-home { color: var(--ink-faint); }
+
+/* ===================================================================
+   "What's new in pupsik" panel (top of the Architect tab)
+   =================================================================== */
+.whatsnew {
+  margin: 0 0 28px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.whatsnew-quiet, .whatsnew-ok {
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  background: var(--code-bg);
+  color: var(--ink-soft);
+}
+.whatsnew-dim { color: var(--ink-faint); }
+.whatsnew-check { color: #2e7d32; font-weight: 700; }
+.whatsnew code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.whatsnew-behind {
+  border: 1px solid var(--brand-1);
+  background: linear-gradient(180deg, #fdf1ec, var(--bg));
+  padding: 16px 18px;
+}
+.whatsnew-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 12px;
+}
+.whatsnew-arrow { color: var(--brand-1); font-weight: 700; }
+.whatsnew-title {
+  font-family: var(--rounded);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.whatsnew-count { color: var(--ink-soft); font-size: 13px; }
+.whatsnew-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.whatsnew-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+}
+.whatsnew-ver {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--brand-1);
+  white-space: nowrap;
+}
+.whatsnew-entry-title { font-weight: 600; color: var(--ink); }
+.whatsnew-summary {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.whatsnew-more { color: var(--ink-faint); font-style: italic; display: block; }
+.whatsnew-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.whatsnew-btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(100deg, var(--brand-1), var(--brand-2));
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+.whatsnew-btn:hover { filter: brightness(1.06); }
+.whatsnew-btn:active { transform: translateY(1px); }
+.whatsnew-cmd {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  padding: 6px 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.whatsnew-hint { margin: 0; color: var(--ink-faint); font-size: 12px; }
+.whatsnew-hint code {
+  font-family: var(--mono);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* toast (copy confirmation) */
+.pupsik-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 16px);
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 1000;
+}
+.pupsik-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* dark-scheme defensive tuning (the page ships light-only today, but keep the
+   wordmark + panel legible if a dark surface is ever introduced) */
+@media (prefers-color-scheme: dark) {
+  .whatsnew code, .whatsnew-hint code { background: rgba(255, 255, 255, 0.12); }
+  .brand-link { border-bottom-color: rgba(255, 255, 255, 0.25); }
+}

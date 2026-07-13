@@ -8,8 +8,10 @@ A six-tab single-page HTML dashboard for your morning routine. Pulls live state 
 - **02 Projects** — the `## Active Projects` section of `CLAUDE.md`, rendered as a 3-column grid of cards with checkboxes
 - **03 Upcoming** — the `## Upcoming` section of `CLAUDE.md`, same card layout
 - **04 Pulse** — curated industry narrative from `dashboard/pulse-deep.md` if present, falling back to the briefing's `## Pulse` section
-- **05 Architect** — `memory/architect_proposals/latest.md` (your open backlog)
+- **05 Architect** — a **"What's new in pupsik"** panel at the top (from `state/pupsik/update-status.json`, written by `tools/check-update.sh`), above `memory/architect_proposals/latest.md` (your open backlog). The panel shows what changed since you installed and copies the one-command update to your clipboard. `build.py` only **reads** the status JSON — it makes no network call; the git-fetch lives in `check-update.sh`. Missing/malformed JSON degrades to a quiet line. See [`docs/UPDATE_PUPSIK.md`](../docs/UPDATE_PUPSIK.md).
 - **06 Knowledge** — the last 7 days of `memory/decisions/` and `memory/learnings/` entries
+
+The header carries a **pupsik** wordmark (rounded system font + brand gradient, no external/CDN font) with a quiet byline linking to `github.com/mishalyalin/pupsik`. The `favicon.svg`, `mask-icon`, and `theme-color` are intentionally left untouched — they're byte-checked by `scripts/brand-os-visual-gate.sh`.
 
 ## Run
 
