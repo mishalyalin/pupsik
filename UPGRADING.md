@@ -48,7 +48,7 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 - **`tools/note.py`** - new file (didn't exist before). Captures a learning, decision, or research note in-flight with one command. Upserts by title - re-capturing the same topic refreshes the existing note instead of creating a duplicate. 2026-05-07 added a `friction` subcommand for capturing repeat-correction patterns (severity-tagged, counter-incremented).
 
-- **`tools/doctor.py`** (new 2026-05-07) - deterministic health-check + safe-auto-fix tool. 13 checks across 3 subcommands (`check`, `fix-safe`, `orphans`). Catches stale lock files, broken symlinks, ChromaDB orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers. SAFE-ops only - never LLM content rewrites.
+- **`tools/doctor.py`** (new 2026-05-07) - deterministic health-check + safe-auto-fix tool. 14 checks across 3 subcommands (`check`, `fix-safe`, `orphans`). Catches stale lock files, broken symlinks, ChromaDB orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers. SAFE-ops only - never LLM content rewrites.
 
 - **`tools/enrichment_schema_migrate.py`** (new 2026-05-08, updated 2026-05-27) - idempotent migration adding the 11 enrichment columns to your `contacts.db` (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`, `relationship_context`). Re-runs are safe; only adds missing columns.
 
@@ -256,7 +256,7 @@ After running `bash tools/update.sh` (or `install.sh --update-only`):
    python3 ~/Desktop/claude/tools/doctor.py check
    ```
 
-   Should print 13 checks with PASS / WARN counts. If any WARN, run `doctor.py fix-safe` to apply safe repairs (broken symlinks, stale locks, ChromaDB orphans).
+   Should print 14 checks with PASS / WARN counts. If any WARN, run `doctor.py fix-safe` to apply safe repairs (broken symlinks, stale locks, ChromaDB orphans).
 
 2. **Verify the friction subcommand:**
 
@@ -343,7 +343,7 @@ After Phase-2 baseline:
 - `python3 ~/Desktop/claude/tools/contacts_db.py find "<any name you had before>"` still returns that contact. Old data is intact.
 
 After 2026-05-07 release:
-- `python3 ~/Desktop/claude/tools/doctor.py check` runs 13 deterministic health checks.
+- `python3 ~/Desktop/claude/tools/doctor.py check` runs 14 deterministic health checks.
 - `python3 ~/Desktop/claude/tools/note.py friction --help` shows the friction subcommand.
 - `cat ~/.claude/rules/critical-rules.md | grep friction` returns a pointer to the friction protocol rule.
 
