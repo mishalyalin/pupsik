@@ -67,7 +67,24 @@ CLAUDE_MD = BASE_DIR / "CLAUDE.md"
 MEMORY_MD = PROJECT_MEMORY_DIR / "MEMORY.md"
 SCHEDULED_TASKS_DIR = HOME / ".claude" / "scheduled-tasks"
 
-PUPSIK_PRIVACY_CHECK = HOME / "pupsik" / ".github" / "scripts" / "privacy-check.sh"
+def _find_pupsik_privacy_check():
+  """Locate privacy-check.sh in whichever pupsik clone is actually current.
+
+  Hardcoding a single path is how this check ends up scanning a stale clone and
+  reporting green on code nobody ships. Prefer ~/code (where clones belong),
+  keep the older ~/pupsik as a fallback, allow an explicit PUPSIK_DIR override.
+  """
+  env = os.environ.get("PUPSIK_DIR")
+  candidates = [Path(env).expanduser()] if env else []
+  candidates += [HOME / "code" / "pupsik", HOME / "pupsik"]
+  for root in candidates:
+    script = root / ".github" / "scripts" / "privacy-check.sh"
+    if script.exists():
+      return script
+  return candidates[-1] / ".github" / "scripts" / "privacy-check.sh"
+
+
+PUPSIK_PRIVACY_CHECK = _find_pupsik_privacy_check()
 
 # Defensive limits
 MAX_LINES_TARGET = 200
