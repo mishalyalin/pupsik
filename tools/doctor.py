@@ -718,7 +718,14 @@ def check_chroma_lock() -> dict:
     pid_alive = _is_pid_alive(pid_value)
   except (OSError, ValueError, TypeError, json.JSONDecodeError):
     pass
-  stale = (age > CHROMA_LOCK_STALE_SEC) or (pid_alive is False)
+  # Same rule as check_stale_lockfiles: a lock whose owning process is STILL
+  # RUNNING is never stale, however old it looks. A full reindex legitimately
+  # holds this one past the TTL, and calling it stale invites fix-safe to
+  # unlink a live writer's lock. Only a dead pid, or age with no pid to check.
+  if pid_alive is True:
+    stale = False
+  else:
+    stale = (pid_alive is False) or (age > CHROMA_LOCK_STALE_SEC)
   info = {
     "path": str(CHROMA_LOCK),
     "age_sec": int(age),

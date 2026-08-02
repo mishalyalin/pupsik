@@ -5,6 +5,25 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-08-02.1] - follow-ups to the SIGSEGV fix: batch limit, vendored dirs, two lock/path bugs
+
+Three things the drift fix left standing, all found by re-running the tooling against a real store rather than by reading the code.
+
+### Fixed
+
+- **`tools/memory_search.py` - upsert/delete are paged (`_safe_upsert` / `_safe_delete`, `CHROMA_BATCH = 4000`).** ChromaDB rejects a single call larger than its internal max batch (5,461 on the current rust bindings), so any collection that grew past that limit failed its rebuild outright - a plain `ValueError`, but at the end of a long index run. Applied at all seven call sites. `_safe_upsert` also asserts `documents`/`metadatas`/`ids` are the same length instead of letting a mismatch truncate silently.
+- **`tools/memory_search.py` - vendored directories are no longer indexed.** `outputs/**/*.md` and `research/**/*.md` were `rglob`'d whole, so a single checked-in `node_modules` (or `.venv`, `site-packages`, `.next`, ...) poured generated markdown into the semantic index. It dilutes every search result and is one of the ways a collection reaches the batch limit above. `VENDOR_DIR_NAMES` matches on whole path components, so a real note called `my-node_modules-notes.md` is still indexed.
+- **`tools/doctor.py` - `check_chroma_lock` no longer calls a live holder's lock stale.** It matched on `age > TTL` **or** dead pid, so a legitimate 20-minute reindex crossed the 10-minute TTL and got reported `FAIL` + `fixable: true` - inviting `fix-safe` to unlink the lockfile of a process that was still writing. Now a running pid is never stale, regardless of age; only a dead pid, or age when there is no pid to check. This is the same rule `check_stale_lockfiles` already used - the two had drifted apart.
+- **`tools/doctor.py` - `PUPSIK_PRIVACY_CHECK` resolves the clone instead of hardcoding `~/pupsik`.** On a machine that also keeps the canonical clone under `~/code`, the check ran `privacy-check.sh` from whichever copy sat at the old path - here one six weeks behind main - and reported `PASS` on code nobody ships. Now: `PUPSIK_DIR` override, then `~/code/pupsik`, then the legacy path, falling back to the last candidate so the existing "not found" `SKIP` branch still fires. (Shipped in #37; recorded here.)
+
+### Verification
+
+- 14/14 on a positive+negative harness: 9,500 ids page into `[4000, 4000, 1500]` for both upsert and delete with the total preserved, and the same 9,500 through an unpaged call still raises - i.e. the bug being fixed is real, not hypothetical; mismatched list lengths raise `ValueError`; empty input is a no-op; `node_modules` / `.venv` paths are vendored while a real note and a substring-only filename are not; live pid + 5,000s-old lock -> `PASS`, dead pid + fresh lock -> `FAIL`, unparseable pid + old lock -> `FAIL` by age, no lock -> `PASS`.
+
+### Privacy
+
+- No personal data added. `privacy-check.sh --include-untracked` clean.
+
 ## [2026-08-02] - fix: ChromaDB HNSW drift crashed the memory index (SIGSEGV)
 
 `memory_search.py index` and `memory_search.py search` could hard-crash the Python process with `EXC_BAD_ACCESS (SIGSEGV)` inside `chromadb_rust_bindings`. Not a hang, not a traceback - the interpreter dies, so `release_lock()` never runs and the next index is then blocked by the corpse's lockfile. It took ~3.5 months of daily reindexing for this to surface, so any long-running install is a candidate.
