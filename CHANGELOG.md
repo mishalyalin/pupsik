@@ -5,6 +5,53 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-08-02] - fix: ChromaDB HNSW drift crashed the memory index (SIGSEGV)
+
+`memory_search.py index` and `memory_search.py search` could hard-crash the Python process with `EXC_BAD_ACCESS (SIGSEGV)` inside `chromadb_rust_bindings`. Not a hang, not a traceback - the interpreter dies, so `release_lock()` never runs and the next index is then blocked by the corpse's lockfile. It took ~3.5 months of daily reindexing for this to surface, so any long-running install is a candidate.
+
+**Root cause.** A full reindex did `get_or_create_collection(...)` -> `coll.get()['ids']` -> `coll.delete(ids=...)` -> `upsert(...)`, i.e. it wiped the collection **in place** and rewrote it into the same HNSW segment. `delete()` removes rows from SQLite but never compacts the HNSW binaries (`data_level0.bin` / `length.bin`), so the index keeps referencing slots with no rows behind them. Each rebuild adds one whole generation of dead slots. The drift compounds silently until the rust loader reads past valid memory and the process dies.
+
+Measured on a real store before the fix (`length.bin` size / 4 = slots, vs live rows in SQLite): `outputs` 8,523 rows / 39,098 slots (4.6x), `memory_files` 1,084 / 13,898 (12.8x), `knowledge` 2,319 / 10,607 (4.6x), `briefings` 1,424 / 4,272 (3.0x). The two that segfaulted were exactly the two worst; isolated per-collection in separate processes, 7 of 9 answered normally and those 2 exited 139, reproducibly - 20 crashes out of 20 attempts. Ratio alone is not the predictor (a 4.6x segment with 10.6k slots was still healthy), size matters too. Secondary damage on the same store: `briefings` reported `count() == 0` against 1,424 live rows, i.e. months of briefings were invisible to semantic search and nothing said so.
+
+Upstream context: `chromadb >=1.5.4,<2` has an open macOS ARM64 segfault in the rust bindings ([chroma-core#6852](https://github.com/chroma-core/chroma/issues/6852)) and there is no known-good version to pin to. But the trigger here is **store state**, not the library version - which is why this is fixable from our side.
+
+### Fixed
+
+- **`tools/memory_search.py` - `_fresh_collection()`.** A full rebuild now does `delete_collection()` + `create_collection()`, which drops the segment directory and its binaries with it, instead of emptying the collection in place. Applied at all five full-rebuild sites (contacts, memory files, interactions, chat archives, and the generic `_index_md_dir` used by briefings / outputs / journal / knowledge / research). `index_single_file` - the surgical `index --file` path - deliberately keeps `get_or_create_collection`: it must upsert one file, never wipe the collection.
+- **`tools/memory_search.py` - `acquire_lock()` checks whether the lock holder is still alive** (`os.kill(pid, 0)`). A SIGSEGV skips `release_lock()`, so the dead process's lockfile used to block the next index for the full `LOCK_STALE_AFTER_SEC` (10 min) window. A lock whose owner is gone is now overwritten immediately; a lock held by a live pid still refuses, exactly as before. Unknown/unreadable pid is treated as alive - the failure mode of freeing a lock on a guess is worse than waiting.
+
+### Added
+
+- **`tools/doctor.py` - `5b_chroma_drift` check.** Reports collections whose HNSW slot count far exceeds live rows (thresholds: `>=3x` **and** `>=5,000` slots - both, because ratio alone over-reports on small segments). It reads **only** `chroma.sqlite3` (read-only URI) and the segment files, with no `import chromadb` anywhere in it: a drifted store is precisely the store whose API calls segfault, so a check built on the API would die alongside the thing it is meant to diagnose. Note for anyone reading the query - embedding rows are keyed to the collection's **METADATA** segment, not the VECTOR one; joining on VECTOR returns zero rows and looks like a healthy store. Marked `fixable: false` on purpose: the cure is a full reindex (20+ min), never a silent auto-repair, and the summary line carries the exact command.
+- Verified both directions before shipping: `FAIL` on the store that actually crashed (catches all 3 drifted segments), `PASS` on the rebuilt one.
+
+### Changed
+
+- **`README.md`, `MODULAR.md`, `UPGRADING.md`** - doctor check count 13 -> 14.
+
+### If you are already running pupsik
+
+The index is 100% derived from your markdown + `contacts.db`, so a rebuild costs time and nothing else. Check first, and only rebuild if it flags:
+
+```bash
+python3 ~/Desktop/claude/tools/doctor.py check          # look for 5b_chroma_drift
+cd ~/Desktop/claude
+mv data/chroma data/chroma.broken-$(date +%F)           # mv, never rm - keep the rollback
+python3 tools/memory_search.py index
+```
+
+Keep the moved-aside store until the new one answers searches; delete it after. On the reference store the rebuild took under 20 min for 14,965 documents and shrank it from 460 MB to 192 MB.
+
+### Verification
+
+- Drift regression test, 1,500 documents through 5 consecutive full rebuilds, counting slots in `length.bin`: old pattern `[1500, 3000, 4500, 6000, 7500]` - exactly one dead generation per rebuild; `_fresh_collection` `[1500, 1500, 1500, 1500, 1500]` - flat. This also retro-explains the field numbers above (`outputs` carried ~4.6 generations, `memory_files` ~12.8).
+- Lock semantics, in an isolated temp dir so no live lock was touched: dead holder + fresh timestamp -> acquires (the SIGSEGV case); live holder -> refuses; no pid recorded + fresh -> refuses (old age-based path intact); no pid + stale -> acquires. 4/4.
+- Post-rebuild on the reference store: `search` 0 crashes in 20 runs (was 20/20), all 9 collections responding, `briefings` back from 0 to 1,424, `doctor.py check` 5b PASS.
+
+### Privacy
+
+- No personal data added. The check reads collection names and row counts only, and reports them in doctor output that stays local. `privacy-check.sh --include-untracked` clean.
+
 ## [2026-07-13.2] - pupsik baby logo — favicon + header logo mark
 
 The dashboard now shows the pupsik baby (a friendly blue chip with a baby face) everywhere it shows identity: as the browser-tab **favicon** and as a small **logo mark** immediately left of the **pupsik** wordmark in the masthead. This supersedes the "favicon deliberately untouched" note from `2026-07-13.1` — the identity is now the baby, not the placeholder red "P".

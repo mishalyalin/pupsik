@@ -101,24 +101,64 @@ def chunk_text(text, chunk_size=800, overlap=100):
     return chunks
 
 
+def _pid_alive(pid: int) -> bool:
+    """True if a process with this pid exists. Signal 0 only checks existence."""
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by someone else
+    except Exception:
+        return True  # unknown - treat as alive, never free a lock on a guess
+
+
+def _fresh_collection(client, name: str, metadata: dict):
+    """Return an empty collection, discarding any previous HNSW segment.
+
+    A full reindex used to `get_or_create_collection` and then delete every id.
+    That empties SQLite but never compacts the HNSW binaries, so the index keeps
+    referencing slots that no longer have rows behind them. The drift compounds
+    with every rebuild until the rust loader reads past valid memory and the
+    process dies with SIGSEGV. Dropping the collection drops the segment
+    directory with it, so each rebuild starts from a clean index.
+    """
+    try:
+        client.delete_collection(name)
+    except Exception:
+        pass  # first run, or already gone
+    return client.create_collection(name=name, metadata=metadata)
+
+
 def acquire_lock(force: bool = False) -> bool:
     """Try to acquire the index lock. Returns True on success.
 
     Lock semantics:
       - File at LOCK_PATH (JSON: {pid, started_at}). Exclusive create.
+      - If the holder pid is gone: assume stale, overwrite.
       - If lock exists and is < LOCK_STALE_AFTER_SEC old: refuse.
       - If lock exists and is older than that: assume stale, overwrite.
       - `force=True` always overwrites.
     """
     CHROMA_PATH.mkdir(parents=True, exist_ok=True)
     if LOCK_PATH.exists() and not force:
+        holder_pid = None
         try:
             data = json.loads(LOCK_PATH.read_text())
             started = data.get("started_at", 0)
+            holder_pid = data.get("pid")
             age = time.time() - started
         except Exception:
             age = 0
-        if age < LOCK_STALE_AFTER_SEC:
+        # A SIGSEGV (or any hard kill) skips release_lock(), so a lock whose
+        # owner is gone must not block the next run for LOCK_STALE_AFTER_SEC.
+        if holder_pid and not _pid_alive(holder_pid):
+            print(
+                f"warn: lock holder pid {holder_pid} is dead - overwriting stale lock",
+                file=sys.stderr,
+            )
+        elif age < LOCK_STALE_AFTER_SEC:
             print(
                 f"error: index already running (lock at {LOCK_PATH}, age {int(age)}s). "
                 f"Use --force to override.",
@@ -152,17 +192,7 @@ def release_lock() -> None:
 
 def index_contacts(client):
     """Index all contacts, companies, and relationships from SQLite."""
-    coll = client.get_or_create_collection(
-        name=COLL_CONTACTS,
-        metadata={"hnsw:space": "cosine"}
-    )
-    # Clear existing
-    try:
-        all_ids = coll.get()['ids']
-        if all_ids:
-            coll.delete(ids=all_ids)
-    except:
-        pass
+    coll = _fresh_collection(client, COLL_CONTACTS, {"hnsw:space": "cosine"})
 
     db = sqlite3.connect(str(DB_PATH))
     db.row_factory = sqlite3.Row
@@ -293,17 +323,7 @@ def _claude_md_chunks(md_file: Path):
 
 def index_memory_files(client):
     """Index all memory markdown files."""
-    coll = client.get_or_create_collection(
-        name=COLL_MEMORY,
-        metadata={"hnsw:space": "cosine"}
-    )
-    # Clear
-    try:
-        all_ids = coll.get()['ids']
-        if all_ids:
-            coll.delete(ids=all_ids)
-    except:
-        pass
+    coll = _fresh_collection(client, COLL_MEMORY, {"hnsw:space": "cosine"})
 
     docs = []
     metas = []
@@ -343,16 +363,7 @@ def index_memory_files(client):
 
 def index_interactions(client):
     """Index all email/meeting interactions."""
-    coll = client.get_or_create_collection(
-        name=COLL_INTERACTIONS,
-        metadata={"hnsw:space": "cosine"}
-    )
-    try:
-        all_ids = coll.get()['ids']
-        if all_ids:
-            coll.delete(ids=all_ids)
-    except:
-        pass
+    coll = _fresh_collection(client, COLL_INTERACTIONS, {"hnsw:space": "cosine"})
 
     db = sqlite3.connect(str(DB_PATH))
     db.row_factory = sqlite3.Row
@@ -397,16 +408,7 @@ def index_interactions(client):
 
 def index_chat_archives(client):
     """Index WhatsApp/Telegram chat exports."""
-    coll = client.get_or_create_collection(
-        name=COLL_CHATS,
-        metadata={"hnsw:space": "cosine"}
-    )
-    try:
-        all_ids = coll.get()['ids']
-        if all_ids:
-            coll.delete(ids=all_ids)
-    except:
-        pass
+    coll = _fresh_collection(client, COLL_CHATS, {"hnsw:space": "cosine"})
 
     # Find chat archive files. Restrict to text-like extensions so that image
     # attachments named "WhatsApp Image YYYY-MM-DD at HH.MM.SS.jpeg" (which the
@@ -509,17 +511,7 @@ def _index_md_dir(client, coll_name, files, *, build_meta, id_prefix,
     `id_prefix` keeps document IDs unique across collections.
     Long files are chunked with chunk_text(); chunk index lives in metadata.
     """
-    coll = client.get_or_create_collection(
-        name=coll_name,
-        metadata={"hnsw:space": "cosine"}
-    )
-    # Clear existing
-    try:
-        all_ids = coll.get()['ids']
-        if all_ids:
-            coll.delete(ids=all_ids)
-    except Exception:
-        pass
+    coll = _fresh_collection(client, coll_name, {"hnsw:space": "cosine"})
 
     docs = []
     metas = []

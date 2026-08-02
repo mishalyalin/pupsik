@@ -109,8 +109,8 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
 ### g) Health diagnostics + friction capture
 
-- **What it does:** Two complementary modules for keeping the system healthy. `tools/doctor.py` runs 13 deterministic checks across the workspace (broken symlinks, stale locks, ChromaDB orphan rows, file-size limits, dead scheduled-task dirs, unindexed recent notes). `check` is read-only; `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe); `orphans` lists unlinked entities for human review. `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y` captures repeat-correction patterns. Upsert by `(phase, severity)` increments a counter so a third recurrence of the same friction surfaces escalated in the morning briefing.
-- **Files:** `tools/doctor.py` (13 checks), `tools/note.py` (the `friction` subcommand sits inside the existing capture tool from module b).
+- **What it does:** Two complementary modules for keeping the system healthy. `tools/doctor.py` runs 14 deterministic checks across the workspace (broken symlinks, stale locks, ChromaDB orphan rows, file-size limits, dead scheduled-task dirs, unindexed recent notes). `check` is read-only; `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe); `orphans` lists unlinked entities for human review. `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y` captures repeat-correction patterns. Upsert by `(phase, severity)` increments a counter so a third recurrence of the same friction surfaces escalated in the morning briefing.
+- **Files:** `tools/doctor.py` (14 checks), `tools/note.py` (the `friction` subcommand sits inside the existing capture tool from module b).
 - **Depends on:** `tools/contacts_db.py` (module c) for the contacts checks; `tools/memory_search.py` (module d) for the ChromaDB orphan check; `note.py` (module b) for friction capture.
 - **Doesn't depend on:** Hooks, MCP servers, contact-enrichment cron.
 - **Install:**

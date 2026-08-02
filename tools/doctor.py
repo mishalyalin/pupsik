@@ -35,6 +35,7 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -567,6 +568,91 @@ def fix_chroma_orphans(dry_run: bool) -> dict:
   }
 
 
+def check_chroma_drift() -> dict:
+  """5b. HNSW index drift: binary slots far exceeding live SQLite rows.
+
+  Deliberately reads only chroma.sqlite3 + the segment files - no `import
+  chromadb`. A drifted store is exactly the store whose API calls segfault, so a
+  check that opened it would die alongside the thing it is meant to diagnose.
+
+  Background: a full reindex that deletes every id and re-upserts leaves the
+  HNSW binaries referencing slots with no rows behind them. The drift compounds
+  per rebuild until the rust bindings read past valid memory and the process
+  dies with SIGSEGV. Fix is a rebuild from source, not a repair - the store is
+  100% derived from markdown + contacts.db, so nothing is lost.
+  """
+  db_file = CHROMA_PATH / "chroma.sqlite3"
+  if not db_file.exists():
+    return {"status": SKIP, "summary": "no chroma store", "fixable": False}
+  try:
+    db = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
+    segs = db.execute(
+      "SELECT c.name, s.id, s.scope FROM segments s "
+      "JOIN collections c ON s.collection = c.id"
+    ).fetchall()
+  except Exception as exc:
+    return {
+      "status": WARN,
+      "summary": f"could not read chroma.sqlite3: {exc!r}",
+      "fixable": False,
+    }
+
+  by_coll: dict[str, dict[str, str]] = {}
+  for name, sid, scope in segs:
+    by_coll.setdefault(name, {})[scope] = sid
+
+  # Ratio alone does not predict the crash (a 4.6x segment with 10.6k slots was
+  # healthy while a 4.6x segment with 39k slots was not), so require both a
+  # large multiple and real size before calling it out.
+  MIN_RATIO, MIN_SLOTS = 3.0, 5000
+  drifted, scanned = [], 0
+  for name, seg in sorted(by_coll.items()):
+    # Embedding rows are keyed to the METADATA segment, not the VECTOR one.
+    meta_seg, vec_seg = seg.get("METADATA"), seg.get("VECTOR")
+    if not (meta_seg and vec_seg):
+      continue
+    length_bin = CHROMA_PATH / vec_seg / "length.bin"
+    if not length_bin.exists():
+      continue
+    scanned += 1
+    slots = length_bin.stat().st_size // 4  # 4 bytes per element level
+    try:
+      rows = db.execute(
+        "SELECT COUNT(*) FROM embeddings WHERE segment_id = ?", (meta_seg,)
+      ).fetchone()[0]
+    except Exception:
+      continue
+    if slots >= MIN_SLOTS and rows and slots / rows >= MIN_RATIO:
+      drifted.append({
+        "collection": name,
+        "live_rows": rows,
+        "hnsw_slots": slots,
+        "ratio": round(slots / rows, 1),
+      })
+  db.close()
+
+  if not scanned:
+    return {"status": WARN, "summary": "no vector segments found", "fixable": False}
+  if not drifted:
+    return {
+      "status": PASS,
+      "summary": f"no HNSW drift ({scanned} segment(s) scanned)",
+      "fixable": False,
+    }
+  worst = max(drifted, key=lambda d: d["ratio"])
+  return {
+    "status": FAIL,
+    "summary": (
+      f"{len(drifted)} segment(s) with HNSW drift - worst {worst['collection']} "
+      f"{worst['hnsw_slots']} slots for {worst['live_rows']} rows "
+      f"({worst['ratio']}x). Rebuild: mv data/chroma data/chroma.broken-<date> "
+      f"&& python3 tools/memory_search.py index"
+    ),
+    "details": drifted,
+    "fixable": False,  # cure is a full multi-minute reindex, never a silent auto-fix
+  }
+
+
 def check_chroma_lock() -> dict:
   """5. Stale ChromaDB lockfile.
 
@@ -993,6 +1079,7 @@ CHECKS = [
   ("3_empty_files",      check_empty_files,        False),
   ("4_chroma_orphans",    check_chroma_orphans,      True),
   ("5_chroma_lock",      check_chroma_lock,        True),
+  ("5b_chroma_drift",    check_chroma_drift,       False),
   ("6_memory_md_size",    check_memory_md_size,      False),
   ("7_claude_md_size",    check_claude_md_size,      False),
   ("8_pupsik_privacy",    check_pupsik_privacy,      False),
