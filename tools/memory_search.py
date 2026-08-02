@@ -190,6 +190,46 @@ def release_lock() -> None:
         print(f"warn: could not remove lock: {e}", file=sys.stderr)
 
 
+# ChromaDB rejects a single upsert/delete larger than its internal max batch
+# (5461 on the current rust bindings). Stay well under it and page instead.
+CHROMA_BATCH = 4000
+
+
+# Directories whose .md files are vendored/generated, not your own knowledge.
+# Indexing them dilutes every semantic search - one checked-in node_modules
+# can dominate a collection and push it past the batch limit above.
+VENDOR_DIR_NAMES = {
+    "node_modules", ".pnpm", ".venv", "venv", "site-packages",
+    ".git", ".next", ".nuxt", "vendor", ".cache", "__pycache__",
+}
+
+
+def _is_vendored(path: Path) -> bool:
+    """True if any path component is a vendored/generated directory."""
+    return any(part in VENDOR_DIR_NAMES for part in path.parts)
+
+
+def _safe_upsert(coll, *, documents, metadatas, ids):
+    """upsert in pages so a large collection cannot blow the max batch size."""
+    if not (len(documents) == len(metadatas) == len(ids)):
+        raise ValueError(
+            f"upsert list length mismatch: documents={len(documents)} "
+            f"metadatas={len(metadatas)} ids={len(ids)}"
+        )
+    for i in range(0, len(ids), CHROMA_BATCH):
+        coll.upsert(
+            documents=documents[i:i + CHROMA_BATCH],
+            metadatas=metadatas[i:i + CHROMA_BATCH],
+            ids=ids[i:i + CHROMA_BATCH],
+        )
+
+
+def _safe_delete(coll, ids):
+    """delete in pages, same reason as _safe_upsert."""
+    for i in range(0, len(ids), CHROMA_BATCH):
+        coll.delete(ids=ids[i:i + CHROMA_BATCH])
+
+
 def index_contacts(client):
     """Index all contacts, companies, and relationships from SQLite."""
     coll = _fresh_collection(client, COLL_CONTACTS, {"hnsw:space": "cosine"})
@@ -271,7 +311,7 @@ def index_contacts(client):
         ids.append(f"company_{co['id']}")
 
     if docs:
-        coll.upsert(documents=docs, metadatas=metas, ids=ids)
+        _safe_upsert(coll, documents=docs, metadatas=metas, ids=ids)
 
     db.close()
     return len(docs)
@@ -356,7 +396,7 @@ def index_memory_files(client):
                 ids.append(cid)
 
     if docs:
-        coll.upsert(documents=docs, metadatas=metas, ids=ids)
+        _safe_upsert(coll, documents=docs, metadatas=metas, ids=ids)
 
     return len(docs)
 
@@ -400,7 +440,7 @@ def index_interactions(client):
         ids.append(f"interaction_{inter['id']}")
 
     if docs:
-        coll.upsert(documents=docs, metadatas=metas, ids=ids)
+        _safe_upsert(coll, documents=docs, metadatas=metas, ids=ids)
 
     db.close()
     return len(docs)
@@ -455,7 +495,7 @@ def index_chat_archives(client):
             print(f"  Skipped {chat_file.name}: {e}")
 
     if docs:
-        coll.upsert(documents=docs, metadatas=metas, ids=ids)
+        _safe_upsert(coll, documents=docs, metadatas=metas, ids=ids)
 
     return len(docs)
 
@@ -531,7 +571,7 @@ def _index_md_dir(client, coll_name, files, *, build_meta, id_prefix,
             ids.append(cid)
 
     if docs:
-        coll.upsert(documents=docs, metadatas=metas, ids=ids)
+        _safe_upsert(coll, documents=docs, metadatas=metas, ids=ids)
 
     return len(docs)
 
@@ -638,7 +678,7 @@ def index_outputs(client):
     """
     if not OUTPUTS_DIR.exists():
         return 0
-    files = sorted(OUTPUTS_DIR.rglob("*.md"))
+    files = sorted(f for f in OUTPUTS_DIR.rglob("*.md") if not _is_vendored(f))
     return _index_md_dir(
         client, COLL_OUTPUTS, files,
         **_COLL_PARAMS[COLL_OUTPUTS],
@@ -682,7 +722,7 @@ def index_research(client):
     """Index long-form research from ~/Desktop/claude/research/**/*.md (recursive)."""
     if not RESEARCH_DIR.exists():
         return 0
-    files = sorted(RESEARCH_DIR.rglob("*.md"))
+    files = sorted(f for f in RESEARCH_DIR.rglob("*.md") if not _is_vendored(f))
     return _index_md_dir(
         client, COLL_RESEARCH, files,
         **_COLL_PARAMS[COLL_RESEARCH],
@@ -795,12 +835,12 @@ def index_single_file(client, file_path: Path) -> tuple[str | None, int]:
         new_ids = set(ids)
         stale = list(prior_ids - new_ids)
         if stale:
-            coll.delete(ids=stale)
+            _safe_delete(coll, stale)
     except Exception:
         # If `where` filter unsupported or anything else, skip cleanup.
         pass
 
-    coll.upsert(ids=ids, documents=docs, metadatas=metas)
+    _safe_upsert(coll, ids=ids, documents=docs, metadatas=metas)
     return (coll_name, len(docs))
 
 
