@@ -53,6 +53,8 @@ TOOLS_DIR = BASE_DIR / "tools"
 MEMORY_DIR_LOCAL = BASE_DIR / "memory"
 LEARNINGS_DIR = MEMORY_DIR_LOCAL / "learnings"
 DECISIONS_DIR = MEMORY_DIR_LOCAL / "decisions"
+WORLD_KNOWLEDGE_DIR = MEMORY_DIR_LOCAL / "world_knowledge"
+USER_CONTEXT_DIR = MEMORY_DIR_LOCAL / "user_context"
 FRICTION_DIR = MEMORY_DIR_LOCAL / "friction"
 OUTBOUND_PENDING_DIR = MEMORY_DIR_LOCAL / "outbound_pending"
 RESEARCH_DIR = BASE_DIR / "research"
@@ -87,7 +89,11 @@ def _find_pupsik_privacy_check():
 PUPSIK_PRIVACY_CHECK = _find_pupsik_privacy_check()
 
 # Defensive limits
-MAX_LINES_TARGET = 200
+MAX_LINES_TARGET = 200 # MEMORY.md - hard limit of the auto-memory loader
+# CLAUDE.md is a different document with a different budget; sharing the
+# 200-line MEMORY.md target made every healthy workspace warn forever.
+CLAUDE_MD_SOFT_LINES = 450
+CLAUDE_MD_HARD_LINES = 600
 LOCK_STALE_SEC = 3600 # 1 hour
 CHROMA_LOCK_STALE_SEC = 600 # 10 min, matches memory_search.py LOCK_STALE_AFTER_SEC
 
@@ -173,18 +179,15 @@ def check_broken_symlinks() -> dict:
   for root in scan_roots:
     if not root.exists():
       continue
-    # Use find for speed and to avoid Python recursion on huge trees.
+    # `find -type l ! -exec test -e {} \;` forks one process PER symlink and
+    # blew the 30s timeout on any tree with a node_modules in it. List the
+    # symlinks with one find, then resolve them in-process - no fork per link.
     try:
       out = subprocess.run(
-        [
-          "find", str(root),
-          "-type", "l",
-          "!", "-exec", "test", "-e", "{}", ";",
-          "-print",
-        ],
+        ["find", str(root), "-type", "l", "-print"],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=60,
       )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
       return {
@@ -194,7 +197,9 @@ def check_broken_symlinks() -> dict:
       }
     for line in out.stdout.splitlines():
       line = line.strip()
-      if line:
+      if not line:
+        continue
+      if not os.path.exists(line):
         broken.append(line)
   if not broken:
     return {"status": PASS, "summary": "no broken symlinks", "fixable": False}
@@ -257,6 +262,17 @@ def check_stale_lockfiles() -> dict:
   for e in extras:
     if e.exists() and e not in candidates:
       candidates.append(e)
+  # BASE_DIR and CHROMA_PATH overlap (chroma lives under the workspace), so the
+  # same lock is discovered twice. Dedupe by resolved path, keep order.
+  _seen: set[str] = set()
+  _deduped: list[Path] = []
+  for p in candidates:
+    key = str(p.resolve()) if p.exists() else str(p)
+    if key in _seen:
+      continue
+    _seen.add(key)
+    _deduped.append(p)
+  candidates = _deduped
 
   stale: list[dict] = []
   fresh: list[str] = []
@@ -278,7 +294,13 @@ def check_stale_lockfiles() -> dict:
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
       pid_alive = None
       pid_value = None
-    is_stale = (age > ttl) or (pid_alive is False)
+    # A living holder is never stale, no matter how old the lock: a long
+    # reindex legitimately holds it past the TTL, and deleting it there hands
+    # two writers the same store.
+    if pid_alive is True:
+      is_stale = False
+    else:
+      is_stale = (pid_alive is False) or (age > ttl)
     info = {
       "path": str(lock),
       "age_sec": int(age),
@@ -443,7 +465,7 @@ def _chroma_orphan_rows() -> tuple[list[dict], int]:
     if coll_name == "journal":
       return JOURNAL_DIR / source
     if coll_name == "knowledge":
-      for d in (LEARNINGS_DIR, DECISIONS_DIR):
+      for d in (LEARNINGS_DIR, DECISIONS_DIR, WORLD_KNOWLEDGE_DIR, USER_CONTEXT_DIR):
         p = d / source
         if p.exists():
           return p
@@ -782,11 +804,18 @@ def check_claude_md_size() -> dict:
   n = _wc_lines(CLAUDE_MD)
   if n < 0:
     return {"status": FAIL, "summary": "CLAUDE.md unreadable", "fixable": False}
-  if n > MAX_LINES_TARGET:
+  if n > CLAUDE_MD_HARD_LINES:
+    return {
+      "status": FAIL,
+      "summary": f"CLAUDE.md is {n} lines (>{CLAUDE_MD_HARD_LINES} hard cap); rewrite pass required",
+      "details": {"path": str(CLAUDE_MD), "lines": n, "limit": CLAUDE_MD_HARD_LINES},
+      "fixable": False,
+    }
+  if n > CLAUDE_MD_SOFT_LINES:
     return {
       "status": WARN,
-      "summary": f"CLAUDE.md is {n} lines (>{MAX_LINES_TARGET}); consider trimming",
-      "details": {"path": str(CLAUDE_MD), "lines": n, "limit": MAX_LINES_TARGET},
+      "summary": f"CLAUDE.md is {n} lines (>{CLAUDE_MD_SOFT_LINES} soft cap); consider trimming",
+      "details": {"path": str(CLAUDE_MD), "lines": n, "limit": CLAUDE_MD_SOFT_LINES},
       "fixable": False,
     }
   return {
