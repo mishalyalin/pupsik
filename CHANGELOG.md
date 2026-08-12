@@ -5,6 +5,40 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-08-12] - context budget: measure where compaction really fires, and park MCP servers you aren't using
+
+Sessions were dying with "Compacted conversation - saved 215k tokens" three times in a row followed by "your context window is full". The instinct is to raise the compaction threshold. That is the wrong lever, and this release ships the measurement that shows why.
+
+**Root cause.** Auto-compaction fires against the model's **real context window**, not against any number in `settings.json`. So `autoCompactWindow` set above that window is inert - no error, no warning, no effect. Meanwhile the fixed session-start load (system prompt + tool schemas + every configured MCP server's instructions block + skills list + `CLAUDE.md` + rules + memory index) had grown until it was most of the window. Working room is `window - fixed load`; when that shrinks toward zero, every compact hands back a summary that immediately re-fills, which is exactly what the repeated-compact symptom looks like.
+
+Measured on one mixed stack, over 1,100 compaction boundaries across ~270 transcripts: three current models clustered at a ~241k median pre-compact size, an older model sat at ~493k, a small model at ~99k - same machine, same settings file. Session-start load on the same stack had a median of ~181k against a ~241k trigger, i.e. ~60k of usable room before the first word was typed. Of that fixed load, ~93k tokens was one `CLAUDE.md` - trimming it to ~29k bought back a third of the working room.
+
+### Added
+
+- **`tools/context_budget.py`** - three deterministic measurements from your own transcripts, no conversation content read or printed.
+  - `trigger` - the token count at which compaction actually fired, grouped by model, from `compactMetadata.preTokens` on each `{"type":"system","subtype":"compact_boundary"}` record. These are the agent's own counts, so they are exact. Read the median as your model's real usable window; a threshold above the max cannot bind.
+  - `start` - what a session costs before you type, from the first assistant turn's `usage` (`input_tokens + cache_creation_input_tokens + cache_read_input_tokens`).
+  - `files` - the slice of that load you can edit today: `CLAUDE.md`, `~/.claude/rules/*.md`, and the auto-memory `MEMORY.md` **belonging to this workspace only** (project dir name = the absolute workspace path with `/` replaced by `-`; summing every project's index would overstate the cost). Reports characters, lines, tokens and Cyrillic share per file. Exact via `tiktoken` when installed, otherwise a script-calibrated chars-per-token heuristic, and it says which method it used.
+  - `all` runs the three in order. `--json` on any subcommand. `--dir` accepts a directory or a single `.jsonl`.
+- **`tools/mcp_profile.py`** - `light` / `full` / `status`. Tool *schemas* already load on demand, but a configured MCP server's *instructions block* is injected unconditionally at session start and cannot be unloaded mid-session, so the only lever is what is configured when the session begins. `light` moves everything outside the daily set into `~/.claude/mcp-parked.json` and rewrites both the global (`~/.claude.json`) and workspace (`.claude/settings.json`) configs; `full` restores the parked entries verbatim. Daily set defaults to the four MCPs this toolkit installs, overridable with `--keep a,b` or `PUPSIK_MCP_DAILY`. Every write is backed up alongside the file first, non-MCP keys are preserved untouched, invalid JSON is skipped rather than rewritten, and a profile change applies on the next Claude start.
+
+### Changed
+
+- **`memory_templates/feedback_claudemd_size_discipline.md` now caps by tokens, not lines.** The old rule was soft 450 / hard 600 **lines** - and a real `CLAUDE.md` reached **244,364 characters (~93,000 tokens) in 301 lines**, so it sat at half the "hard cap" while being more than four times over any sane token budget, and the rule never fired once. Markdown bullets are unbounded in width; line count is not a proxy for size. New caps: soft ~12k tokens, hard ~20k, measured with `context_budget.py files`, with the note that Cyrillic/CJK cost ~1.7x more tokens per character. Added an explicit "trim by archiving, never by deleting" clause: compress to a pointer, move the full text verbatim into `memory/journal/`, then diff against a backup and confirm every future-dated item survived - a trim that drops a live invoice or deadline costs far more than the tokens it saved.
+- **`docs/COMPACT_SETUP.md` leads with "First: measure, don't assume."** New section explaining trigger vs start vs files, that a threshold above the model's window is inert, and that the durable lever is the fixed load (memory files + MCP instruction blocks) rather than the threshold. The long-window (`[1m]`) caveat now says to verify the variant is actually offered in your own model picker before planning around it - a model string found in a binary or a changelog is not proof it can be selected.
+- **`README.md`** - the auto-compact bullet no longer presents the threshold env var as a straightforward win; two new bullets cover the context budget and MCP profiles.
+- **`install.sh` / `tools/update.sh`** - both new tools are smart-merged into `~/Desktop/claude/tools/` like the existing ten, so `update.sh` picks them up.
+
+### Verification
+
+- `trigger` / `start` / `files` each run clean against a real 1,846-transcript store; `trigger --dir /nonexistent` degrades to "0 across 0 transcripts" instead of raising. `files` against a workspace with no `CLAUDE.md` reports only the rules file rather than failing, and after the workspace-scoping fix it stopped pulling in four unrelated projects' `MEMORY.md` (49,045 tokens correctly, not 50,315).
+- `mcp_profile.py` round-tripped in a sandboxed `HOME`: 3 global + 2 workspace servers → `light` parked 2 global + 1 workspace → `full` restored byte-identical server bodies, park file removed, and the non-MCP keys (`other`, `permissions`) survived both directions untouched.
+- `bash -n install.sh tools/update.sh` and `python3 -m py_compile` on both new tools pass.
+
+### Privacy
+
+- No personal data added. Both tools read only counts, model names, timestamps and file sizes - never message content - and print no conversation text. `privacy-check.sh --include-untracked` clean.
+
 ## [2026-08-02.1] - follow-ups to the SIGSEGV fix: batch limit, vendored dirs, two lock/path bugs
 
 Three things the drift fix left standing, all found by re-running the tooling against a real store rather than by reading the code.
