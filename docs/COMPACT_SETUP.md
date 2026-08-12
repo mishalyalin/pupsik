@@ -15,7 +15,32 @@ Two hooks plus one env var solve it:
 - **After compaction Claude knows:** which TODOs are active, which agents are running in the background, which files were touched, which decisions were made
 - State is saved to disk (`~/Desktop/claude/.claude/compact-state/`) with an archive of the last 20 compacts
 
+## First: measure, don't assume
+
+Before you tune anything, get the two numbers that decide whether you will ever see "context window is full":
+
+```bash
+python3 tools/context_budget.py all
+```
+
+- **`trigger`** - the token count at which auto-compaction ACTUALLY fired, per model, taken from your own transcripts (`compactMetadata.preTokens` on each `compact_boundary` record). This is the model's real usable window.
+- **`start`** - what a session costs before you type a word: system prompt + tool schemas + every configured MCP server's instructions + skills list + `CLAUDE.md` + rules + memory index, read from the first assistant turn's `usage`.
+- **`files`** - how much of that start load is the part you can edit today.
+
+**Working room = trigger minus start.** When those two converge you get several "Compacted conversation - saved 215k tokens" in a row followed by "context window is full", because each compact hands back a summary that immediately re-fills the window.
+
+Two things this measurement settles, both of which cost real debugging time to learn:
+
+1. **A threshold above the model's real window is inert.** `settings.json` has an `autoCompactWindow` key, but compaction fires against the model's actual context window. Set it to 400,000 on a model whose window is ~250,000 and nothing changes - not a syntax error, not a warning, just no effect. Measure your `trigger` max first, then set a value *below* it if you want earlier compaction.
+2. **The reliable lever is the session-start load, not the threshold.** Compacting earlier does not help when the fixed load is most of the window - a smaller conversation still starts near the ceiling. Shrinking the fixed load helps every session, permanently. Two levers there:
+   - `CLAUDE.md` / rules / memory index → cap by tokens, archive into `memory/journal/` (see `memory_templates/feedback_claudemd_size_discipline.md`)
+   - MCP server instruction blocks, which load unconditionally at session start and cannot be unloaded mid-session → park the servers you are not using today with `python3 tools/mcp_profile.py light`
+
+Model windows differ a lot, so measure yours rather than trusting a number from a changelog. One real measurement across more than 1,100 compactions on a mixed stack: three current models clustered around a ~241k median, an older one sat at ~493k, and a small model compacted at ~99k - same machine, same settings file.
+
 ## Tuning the threshold
+
+> **Two different knobs, don't confuse them.** `autoCompactWindow` in `settings.json` (the inert one above) is an absolute token number. `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, below, is a *percentage of the window actually in force* and is a separate mechanism read from the launch environment. Lowering the percentage makes compaction fire EARLIER, which is a different thing from raising the absolute ceiling - and neither one enlarges the model's real window. `context_budget.py` measures where compaction lands; it cannot tell you which of the two knobs put it there.
 
 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` is the **percent of the auto-compaction window USED at which compaction fires** - lower = compacts earlier ([env-vars docs](https://code.claude.com/docs/en/env-vars)). It accepts an integer percentage. Common settings:
 
@@ -26,7 +51,9 @@ Two hooks plus one env var solve it:
 
 The value is read from the agent process's **launch environment** at startup, so changes require a Claude Code restart - AND the *channel* you set it through must actually reach that launch env. The `settings.json` `"env"` block does NOT (open bug [anthropics/claude-code#63186](https://github.com/anthropics/claude-code/issues/63186)): a value set there IS visible to subprocess tool calls (a Bash tool call can `echo $CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` and see it) but is NOT applied to the app's own auto-compact logic. The correct channel is **per surface** - see below.
 
-> **1M-context (`[1m]`) model caveat** (verified-reported, unresolved as of agent 2.1.181 - issues [#53801](https://github.com/anthropics/claude-code/issues/53801) / [#53358](https://github.com/anthropics/claude-code/issues/53358)): on a `[1m]` model the percentage may be computed against a hardcoded ~200K internal window rather than the advertised 1M, so `50` can fire at ~50% of ~200K (~100K tokens), not 50% of 1M. If the firing point feels wrong on a `[1m]` model, either tune the number empirically or run routine sessions on the non-`[1m]` variant for predictable behavior.
+> **Long-window (`[1m]`) model caveat** - first check that such a variant is actually offered in your own model picker before planning around it; availability changes, and a model string found in a binary or a changelog is not proof it can be selected.
+>
+> **Historical detail** (verified-reported, unresolved as of agent 2.1.181 - issues [#53801](https://github.com/anthropics/claude-code/issues/53801) / [#53358](https://github.com/anthropics/claude-code/issues/53358)): on a `[1m]` model the percentage may be computed against a hardcoded ~200K internal window rather than the advertised 1M, so `50` can fire at ~50% of ~200K (~100K tokens), not 50% of 1M. If the firing point feels wrong on a `[1m]` model, either tune the number empirically or run routine sessions on the non-`[1m]` variant for predictable behavior.
 
 ## Setting the threshold (per surface)
 
