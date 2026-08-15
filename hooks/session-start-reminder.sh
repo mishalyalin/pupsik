@@ -73,6 +73,96 @@ else
   FRESHNESS_WARN="⚠️  Could not parse CLAUDE.md ## Last Updated."
 fi
 
+# ---------- Start-load budget guard ----------
+# Every token of fixed session-start load (CLAUDE.md + ~/.claude/rules/*.md +
+# the auto-memory MEMORY.md for this workspace) comes straight out of your
+# working context window before the conversation even begins - so it's worth
+# a cap. Prefers context_budget.py's `files` subcommand when it's been
+# installed at $WORKSPACE/tools/context_budget.py (install.sh/update.sh put
+# it there); falls back to an inline copy of the same token heuristic,
+# CLAUDE.md-only, if that file isn't present - so the guard still works on a
+# bare hook install with no other pupsik tooling. Caps default to 12k/20k
+# tokens for CLAUDE.md alone and 40k for the combined start load - override
+# by exporting CLAUDE_MD_SOFT_TOKENS / CLAUDE_MD_HARD_TOKENS / TOTAL_SOFT_TOKENS
+# before the hook runs.
+CONTEXT_BUDGET_PY="$WORKSPACE/tools/context_budget.py"
+if [ -f "$CONTEXT_BUDGET_PY" ]; then
+  BUDGET_JSON=$(python3 "$CONTEXT_BUDGET_PY" files --workspace "$WORKSPACE" --json 2>/dev/null || echo "")
+else
+  BUDGET_JSON=""
+fi
+
+BUDGET_WARN=$(CLAUDE_MD="$CLAUDE_MD" BUDGET_JSON="$BUDGET_JSON" \
+  SOFT_TOKENS="${CLAUDE_MD_SOFT_TOKENS:-12000}" HARD_TOKENS="${CLAUDE_MD_HARD_TOKENS:-20000}" \
+  TOTAL_SOFT_TOKENS="${TOTAL_SOFT_TOKENS:-40000}" python3 - <<'PYEOF' 2>/dev/null || echo ""
+import json, os
+
+soft = int(os.environ.get("SOFT_TOKENS", "12000"))
+hard = int(os.environ.get("HARD_TOKENS", "20000"))
+total_soft = int(os.environ.get("TOTAL_SOFT_TOKENS", "40000"))
+claude_md = os.environ.get("CLAUDE_MD", "")
+budget_json = os.environ.get("BUDGET_JSON", "")
+
+c = r = m = total = 0
+if budget_json:
+    try:
+        data = json.loads(budget_json)
+        total = data.get("total_tokens", 0)
+        for f in data.get("files", []):
+            p = f.get("path", "")
+            t = f.get("tokens", 0)
+            if p == claude_md or p.endswith("/CLAUDE.md"):
+                c = t
+            elif p.endswith("critical-rules.md"):
+                r += t
+            elif p.endswith("MEMORY.md"):
+                m += t
+    except Exception:
+        pass
+else:
+    # No context_budget.py installed - fall back to a CLAUDE.md-only inline
+    # estimate so the guard still fires on a bare hook install.
+    try:
+        import tiktoken
+        _enc = tiktoken.get_encoding("cl100k_base")
+    except Exception:
+        _enc = None
+
+    def tok(p):
+        try:
+            t = open(os.path.expanduser(p), encoding="utf-8", errors="replace").read()
+        except OSError:
+            return 0
+        if not t:
+            return 0
+        if _enc is not None:
+            return len(_enc.encode(t))
+        cyr = sum(1 for ch in t if "Ѐ" <= ch <= "ӿ") / len(t)
+        return int(len(t) / (2.15 * cyr + 3.7 * (1 - cyr)))
+
+    c = tok(claude_md)
+    total = c
+
+if c > hard:
+    print(
+        "🔴 CLAUDE.md ~%dk tokens - OVER the %dk hard cap (rules ~%dk, MEMORY ~%dk). "
+        "Trim it by ARCHIVING to a memory/journal/ file, never by deleting, and lift "
+        "any live item into an '## Upcoming'-style section first."
+        % (c // 1000, hard // 1000, r // 1000, m // 1000)
+    )
+elif total > total_soft:
+    print(
+        "⚠️  Fixed start load ~%dk tokens (CLAUDE %dk + rules %dk + MEMORY %dk). "
+        "Soft cap for CLAUDE.md alone is %dk."
+        % (total // 1000, c // 1000, r // 1000, m // 1000, soft // 1000)
+    )
+PYEOF
+)
+
+if [ -n "$BUDGET_WARN" ]; then
+  FRESHNESS_WARN="${FRESHNESS_WARN}"$'\n'"${BUDGET_WARN}"
+fi
+
 REMINDER=$(cat <<EOF
 === SESSION START (auto-injected by ~/.claude/settings.json hook) ===
 
