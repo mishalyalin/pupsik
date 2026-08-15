@@ -5,7 +5,23 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2026-08-12] - context budget: measure where compaction really fires, and park MCP servers you aren't using
+## [2026-08-15] - CLAUDE.md rotation, a start-load budget guard for the generic hook, and a workspace/clone drift probe
+
+`context_budget.py` (2026-08-12) measures the problem; this release adds the tools that act on the measurement, plus two smaller tool files reverse-synced from a workspace that had drifted ahead of this clone.
+
+### Added
+
+- **`tools/claude_md_trim.py`** - deterministic CLAUDE.md size check + rotation, no LLM calls.
+  - `check` - token-counts the whole file AND every top-level `## `-heading section against soft/hard caps (default 12k/20k, override with `--soft`/`--hard`), flags any section that's individually over cap even when the file total looks fine. `--json` for scripting. Always exits 0 (read-only diagnostic, same convention as `doctor.py check`).
+  - `rotate --changelog <path>` - moves the current `## Last Updated` section's body verbatim into a dated heading in a separate changelog file, and replaces it in CLAUDE.md with a one-line pointer. Idempotent: a no-op once the section is already <=2 lines. Dry-run by default, `--apply` to write, always prints exactly what moved.
+  - Reuses `context_budget.py`'s token estimator instead of duplicating it; falls back to an inline copy of the same heuristic if `context_budget.py` isn't importable.
+- **`hooks/session-start-reminder.sh`** - the generic template hook gained a start-load budget guard, adapted from the same logic `tools/context_budget.py`'s release notes describe. Shells out to `context_budget.py files --json` when that tool is installed at `$WORKSPACE/tools/context_budget.py`; falls back to an inline tiktoken-or-heuristic estimate of CLAUDE.md alone when it isn't, so the guard still works on a bare hook install. Two tiers: a hard-cap warning when CLAUDE.md alone is over 20k tokens, a softer combined-load warning when CLAUDE.md + rules + MEMORY.md together exceed 40k. All three caps are overridable via `CLAUDE_MD_SOFT_TOKENS` / `CLAUDE_MD_HARD_TOKENS` / `TOTAL_SOFT_TOKENS` env vars. This hook remains a manual, opt-in template (see its own header) - not force-resynced by `install.sh` or tracked by `update.sh`, since it requires per-install customization (workspace path, project slug) that an automatic overwrite would clobber.
+- **`tools/check-pupsik-upstream.sh`** - per-tracked-file drift probe between a pupsik clone and the workspace it's installed into. Different question from `check-update.sh` (clone vs GitHub origin): this asks whether the clone and the workspace already agree file-by-file, and if not, which side has the newer edit - useful after hand-editing a tool locally. For each tracked file, reports "in sync" / "repo ahead" / "workspace ahead" / "diverged" (same mtime, direction unclear) / "clone-only" / "workspace-only", plus a diff-line count. `--json` for scripting. Read-only, no network, no git, always exits 0. Clone-side only, like `check-update.sh` - not installed into the workspace.
+
+### Changed
+
+- **`tools/doctor.py` / `tools/memory_search.py`** - reverse-synced from a workspace copy that had drifted ahead of this clone, with a couple of generic comment tweaks along the way. `doctor.py`'s `check_claude_md_size()` now measures **tokens** (soft ~12k WARN, hard ~20k FAIL) instead of lines, reusing `context_budget.py`'s estimator the same way `claude_md_trim.py` does, and the `orphan_unindexed_recent_notes()` check now reports when a ChromaDB collection itself is unreadable (previously silently skipped) instead of only reporting orphaned documents within a readable collection.
+- **`install.sh` / `tools/update.sh`** - `claude_md_trim.py` added to the smart-merge list, so `update.sh` picks it up alongside the other tracked tools.
 
 Sessions were dying with "Compacted conversation - saved 215k tokens" three times in a row followed by "your context window is full". The instinct is to raise the compaction threshold. That is the wrong lever, and this release ships the measurement that shows why.
 

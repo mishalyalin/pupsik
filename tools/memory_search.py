@@ -121,8 +121,9 @@ def _fresh_collection(client, name: str, metadata: dict):
     That empties SQLite but never compacts the HNSW binaries, so the index keeps
     referencing slots that no longer have rows behind them. The drift compounds
     with every rebuild until the rust loader reads past valid memory and the
-    process dies with SIGSEGV. Dropping the collection drops the segment
-    directory with it, so each rebuild starts from a clean index.
+    process dies with SIGSEGV (both crashes on 1-2 Aug 2026 landed exactly there,
+    in the two collections with the largest drift). Dropping the collection drops
+    the segment directory with it, so each rebuild starts from a clean index.
     """
     try:
         client.delete_collection(name)
@@ -136,7 +137,6 @@ def acquire_lock(force: bool = False) -> bool:
 
     Lock semantics:
       - File at LOCK_PATH (JSON: {pid, started_at}). Exclusive create.
-      - If the holder pid is gone: assume stale, overwrite.
       - If lock exists and is < LOCK_STALE_AFTER_SEC old: refuse.
       - If lock exists and is older than that: assume stale, overwrite.
       - `force=True` always overwrites.
@@ -195,9 +195,9 @@ def release_lock() -> None:
 CHROMA_BATCH = 4000
 
 
-# Directories whose .md files are vendored/generated, not your own knowledge.
-# Indexing them dilutes every semantic search - one checked-in node_modules
-# can dominate a collection and push it past the batch limit above.
+# Directories whose .md files are vendored/generated, not our knowledge.
+# Indexing them dilutes every semantic search (node_modules alone was 40% of
+# the outputs collection and is what pushed it past the chroma batch limit).
 VENDOR_DIR_NAMES = {
     "node_modules", ".pnpm", ".venv", "venv", "site-packages",
     ".git", ".next", ".nuxt", "vendor", ".cache", "__pycache__",

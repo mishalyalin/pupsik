@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-doctor.py - Deterministic health-check + safe-auto-fix for Misha's system.
+doctor.py - Deterministic health-check + safe-auto-fix for the user's system.
 
 Adapted from gbrain (Garry Tan, MIT) `gbrain doctor` / `gbrain orphans` /
 `gbrain repair-jsonb` command suite.
@@ -8,11 +8,11 @@ Adapted from gbrain (Garry Tan, MIT) `gbrain doctor` / `gbrain orphans` /
  License: MIT (verified 2026-05-07 via gh api)
  Adaptation type: adapted
 
-Adapted for Misha's stack:
+Adapted for the user's stack:
  - File-system + ChromaDB + SQLite contacts.db (no Postgres, no JSONB)
  - SAFE auto-fixes ONLY (no LLM-driven content rewrites; per AI Architect
   Lens MODIFY verdict 2026-05-07)
- - Specific checks derived from observed failure modes in Misha's system
+ - Specific checks derived from observed failure modes in the user's system
   (orphan ChromaDB rows, broken symlinks, dead scheduled tasks)
 
 See:
@@ -42,6 +42,19 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Reuse context_budget.py's token estimator instead of duplicating the
+# tiktoken/heuristic logic here - keeps this file and context_budget.py from
+# silently drifting on what a "token" costs. Falls back to an inline copy of
+# the same heuristic in _estimate_tokens() below if context_budget.py isn't
+# importable (e.g. this file copied out of tools/ on its own).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+  from context_budget import estimate_tokens as _cb_estimate_tokens
+  from context_budget import _tiktoken_encoder as _cb_tiktoken_encoder
+except Exception:
+  _cb_estimate_tokens = None
+  _cb_tiktoken_encoder = None
 
 # -----------------------------------------------------------------------------
 # Paths / constants
@@ -90,10 +103,13 @@ PUPSIK_PRIVACY_CHECK = _find_pupsik_privacy_check()
 
 # Defensive limits
 MAX_LINES_TARGET = 200 # MEMORY.md - hard limit of the auto-memory loader
-# CLAUDE.md is a different document with a different budget; sharing the
-# 200-line MEMORY.md target made every healthy workspace warn forever.
-CLAUDE_MD_SOFT_LINES = 450
-CLAUDE_MD_HARD_LINES = 600
+# CLAUDE.md is a different document with a different budget, measured in TOKENS
+# rather than lines - a line cap silently stops meaning anything once a file's
+# average line length drifts (dense prose vs bullet points), and tokens are the
+# thing that actually fills up an LLM's context window. Caps come from the
+# user's own size-discipline rule.
+CLAUDE_MD_SOFT_TOKENS = 12_000
+CLAUDE_MD_HARD_TOKENS = 20_000
 LOCK_STALE_SEC = 3600 # 1 hour
 CHROMA_LOCK_STALE_SEC = 600 # 10 min, matches memory_search.py LOCK_STALE_AFTER_SEC
 
@@ -154,6 +170,31 @@ def _wc_lines(path: Path) -> int:
       return sum(1 for _ in f)
   except OSError:
     return -1
+
+
+def _estimate_tokens(path: Path) -> int:
+  """Token estimate for `path`. Returns -1 if unreadable.
+
+  Delegates to context_budget.py's estimate_tokens()/_tiktoken_encoder()
+  (tiktoken cl100k_base if installed, else a Cyrillic-aware chars-per-token
+  heuristic); falls back to an inline copy of that same heuristic if
+  context_budget.py could not be imported.
+  """
+  try:
+    text = path.read_text(encoding="utf-8", errors="replace")
+  except OSError:
+    return -1
+  if not text:
+    return 0
+  if _cb_estimate_tokens is not None:
+    try:
+      encoder = _cb_tiktoken_encoder() if _cb_tiktoken_encoder else None
+      tokens, _method = _cb_estimate_tokens(text, encoder)
+      return tokens
+    except Exception:
+      pass
+  cyr = sum(1 for c in text if "Ѐ" <= c <= "ӿ") / len(text)
+  return int(len(text) / (2.15 * cyr + 3.7 * (1 - cyr)))
 
 
 def _read_text(path: Path) -> str:
@@ -801,33 +842,36 @@ def check_memory_md_size() -> dict:
 
 
 def check_claude_md_size() -> dict:
-  """7. CLAUDE.md size > 200 lines (target). Report only."""
+  """7. CLAUDE.md size vs the user's size-discipline rule. Report only.
+
+  Token caps: soft ~12k -> WARN, hard ~20k -> FAIL.
+  """
   if not CLAUDE_MD.exists():
     return {
       "status": FAIL,
       "summary": f"CLAUDE.md not found at {CLAUDE_MD}",
       "fixable": False,
     }
-  n = _wc_lines(CLAUDE_MD)
+  n = _estimate_tokens(CLAUDE_MD)
   if n < 0:
     return {"status": FAIL, "summary": "CLAUDE.md unreadable", "fixable": False}
-  if n > CLAUDE_MD_HARD_LINES:
+  if n > CLAUDE_MD_HARD_TOKENS:
     return {
       "status": FAIL,
-      "summary": f"CLAUDE.md is {n} lines (>{CLAUDE_MD_HARD_LINES} hard cap); rewrite pass required",
-      "details": {"path": str(CLAUDE_MD), "lines": n, "limit": CLAUDE_MD_HARD_LINES},
+      "summary": f"CLAUDE.md is ~{n} tokens (>{CLAUDE_MD_HARD_TOKENS} hard cap); rewrite pass required",
+      "details": {"path": str(CLAUDE_MD), "tokens": n, "limit": CLAUDE_MD_HARD_TOKENS},
       "fixable": False,
     }
-  if n > CLAUDE_MD_SOFT_LINES:
+  if n > CLAUDE_MD_SOFT_TOKENS:
     return {
       "status": WARN,
-      "summary": f"CLAUDE.md is {n} lines (>{CLAUDE_MD_SOFT_LINES} soft cap); consider trimming",
-      "details": {"path": str(CLAUDE_MD), "lines": n, "limit": CLAUDE_MD_SOFT_LINES},
+      "summary": f"CLAUDE.md is ~{n} tokens (>{CLAUDE_MD_SOFT_TOKENS} soft cap); consider trimming",
+      "details": {"path": str(CLAUDE_MD), "tokens": n, "limit": CLAUDE_MD_SOFT_TOKENS},
       "fixable": False,
     }
   return {
     "status": PASS,
-    "summary": f"CLAUDE.md size OK ({n} lines)",
+    "summary": f"CLAUDE.md size OK (~{n} tokens)",
     "fixable": False,
   }
 
@@ -1078,14 +1122,17 @@ def orphan_unindexed_recent_notes() -> dict:
 
   # Pull source values from candidate collections.
   sources_seen: set[str] = set()
+  unreadable: list[str] = []
   for coll_name in ("knowledge", "research", "memory_files"):
     try:
       coll = client.get_collection(coll_name)
     except Exception:
+      unreadable.append(coll_name)
       continue
     try:
       data = coll.get(include=["metadatas"])
     except Exception:
+      unreadable.append(coll_name)
       continue
     for meta in data.get("metadatas") or []:
       if not isinstance(meta, dict):
@@ -1095,6 +1142,17 @@ def orphan_unindexed_recent_notes() -> dict:
         sources_seen.add(src)
         # outputs/research store path-style sources; also add basename
         sources_seen.add(Path(src).name)
+
+  if unreadable and not sources_seen:
+    # Every candidate collection failed to open/read AND we got zero sources back -
+    # that's not "nothing indexed", it's "couldn't check", and reporting it as a
+    # FAIL on individual notes would send someone chasing files that are fine.
+    return {
+      "status": FAIL,
+      "summary": f"could not read {len(unreadable)} ChromaDB collection(s): {', '.join(unreadable)}",
+      "details": unreadable,
+      "remediation": "collection HNSW index is likely corrupt; rebuild with `python3 memory_search.py index`",
+    }
 
   missing: list[str] = []
   for p in recent:
@@ -1117,7 +1175,7 @@ def orphan_unindexed_recent_notes() -> dict:
     "summary": f"{len(missing)} recent note(s) not yet indexed",
     "details": missing[:50],
     "total": len(missing),
-    "remediation": "run `python3 ~/Desktop/claude/tools/memory_search.py index`",
+    "remediation": "run `python3 memory_search.py index`",
   }
 
 
@@ -1269,7 +1327,7 @@ def build_parser() -> argparse.ArgumentParser:
   p = argparse.ArgumentParser(
     prog="doctor.py",
     description=(
-      "Deterministic health-check + safe-auto-fix for Misha's system. "
+      "Deterministic health-check + safe-auto-fix for the user's system. "
       "Adapted from gbrain (MIT)."
     ),
   )

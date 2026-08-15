@@ -6,7 +6,7 @@
 #   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks,.claude/compact-state}
 #   3. Copies tools/ → ~/Desktop/claude/tools/
 #      (contacts_db.py, memory_search.py, note.py, doctor.py,
-#       context_budget.py, mcp_profile.py,
+#       context_budget.py, mcp_profile.py, claude_md_trim.py,
 #       enrichment_schema_migrate.py)
 #   4. Renders templates/CLAUDE.md.template → ~/Desktop/claude/CLAUDE.md (prompts for placeholders)
 #   5. Renders templates/wakeup_l0.txt.template → ~/Desktop/claude/memory/wakeup_l0.txt (prompts for placeholders)
@@ -260,6 +260,7 @@ PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rule
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/context_budget.py"          "$WORKSPACE/tools/context_budget.py"          "tools/context_budget.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/mcp_profile.py"             "$WORKSPACE/tools/mcp_profile.py"             "tools/mcp_profile.py"
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/claude_md_trim.py"          "$WORKSPACE/tools/claude_md_trim.py"          "tools/claude_md_trim.py"
 
 # Dashboard module (BRAND-OVERRIDABLE — NOT template-class)
 #
