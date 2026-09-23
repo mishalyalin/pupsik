@@ -40,7 +40,9 @@
 # template are appended under a "## Updates from upstream <date>" header.
 # Your existing file is never replaced.
 #
-# One-time migration (v2026-09, safe to run any number of times):
+# One-time migration (v2026-09, safe to run any number of times) lives in
+# tools/slim_migrate.py and runs from install.sh, so it happens on the first
+# update even when an older copy of this script did the pull:
 #   - backs up ~/.claude/settings.json, then removes PreCompact/PostCompact hook
 #     entries that point at pre-compact.sh / post-compact.sh and the
 #     autoCompactWindow key (plus env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, which
@@ -48,6 +50,9 @@
 #   - moves the retired workspace files (.claude/hooks/{pre,post}-compact.sh,
 #     tools/{context_budget,claude_md_trim,doctor,mcp_profile}.py) into
 #     ~/.claude/pupsik-removed-<date>/ - copied first, then deleted
+#
+# If the pull changes this script, it re-runs the new copy once
+# (PUPSIK_UPDATE_REEXEC=1 guards against loops).
 #
 # What this does NOT touch:
 #   - your CLAUDE.md, contacts.db, memory/learnings/, memory/decisions/,
@@ -87,7 +92,9 @@ VERSION_FILE="$REPO_ROOT/VERSION"
 
 # Capture PRE_VERSION before the pull. Fallback to state file, else "first-run".
 PRE_VERSION="first-run"
-if [ -f "$VERSION_FILE" ]; then
+if [ -n "${PUPSIK_PRE_VERSION:-}" ]; then
+  PRE_VERSION="$PUPSIK_PRE_VERSION"   # set by the re-exec below
+elif [ -f "$VERSION_FILE" ]; then
   PRE_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || echo first-run)"
 elif [ -f "$STATE_FILE" ]; then
   PRE_VERSION="$(cat "$STATE_FILE" 2>/dev/null || echo first-run)"
@@ -113,7 +120,7 @@ git fetch origin --quiet
 
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
-STASHED=0
+STASHED="${PUPSIK_UPDATE_STASHED:-0}"
 HAS_NEW_COMMITS=0
 
 if [ "$LOCAL" != "$REMOTE" ]; then
@@ -162,6 +169,13 @@ if [ "$LOCAL" != "$REMOTE" ]; then
 
   NEW=$(git rev-parse --short HEAD)
   echo "[pupsik] now at $NEW"
+
+  # ---------- Re-run the new update.sh if the pull changed it ----------
+  if [ "${PUPSIK_UPDATE_REEXEC:-0}" != "1" ] && ! git diff --quiet "$LOCAL" HEAD -- tools/update.sh; then
+    echo "[pupsik] update.sh itself changed - re-running the new version..."
+    export PUPSIK_UPDATE_REEXEC=1 PUPSIK_UPDATE_STASHED="$STASHED" PUPSIK_PRE_VERSION="$PRE_VERSION"
+    exec bash "$REPO_ROOT/tools/update.sh" "$@"
+  fi
 else
   # No new commits, but workspace files may still have drifted (style fixes
   # to tools, freshly added scripts, new feedback rules from a previous
@@ -179,93 +193,6 @@ if ! bash "$REPO_ROOT/install.sh" --update-only; then
   echo "[pupsik] WARNING: install.sh --update-only returned non-zero."
   echo "         You may need to re-run 'bash install.sh' manually."
 fi
-
-# ---------- Migration: retire compaction hooks + heavy tooling (v2026-09) ----------
-# Idempotent: when there is nothing left to remove it prints one line and exits.
-python3 - "$HOME" "${CLAUDE_WORKSPACE:-$HOME/Desktop/claude}" <<'MIGEOF' || echo "[pupsik] WARNING: slim migration hit an error - nothing else was changed after it."
-import json, os, shutil, sys, datetime
-home, ws = sys.argv[1], sys.argv[2]
-today = datetime.date.today().isoformat()
-backup_dir = os.path.join(home, ".claude", "pupsik-removed-" + today)
-done = []
-
-settings = os.path.join(home, ".claude", "settings.json")
-if os.path.isfile(settings):
-    try:
-        with open(settings, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, ValueError) as e:
-        data = None
-        print(f"[pupsik] migration: could not parse {settings} ({e}) - left it alone")
-    if isinstance(data, dict):
-        changed = False
-        hooks = data.get("hooks")
-        if isinstance(hooks, dict):
-            for event in ("PreCompact", "PostCompact"):
-                groups = hooks.get(event)
-                if not isinstance(groups, list):
-                    continue
-                kept_groups = []
-                for g in groups:
-                    inner = g.get("hooks") if isinstance(g, dict) else None
-                    if isinstance(inner, list):
-                        kept = [h for h in inner if not (isinstance(h, dict) and any(n in str(h.get("command", "")) for n in ("pre-compact.sh", "post-compact.sh")))]
-                        if len(kept) != len(inner):
-                            changed = True
-                            done.append(f"removed {len(inner) - len(kept)} {event} hook(s) from settings.json")
-                        if kept:
-                            g = dict(g, hooks=kept)
-                            kept_groups.append(g)
-                    else:
-                        kept_groups.append(g)
-                if kept_groups:
-                    hooks[event] = kept_groups
-                elif event in hooks:
-                    del hooks[event]
-                    changed = True
-            if not hooks:
-                del data["hooks"]
-        if "autoCompactWindow" in data:
-            del data["autoCompactWindow"]
-            changed = True
-            done.append("removed autoCompactWindow from settings.json")
-        env = data.get("env")
-        if isinstance(env, dict) and "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" in env:
-            del env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"]
-            if not env:
-                del data["env"]
-            changed = True
-            done.append("removed env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE from settings.json")
-        if changed:
-            os.makedirs(backup_dir, exist_ok=True)
-            shutil.copy2(settings, os.path.join(backup_dir, "settings.json.bak"))
-            tmp = settings + ".pupsik-tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-                f.write("\n")
-            os.replace(tmp, settings)
-            done.insert(0, f"backed up settings.json to {backup_dir}/settings.json.bak")
-
-retired = [".claude/hooks/pre-compact.sh", ".claude/hooks/post-compact.sh",
-           "tools/context_budget.py", "tools/claude_md_trim.py",
-           "tools/doctor.py", "tools/mcp_profile.py"]
-for rel in retired:
-    src = os.path.join(ws, rel)
-    if not os.path.isfile(src):
-        continue
-    dst = os.path.join(backup_dir, rel)
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    shutil.copy2(src, dst)
-    os.remove(src)
-    done.append(f"moved {rel} to {dst}")
-
-if done:
-    print("[pupsik] slim migration (v2026-09):")
-    for line in done:
-        print("  - " + line)
-else:
-    print("[pupsik] slim migration (v2026-09): nothing to do")
-MIGEOF
 
 # ---------- Restore stash if we stashed ----------
 if [ "$STASHED" = "1" ]; then

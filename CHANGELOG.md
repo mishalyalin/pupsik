@@ -27,12 +27,19 @@ Current models handle compaction, context budgets and a lot of process disciplin
 - **`tools/check-pupsik-upstream.sh`**, `.github/scripts/privacy-check.sh` - removed names dropped from their file lists.
 - README, HOW_IT_WORKS, MODULAR, UPGRADING, SETUP_PROMPT, MARKETING, dashboard README, attributions - references to removed files cleaned up.
 
-### Migration (runs inside `tools/update.sh`, safe to run twice)
+### Added
 
-- Backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` before changing it.
+- **`tools/slim_migrate.py`** - the one-time migration below. Clone-side only, called from `install.sh --update-only`.
+
+### Migration (runs on the first `tools/update.sh`, safe to run twice)
+
+- Runs from `install.sh --update-only`, which every `update.sh` (old or new) calls after the pull - so it happens on the first update, even when an older `update.sh` is the one running. `update.sh` also re-runs itself once when the pull changed it (guarded by `PUPSIK_UPDATE_REEXEC=1`, no loop), so later changes to the script take effect straight away.
+- Backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` before changing it. A second backup on the same day gets `.bak.1`, `.bak.2` - an earlier backup is never overwritten.
+- If `settings.json` is a symlink, the target file is edited in place: the link stays, and the file mode is kept.
 - Removes PreCompact / PostCompact hook entries whose command points at `pre-compact.sh` / `post-compact.sh` (your own hooks in those events stay), drops `autoCompactWindow`, and drops `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
 - Copies the retired workspace files (`.claude/hooks/pre-compact.sh`, `.claude/hooks/post-compact.sh`, `tools/context_budget.py`, `tools/claude_md_trim.py`, `tools/doctor.py`, `tools/mcp_profile.py`) into `~/.claude/pupsik-removed-<date>/`, then deletes them.
 - Prints what it did, or "nothing to do" on a second run.
+- **Session hook:** `install.sh` replaces `<workspace>/.claude/hooks/session-start-reminder.sh` only if it is a pupsik-shipped one (it has the `# session-start-reminder.sh` or `# SessionStart hook` header line), keeping a `.bak` copy. A hook without that header is treated as yours and left alone, with a note pointing at the new pupsik version.
 - Not touched: `~/.claude/rules/critical-rules.md` is merged append-only, so old pointer lines stay until you prune them by hand.
 
 ## [2026-08-15] - CLAUDE.md rotation, a start-load budget guard for the generic hook, and a workspace/clone drift probe

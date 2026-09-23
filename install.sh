@@ -488,10 +488,21 @@ else
   warn "  $RULES_SRC missing, skipping"
 fi
 
+# ---------- Step 6.9: one-time slim migration (v2026-09, idempotent) ----------
+# Runs here, not only in update.sh, so an older update.sh that pulled this
+# release still triggers it on the first run.
+python3 "$SCRIPT_DIR/tools/slim_migrate.py" "$HOME" "$WORKSPACE" || warn "  slim migration hit an error - see message above"
+
 # ---------- Step 7: SessionStart hook (template-class) ----------
-# Hooks are scripts, not user config → force-resync on drift.
+# Pupsik-shipped hook → force-resync on drift (a .bak is kept). A hook you wrote
+# yourself (no pupsik header line) is left alone.
 say "Installing SessionStart hook..."
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/session-start-reminder.sh" "$WORKSPACE/.claude/hooks/session-start-reminder.sh" "hooks/session-start-reminder.sh"
+HOOK_TARGET="$WORKSPACE/.claude/hooks/session-start-reminder.sh"
+if [ -f "$HOOK_TARGET" ] && ! grep -qE '^# (SessionStart hook|session-start-reminder\.sh)' "$HOOK_TARGET"; then
+  warn "  $HOOK_TARGET looks custom (no pupsik header) - left it alone. The pupsik version is at $SCRIPT_DIR/hooks/session-start-reminder.sh"
+else
+  PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/session-start-reminder.sh" "$HOOK_TARGET" "hooks/session-start-reminder.sh"
+fi
 
 # ---------- Step 8: print settings.json hook snippet ----------
 if [ "$UPDATE_ONLY" = "1" ]; then

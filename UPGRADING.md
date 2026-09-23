@@ -108,10 +108,11 @@ If you're already on Phase-2 baseline, the steps below get you current with each
 
 ### 2026-09-23 release: slimmed for Claude 5-era models
 
-Nothing to do by hand - `bash tools/update.sh` runs a one-time cleanup. It:
+Nothing to do by hand - `bash tools/update.sh` runs a one-time cleanup, on the first run, even if your copy of `update.sh` is older than this release. It:
 
-- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak`, then removes the PreCompact / PostCompact hook entries that point at `pre-compact.sh` / `post-compact.sh`, the `autoCompactWindow` key and the `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` env var. Your own hooks and settings stay.
+- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` (a second backup the same day gets `.bak.1`), then removes the PreCompact / PostCompact hook entries that point at `pre-compact.sh` / `post-compact.sh`, the `autoCompactWindow` key and the `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` env var. Your own hooks and settings stay. If `settings.json` is a symlink, the file it points to is edited and the link stays.
 - moves the retired files out of your workspace into `~/.claude/pupsik-removed-<date>/` (the two compact hooks, `context_budget.py`, `claude_md_trim.py`, `doctor.py`, `mcp_profile.py`).
+- replaces `.claude/hooks/session-start-reminder.sh` only if it is the pupsik one (keeps a `.bak`). If you wrote your own, it is left alone and you get a note.
 - prints what it did. Running it again prints "nothing to do".
 
 Your `~/.claude/rules/critical-rules.md` merge is append-only, so old pointer lines (2-agent, compact, doctor, architect) stay until you delete them. Compare with `templates/critical-rules.md.template` and prune by hand if you want the short version.

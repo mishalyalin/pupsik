@@ -13,7 +13,7 @@ A daily synthesis of what matters **today**.
 2. **Calendar (all {{N_CAL_ACCOUNTS}} accounts)** — today + tomorrow. Use `gcal_list_all_events`.
 3. **WhatsApp DMs + business groups** — last 24h. Use `whatsapp_list_chats` then `whatsapp_messages_with` for each active chat.
 4. **Wake-up context** — `python3 ~/Desktop/claude/tools/memory_search.py wake-up`
-5. **Active TODOs** — check `TASKS.md` if present.
+5. **Active TODOs** - check `TASKS.md` if present.
 6. **Stale contacts** — `python3 ~/Desktop/claude/tools/contacts_db.py stale 7`
 
 ## Output format (3-lens)

@@ -1,8 +1,8 @@
-# CLAUDE.md — Working Memory for {{OWNER_FIRST_NAME}}
+# CLAUDE.md - Working Memory for {{OWNER_FIRST_NAME}}
 
 ## Session Start Protocol
 1. Read this file first
-2. Run `python3 ~/Desktop/claude/tools/memory_search.py wake-up` — ~200 tokens of fresh context (recent interactions, active projects, stale contacts)
+2. Run `python3 ~/Desktop/claude/tools/memory_search.py wake-up` - ~200 tokens of fresh context (recent interactions, active projects, stale contacts)
 3. Based on user's message, detect goal and load relevant memory files
 4. See `skills/second-brain/SKILL.md` (if installed) for full retrieval logic
 
@@ -53,10 +53,10 @@ python3 ~/Desktop/claude/tools/contacts_db.py sql \
 
 <!-- Fill in the user's active projects here. One per line or a short paragraph each.
      Example:
-     1. **Project X** — brief status. Next step: ...
-     2. **Project Y** — brief status. Blocker: ...
+     1. **Project X** - brief status. Next step: ...
+     2. **Project Y** - brief status. Blocker: ...
 -->
-1. _(pending — update on first session)_
+1. _(pending - update on first session)_
 
 ---
 
@@ -83,15 +83,15 @@ Full reference: `memory/tools_connected.md` (if present).
 
 ## Memory System
 
-- `memory/people/` — contact profiles
-- `memory/decisions/` — key decisions
-- `memory/learnings/` — lessons learned
-- `memory/projects/` — project-specific context
-- `memory/style/` — writing voice
-- `memory/journal/` — personal notes
-- `memory/feedback_*.md` — full context for each rule in critical-rules.md
+- `memory/people/` - contact profiles
+- `memory/decisions/` - key decisions
+- `memory/learnings/` - lessons learned
+- `memory/projects/` - project-specific context
+- `memory/style/` - writing voice
+- `memory/journal/` - personal notes
+- `memory/feedback_*.md` - full context for each rule in critical-rules.md
 
 ---
 
 ## Last Updated
-{{TODAY}} — initial setup from `setup-package/`.
+{{TODAY}} - initial setup from `setup-package/`.

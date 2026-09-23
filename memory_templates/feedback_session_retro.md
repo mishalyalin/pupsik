@@ -15,7 +15,7 @@ At the end of any non-trivial Claude Code session (>30 min of work OR shipped a 
 - **What surprised me?** (assumptions that broke, tools that worked unexpectedly, contradictions)
 - **What should be encoded for next time?** (new feedback rule, decision note, learning note)
 
-Then ACT on the retro: capture via `note.py learning|decision|research` for each item that scored "yes, this matters 3 weeks from now". Don't ask the user "should I capture this?" — `feedback_capture_knowledge.md` already covers that (default = capture).
+Then ACT on the retro: capture via `note.py learning|decision|research` for each item that scored "yes, this matters 3 weeks from now". Don't ask the user "should I capture this?" - `feedback_capture_knowledge.md` already covers that (default = capture).
 
 ## Why this is separate from `feedback_capture_knowledge.md`
 
@@ -34,7 +34,7 @@ Triggers:
 
 1. The user signals close ("ok done" / "that's enough" / explicit "close session")
 2. Claude is about to send the final summary message
-3. The compact threshold is about to hit (~50% of context per `feedback_default_workspace.md`) — last chance to capture before summary loses fidelity
+3. The conversation has run long and older detail is starting to blur - last chance to capture while it is still sharp
 4. A natural boundary (PR merged, decision made, problem solved, runbook delivered)
 
 ## Format of the retro
@@ -56,7 +56,7 @@ Inline, 30-60 seconds. Three bullets max under each header:
 - Update existing: <file + what changes>
 ```
 
-Then fire the appropriate `note.py` calls + propose feedback rule. Don't just write the retro — execute on it.
+Then fire the appropriate `note.py` calls + propose feedback rule. Don't just write the retro - execute on it.
 
 ## Why this matters
 
@@ -64,4 +64,4 @@ The recurring pattern this rule closes: end-of-session summaries are great story
 
 ## Source
 
-r/ClaudeAI viral "11 things I wish someone had told me about Claude Code" thread (Apr 2026) + marmelab mirror — "Tip 9: Ask Claude what it learned and write to CLAUDE.md".
+r/ClaudeAI viral "11 things I wish someone had told me about Claude Code" thread (Apr 2026) + marmelab mirror - "Tip 9: Ask Claude what it learned and write to CLAUDE.md".
