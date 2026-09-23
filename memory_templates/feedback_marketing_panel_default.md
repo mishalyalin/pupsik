@@ -100,12 +100,11 @@ If no Brand OS is configured:
 
 Do NOT skip a lens because "this is small". Microcopy is where the cocktail matters most.
 
-Do NOT auto-apply panel output before approval (departure from `feedback_architect_auto_apply.md` because customer-facing copy is externally visible and irreversible-by-reputation; architect-lens internal changes are a different risk class).
+Do NOT auto-apply panel output before approval - customer-facing copy is externally visible and irreversible-by-reputation.
 
 ## Sister rules
 
 - `feedback_email_nstd.md` - outbound emails apply Voss by default + annotated. Same Brand-OS-or-inline split.
 - `feedback_verify_dont_imagine_external_brand.md` - direct-evidence-only for external brand claims. Panels must comply.
 - `feedback_check_model_first.md` - numbers must come from the model, not imagination. Panels must comply for any economic / pricing claim.
-- `feedback_architect_auto_apply.md` - architect proposals auto-apply same-turn. Marketing panel proposals do NOT auto-apply; they get reviewed by the user first.
 - `feedback_never_imagine_always_verify.md` - the parent rule for the whole verify-everything stance.

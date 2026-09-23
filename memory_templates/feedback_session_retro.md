@@ -1,6 +1,6 @@
 ---
 name: End-of-session retro
-description: Before context dies at session end, run a 2-minute retro to capture what was learned. Then act on it (note.py + propose feedback rules + architect entries).
+description: Before context dies at session end, run a 2-minute retro to capture what was learned. Then act on it (note.py + propose feedback rules).
 type: feedback
 source: original
 ---
@@ -13,7 +13,7 @@ At the end of any non-trivial Claude Code session (>30 min of work OR shipped a 
 
 - **What did I learn this session?** (technical insights, gotchas, false starts)
 - **What surprised me?** (assumptions that broke, tools that worked unexpectedly, contradictions)
-- **What should be encoded for next time?** (new feedback rule, decision note, learning note, architect proposal)
+- **What should be encoded for next time?** (new feedback rule, decision note, learning note)
 
 Then ACT on the retro: capture via `note.py learning|decision|research` for each item that scored "yes, this matters 3 weeks from now". Don't ask the user "should I capture this?" — `feedback_capture_knowledge.md` already covers that (default = capture).
 
@@ -54,10 +54,9 @@ Inline, 30-60 seconds. Three bullets max under each header:
 **Encode:**
 - New feedback rule: <one-line description>
 - Update existing: <file + what changes>
-- Architect proposal: <one-line description>
 ```
 
-Then fire the appropriate `note.py` calls + propose feedback rule + propose architect entry. Don't just write the retro — execute on it.
+Then fire the appropriate `note.py` calls + propose feedback rule. Don't just write the retro — execute on it.
 
 ## Why this matters
 

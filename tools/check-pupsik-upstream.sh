@@ -18,8 +18,7 @@
 # WORKSPACE resolution: CLAUDE_WORKSPACE or WORKSPACE env var, else
 # ~/Desktop/claude.
 #
-# Tracked files: the same list install.sh smart-merges (tools/*.py + the two
-# compact hooks), read from THIS script's own TRACKED_TOOLS array below - not
+# Tracked files: the same list install.sh smart-merges (tools/*.py), read from THIS script's own TRACKED_TOOLS array below - not
 # parsed out of install.sh, so keep the two lists in sync by hand if the
 # tracked set changes.
 #
@@ -83,36 +82,24 @@ if [ -z "$CLONE_PATH" ]; then
   exit 0
 fi
 
-# Same tracked-tool set update.sh's header comment documents (tools/*.py) plus
-# the two compact hooks it smart-merges. Keep in sync with install.sh by hand.
+# Same tracked-tool set update.sh's header comment documents (tools/*.py).
+# Keep in sync with install.sh by hand.
 TRACKED_TOOLS=(
   "tools/contacts_db.py"
   "tools/memory_search.py"
   "tools/note.py"
-  "tools/doctor.py"
   "tools/enrichment_schema_migrate.py"
   "tools/now.py"
   "tools/note_graph.py"
   "tools/note_graph_schema.py"
   "tools/rules.py"
   "tools/brand_os.py"
-  "tools/context_budget.py"
-  "tools/mcp_profile.py"
-  "tools/claude_md_trim.py"
-  ".claude/hooks/pre-compact.sh"
-  ".claude/hooks/post-compact.sh"
 )
 
-# install.sh installs hooks/{pre,post}-compact.sh (clone-relative path
-# "hooks/...") into $WORKSPACE/.claude/hooks/{pre,post}-compact.sh (workspace-
-# relative path ".claude/hooks/..."). Every other tracked file keeps the same
-# relative path on both sides. This map covers that one exception.
+# Every tracked file keeps the same relative path in the clone and the
+# workspace. Kept as a function so a future exception has one place to go.
 clone_rel_path() {
-  case "$1" in
-    .claude/hooks/pre-compact.sh)  echo "hooks/pre-compact.sh" ;;
-    .claude/hooks/post-compact.sh) echo "hooks/post-compact.sh" ;;
-    *)                              echo "$1" ;;
-  esac
+  echo "$1"
 }
 
 mtime_of() {

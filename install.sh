@@ -3,17 +3,16 @@
 #
 # What this does:
 #   1. Checks dependencies (Python 3.10+, Node 18+, claude CLI)
-#   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks,.claude/compact-state}
+#   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks}
 #   3. Copies tools/ → ~/Desktop/claude/tools/
-#      (contacts_db.py, memory_search.py, note.py, doctor.py,
-#       context_budget.py, mcp_profile.py, claude_md_trim.py,
-#       enrichment_schema_migrate.py)
+#      (contacts_db.py, memory_search.py, note.py, now.py, rules.py,
+#       note_graph*.py, brand_os.py, enrichment_schema_migrate.py)
 #   4. Renders templates/CLAUDE.md.template → ~/Desktop/claude/CLAUDE.md (prompts for placeholders)
 #   5. Renders templates/wakeup_l0.txt.template → ~/Desktop/claude/memory/wakeup_l0.txt (prompts for placeholders)
 #   6. Copies memory_templates/feedback_*.md → project memory dir
 #   6.5 Installs critical-rules.md to ~/.claude/rules/ (auto-loaded each session)
-#   7. Installs compact hooks (pre/post) to ~/Desktop/claude/.claude/hooks/
-#   8. Prints JSON snippet to add to ~/.claude/settings.json to register the hooks
+#   7. Installs the SessionStart hook to ~/Desktop/claude/.claude/hooks/
+#   8. Prints JSON snippet to add to ~/.claude/settings.json to register the hook
 #   9. Installs Python deps (chromadb) via pip
 #  10. Initializes the contacts DB
 #
@@ -236,7 +235,7 @@ fi
 
 # ---------- Step 2: create workspace ----------
 say "Creating workspace at $WORKSPACE..."
-mkdir -p "$WORKSPACE"/{tools,data,outputs,memory,.claude/hooks,.claude/compact-state}
+mkdir -p "$WORKSPACE"/{tools,data,outputs,memory,.claude/hooks}
 # Phase 1/2 dirs for the 9-collection ChromaDB indexer + note.py captures
 mkdir -p "$WORKSPACE"/memory/{learnings,decisions,journal,people,projects}
 mkdir -p "$WORKSPACE"/{briefings,research}
@@ -251,16 +250,12 @@ say "Copying tools..."
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"             "$WORKSPACE/tools/contacts_db.py"             "tools/contacts_db.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py"           "$WORKSPACE/tools/memory_search.py"           "tools/memory_search.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/doctor.py"                  "$WORKSPACE/tools/doctor.py"                  "tools/doctor.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/context_budget.py"          "$WORKSPACE/tools/context_budget.py"          "tools/context_budget.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/mcp_profile.py"             "$WORKSPACE/tools/mcp_profile.py"             "tools/mcp_profile.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/claude_md_trim.py"          "$WORKSPACE/tools/claude_md_trim.py"          "tools/claude_md_trim.py"
 
 # Dashboard module (BRAND-OVERRIDABLE — NOT template-class)
 #
@@ -402,23 +397,6 @@ for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
   smart_merge_file "$f" "$target" "$name"
 done
 
-# ---------- Step 6.1: architect proposals backlog (bootstrap) ----------
-# The backlog directory lives under the WORKSPACE memory dir (it's data the
-# user accumulates over time), not the per-project Claude Code memory dir.
-# We bootstrap _PROTOCOL.md (schema) every run, and latest.md only on first
-# install — never overwrite the user's accumulated backlog.
-say "Bootstrapping architect proposals backlog..."
-ARCH_DIR="$WORKSPACE/memory/architect_proposals"
-mkdir -p "$ARCH_DIR/archive"
-# _PROTOCOL.md is schema, not user config → force-resync on drift.
-PUPSIK_FORCE_RESYNC=1 smart_merge_file "$SCRIPT_DIR/memory_templates/architect_proposals/_PROTOCOL.md" "$ARCH_DIR/_PROTOCOL.md" "architect_proposals/_PROTOCOL.md"
-if [ ! -f "$ARCH_DIR/latest.md" ]; then
-  cp "$SCRIPT_DIR/memory_templates/architect_proposals/latest.md" "$ARCH_DIR/latest.md"
-  say "  new: architect_proposals/latest.md (empty bootstrap)"
-else
-  say "  architect_proposals/latest.md: kept (your accumulated backlog)"
-fi
-
 # ---------- Step 6.2: world_knowledge + user_context (bootstrap) ----------
 # Two ChromaDB knowledge sub-collections cherry-picked from obra/superpowers
 # private-journal-mcp (Jesse Vincent, MIT). Each directory lives under the
@@ -510,75 +488,35 @@ else
   warn "  $RULES_SRC missing, skipping"
 fi
 
-# ---------- Step 7: compact hooks (template-class) ----------
+# ---------- Step 7: SessionStart hook (template-class) ----------
 # Hooks are scripts, not user config → force-resync on drift.
-say "Installing compact hooks..."
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/pre-compact.sh"  "$WORKSPACE/.claude/hooks/pre-compact.sh"  "hooks/pre-compact.sh"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/post-compact.sh" "$WORKSPACE/.claude/hooks/post-compact.sh" "hooks/post-compact.sh"
+say "Installing SessionStart hook..."
+PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/hooks/session-start-reminder.sh" "$WORKSPACE/.claude/hooks/session-start-reminder.sh" "hooks/session-start-reminder.sh"
 
 # ---------- Step 8: print settings.json hook snippet ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
-  say "  --update-only: hooks refreshed (you've already registered them in settings.json)."
+  say "  --update-only: hook refreshed (register it in settings.json once, if you haven't)."
 else
 cat <<EOF
 
 ===============================================================================
- Settings.json snippet (compact hooks + recommended default mode)
+ Settings.json snippet (SessionStart hook + recommended default mode)
 ===============================================================================
 
 Add the following to \$HOME/.claude/settings.json (inside the top-level object,
-merging with any existing "permissions" / "hooks" sections). Replace <HOME>
-with: $HOME
+merging with any existing "permissions" / "hooks" sections):
 
 {
-  "model": "claude-opus-4-7",
   "permissions": {
     "defaultMode": "auto"
   },
-  "env": {
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50"
-  },
   "hooks": {
-    "PreCompact": [
+    "SessionStart": [
       {
-        "matcher": "auto",
         "hooks": [
           {
             "type": "command",
-            "command": "$WORKSPACE/.claude/hooks/pre-compact.sh",
-            "timeout": 10,
-            "statusMessage": "Saving session state before auto-compact..."
-          }
-        ]
-      },
-      {
-        "matcher": "manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$WORKSPACE/.claude/hooks/pre-compact.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "matcher": "auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$WORKSPACE/.claude/hooks/post-compact.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$WORKSPACE/.claude/hooks/post-compact.sh",
+            "command": "$WORKSPACE/.claude/hooks/session-start-reminder.sh",
             "timeout": 10
           }
         ]
@@ -587,23 +525,9 @@ with: $HOME
   }
 }
 
-The "defaultMode": "auto" line is the recommended default - it auto-accepts
-safe operations (read, search, plan) and prompts on writes/shell/risky calls.
-The "model" pin is set to the most capable Claude model at release time
-(claude-opus-4-7); update it when a newer Opus ships, or replace with the
-"opus" alias if your Claude Code build resolves it to the latest.
-
-The "env" block sets CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50, which lowers the
-auto-compact threshold from the default (~95%) to 50% of context. Compacting
-earlier means the PreCompact hook fires on a smaller, fresher window - state
-snapshots are cleaner and the post-compact summary has more headroom to
-preserve. Tune up (60-70) if you want fewer compacts, down (40) if you want
-state captured more aggressively. Removing the env block reverts to the
-built-in heuristic.
-
-See feedback_default_workspace.md for the full rationale and alternatives.
-
-See docs/COMPACT_SETUP.md for step-by-step merging guidance.
+The hook injects the current date/time/timezone at the start of every session,
+plus any rule changes you logged in ~/.claude/RECENT-RULE-CHANGES.md in the
+last 14 days. Compaction is left to Claude Code's built-in behaviour.
 ===============================================================================
 
 EOF
@@ -704,7 +628,7 @@ NON_DEFAULT_NOTE=""
 if [ "$WORKSPACE" != "$DEFAULT_WORKSPACE" ]; then
   NON_DEFAULT_NOTE=$(cat <<NOTE
 
-  0. You installed to a non-default workspace ($WORKSPACE). The compact hooks
+  0. You installed to a non-default workspace ($WORKSPACE). Some tools
      read the CLAUDE_WORKSPACE env var to find your workspace. Add this to
      your shell profile (~/.zshrc or ~/.bashrc) BEFORE starting Claude Code:
 
@@ -725,8 +649,8 @@ cat <<EOF
 
 Next steps:
 $NON_DEFAULT_NOTE
-  1. Register the compact hooks in ~/.claude/settings.json — see the JSON
-     snippet printed above, and docs/COMPACT_SETUP.md for merging guidance.
+  1. Register the SessionStart hook in ~/.claude/settings.json - see the JSON
+     snippet printed above.
 
   2. Build the MCP servers:
         bash $SCRIPT_DIR/install_mcps.sh $WORKSPACE
@@ -742,8 +666,8 @@ $NON_DEFAULT_NOTE
      projects section, etc.)
 
   7. Start a fresh Claude Code session in $WORKSPACE and verify the
-     2-agent rule is loaded:
-        > What's your 2-agent rule?
+     rules are loaded:
+        > What are my critical rules?
 
   Knowledge capture (Phase 1 + Phase 2)
   -------------------------------------

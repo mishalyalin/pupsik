@@ -14,12 +14,11 @@
 # no-drift path is fast + silent.
 #
 # What this DOES touch (smart-merge - never clobbers your edits):
-#   - tools/{contacts_db,memory_search,note,doctor,
+#   - tools/{contacts_db,memory_search,note,
 #            enrichment_schema_migrate,now,note_graph,
-#            note_graph_schema,rules,brand_os,
-#            context_budget,mcp_profile,claude_md_trim}.py
+#            note_graph_schema,rules,brand_os}.py
 #                                                 in ~/Desktop/claude/tools/
-#   - hooks/{pre,post}-compact.sh                 in ~/Desktop/claude/.claude/hooks/
+#   - hooks/session-start-reminder.sh             in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
 #   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
 #
@@ -40,6 +39,15 @@
 # critical-rules.md is append-only: new rule references from the upstream
 # template are appended under a "## Updates from upstream <date>" header.
 # Your existing file is never replaced.
+#
+# One-time migration (v2026-09, safe to run any number of times):
+#   - backs up ~/.claude/settings.json, then removes PreCompact/PostCompact hook
+#     entries that point at pre-compact.sh / post-compact.sh and the
+#     autoCompactWindow key (plus env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, which
+#     older install.sh snippets added)
+#   - moves the retired workspace files (.claude/hooks/{pre,post}-compact.sh,
+#     tools/{context_budget,claude_md_trim,doctor,mcp_profile}.py) into
+#     ~/.claude/pupsik-removed-<date>/ - copied first, then deleted
 #
 # What this does NOT touch:
 #   - your CLAUDE.md, contacts.db, memory/learnings/, memory/decisions/,
@@ -171,6 +179,93 @@ if ! bash "$REPO_ROOT/install.sh" --update-only; then
   echo "[pupsik] WARNING: install.sh --update-only returned non-zero."
   echo "         You may need to re-run 'bash install.sh' manually."
 fi
+
+# ---------- Migration: retire compaction hooks + heavy tooling (v2026-09) ----------
+# Idempotent: when there is nothing left to remove it prints one line and exits.
+python3 - "$HOME" "${CLAUDE_WORKSPACE:-$HOME/Desktop/claude}" <<'MIGEOF' || echo "[pupsik] WARNING: slim migration hit an error - nothing else was changed after it."
+import json, os, shutil, sys, datetime
+home, ws = sys.argv[1], sys.argv[2]
+today = datetime.date.today().isoformat()
+backup_dir = os.path.join(home, ".claude", "pupsik-removed-" + today)
+done = []
+
+settings = os.path.join(home, ".claude", "settings.json")
+if os.path.isfile(settings):
+    try:
+        with open(settings, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        data = None
+        print(f"[pupsik] migration: could not parse {settings} ({e}) - left it alone")
+    if isinstance(data, dict):
+        changed = False
+        hooks = data.get("hooks")
+        if isinstance(hooks, dict):
+            for event in ("PreCompact", "PostCompact"):
+                groups = hooks.get(event)
+                if not isinstance(groups, list):
+                    continue
+                kept_groups = []
+                for g in groups:
+                    inner = g.get("hooks") if isinstance(g, dict) else None
+                    if isinstance(inner, list):
+                        kept = [h for h in inner if not (isinstance(h, dict) and any(n in str(h.get("command", "")) for n in ("pre-compact.sh", "post-compact.sh")))]
+                        if len(kept) != len(inner):
+                            changed = True
+                            done.append(f"removed {len(inner) - len(kept)} {event} hook(s) from settings.json")
+                        if kept:
+                            g = dict(g, hooks=kept)
+                            kept_groups.append(g)
+                    else:
+                        kept_groups.append(g)
+                if kept_groups:
+                    hooks[event] = kept_groups
+                elif event in hooks:
+                    del hooks[event]
+                    changed = True
+            if not hooks:
+                del data["hooks"]
+        if "autoCompactWindow" in data:
+            del data["autoCompactWindow"]
+            changed = True
+            done.append("removed autoCompactWindow from settings.json")
+        env = data.get("env")
+        if isinstance(env, dict) and "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" in env:
+            del env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"]
+            if not env:
+                del data["env"]
+            changed = True
+            done.append("removed env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE from settings.json")
+        if changed:
+            os.makedirs(backup_dir, exist_ok=True)
+            shutil.copy2(settings, os.path.join(backup_dir, "settings.json.bak"))
+            tmp = settings + ".pupsik-tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+                f.write("\n")
+            os.replace(tmp, settings)
+            done.insert(0, f"backed up settings.json to {backup_dir}/settings.json.bak")
+
+retired = [".claude/hooks/pre-compact.sh", ".claude/hooks/post-compact.sh",
+           "tools/context_budget.py", "tools/claude_md_trim.py",
+           "tools/doctor.py", "tools/mcp_profile.py"]
+for rel in retired:
+    src = os.path.join(ws, rel)
+    if not os.path.isfile(src):
+        continue
+    dst = os.path.join(backup_dir, rel)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy2(src, dst)
+    os.remove(src)
+    done.append(f"moved {rel} to {dst}")
+
+if done:
+    print("[pupsik] slim migration (v2026-09):")
+    for line in done:
+        print("  - " + line)
+else:
+    print("[pupsik] slim migration (v2026-09): nothing to do")
+MIGEOF
 
 # ---------- Restore stash if we stashed ----------
 if [ "$STASHED" = "1" ]; then

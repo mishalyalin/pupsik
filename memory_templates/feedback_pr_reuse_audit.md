@@ -50,9 +50,8 @@ If any of these surface a hit, decide CONSOLIDATE vs JUSTIFY vs REJECT before op
 
 ## Connection to other rules
 
-- `feedback_always_two_agents.md` — the Checker agent enforces this audit before the Worker's PR opens
+- `feedback_always_two_agents.md` — the one checker on a PR confirms this audit was done
 - `feedback_ci_red_is_hard_stop.md` — if reuse-audit becomes a CI check (future), red = blocked
-- `feedback_junior_engineer_plan_test.md` — a PR plan that doesn't include the reuse-audit step doesn't pass the junior-engineer test
 
 ## Source
 

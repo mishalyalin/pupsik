@@ -64,19 +64,19 @@ Each component below has: what it does, what files it is, what it depends on, wh
   python3 ~/Desktop/claude/tools/memory_search.py index
   ```
 
-### e) Compact hooks
+### e) SessionStart hook
 
-- **What it does:** `pre-compact.sh` saves session state (active TODOs, last user message, key files modified, decisions) to disk before Claude's context gets compressed. `post-compact.sh` reminds Claude to restore that state on the next turn. Net effect: you don't lose the plot at compact boundaries.
-- **Files:** `hooks/pre-compact.sh`, `hooks/post-compact.sh`. Plain shell scripts.
-- **Depends on:** Nothing. Bash and standard Unix tools.
-- **Doesn't depend on:** Python tools, MCP, SQLite, ChromaDB.
+- **What it does:** `session-start-reminder.sh` injects the current date and time (from `tools/now.py`, falling back to `date`) plus any lines in `~/.claude/RECENT-RULE-CHANGES.md` dated in the last 14 days. About 15 lines of shell.
+- **Files:** `hooks/session-start-reminder.sh`.
+- **Depends on:** Bash and python3. `tools/now.py` is optional.
+- **Doesn't depend on:** MCP, SQLite, ChromaDB.
 - **Install:**
 
   ```bash
   mkdir -p ~/Desktop/claude/.claude/hooks
-  cp pupsik/hooks/{pre-compact,post-compact}.sh ~/Desktop/claude/.claude/hooks/
-  chmod +x ~/Desktop/claude/.claude/hooks/*.sh
-  # then register them in ~/.claude/settings.json (see hooks/README in the package for the JSON snippet)
+  cp pupsik/hooks/session-start-reminder.sh ~/Desktop/claude/.claude/hooks/
+  chmod +x ~/Desktop/claude/.claude/hooks/session-start-reminder.sh
+  # then register it as a SessionStart hook in ~/.claude/settings.json (install.sh prints the snippet)
   ```
 
 ### f) MCP servers
@@ -107,25 +107,7 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
   Full walkthrough + security model: `mcp-servers/telegram-readonly/README.md`.
 
-### g) Health diagnostics + friction capture
-
-- **What it does:** Two complementary modules for keeping the system healthy. `tools/doctor.py` runs 14 deterministic checks across the workspace (broken symlinks, stale locks, ChromaDB orphan rows, file-size limits, dead scheduled-task dirs, unindexed recent notes). `check` is read-only; `fix-safe` applies safe repairs only (never LLM content rewrites - cron-safe); `orphans` lists unlinked entities for human review. `note.py friction --severity {blocker|error|confused|nit} --phase X --message Y` captures repeat-correction patterns. Upsert by `(phase, severity)` increments a counter so a third recurrence of the same friction surfaces escalated in the morning briefing.
-- **Files:** `tools/doctor.py` (14 checks), `tools/note.py` (the `friction` subcommand sits inside the existing capture tool from module b).
-- **Depends on:** `tools/contacts_db.py` (module c) for the contacts checks; `tools/memory_search.py` (module d) for the ChromaDB orphan check; `note.py` (module b) for friction capture.
-- **Doesn't depend on:** Hooks, MCP servers, contact-enrichment cron.
-- **Install:**
-
-  ```bash
-  cp pupsik/tools/doctor.py ~/Desktop/claude/tools/
-  chmod +x ~/Desktop/claude/tools/doctor.py
-  python3 ~/Desktop/claude/tools/doctor.py check
-  ```
-
-  `note.py friction` is wired the moment module b is installed - no extra step.
-
-- **Provenance:** `doctor.py` and the friction protocol are both adapted from gbrain by Garry Tan (MIT, 2026-05-07). See `THIRD_PARTY_ATTRIBUTIONS.md` for full attribution. Both adapted patterns are SAFE-ops only - no LLM content rewrites in the doctor (intentional), counter-only state in the friction tool (no automated escalation actions).
-
-### h) Rule retrieval on demand
+### g) Rule retrieval on demand
 
 - **What it does:** `tools/rules.py search "<topic>"` returns the FULL content of feedback rules that match the query, so the agent can pull the actual verification protocol before non-trivial outbound work - not just the one-line pointer in `critical-rules.md`. Three subcommands: `search "<topic>" [--top N]` for semantic search, `read "<name>"` for a single rule by name (no `feedback_` prefix needed - e.g. `rules.py read short_dashes_only`), `list` for a directory dump. Merges an optional alias manifest (you create your own, the tool ships without one) with semantic search via `memory_search.py`. Falls back gracefully if no manifest is present. No network calls.
 - **Files:** `tools/rules.py`.
@@ -145,7 +127,7 @@ Each component below has: what it does, what files it is, what it depends on, wh
 
 - **Privacy invariants:** Reads only from local rule directories and (optionally) a local alias manifest. No network calls. The alias manifest is NOT shipped in this repo (manifests tend to bake in real names and project codes - keep yours local).
 
-### i) Contact enrichment cron (4-pass)
+### h) Contact enrichment cron (4-pass)
 
 - **What it does:** Optional weekly cron task (Sunday 06:00 local) that tops up your `contacts.db` with publicly available bio/social data (Passes 1-3) AND a private `relationship_context` summary distilled from your own email + WhatsApp correspondence with each contact (Pass 4). Pass 1 mines email signatures via `gmail_search_all`. Pass 2 runs targeted WebSearch for missing LinkedIn URLs. Pass 3 fetches a short bio + Instagram handle for PR-active contacts. Pass 4 reads the email threads from Pass 1 + the WhatsApp chat history (when phone is populated) and synthesizes a 2-4 sentence summary of the channel state, last topic, and outstanding asks. All updates use `COALESCE(existing, new)` so existing values are preserved. Privacy-guarded: skips `category IN ('personal','tenancy','events')` + distribution-list email patterns. Telegram is NEVER auto-read - if you want TG context for a contact, paste the history into an ad-hoc prompt manually.
 - **Files:** `templates/scheduled-tasks/contact-enrichment-weekly.md.template` (the cron SKILL prompt), `memory_templates/feedback_contact_enrichment_weekly.md` (the operating rule), `tools/enrichment_schema_migrate.py` (idempotent migration adding the 11 enrichment columns).
@@ -194,6 +176,6 @@ A few common combinations:
 
 - **Don't grab `note.py` without the capture-knowledge rule.** `note.py` is the tool; the rule is what reminds Claude to actually use it. Without the rule loaded into `~/.claude/projects/<slug>/memory/`, Claude won't reach for the tool when an insight surfaces, and the file just sits there. Always pair (b) - both pieces, not just the script.
 
-- **Don't enable compact hooks (e) without configuring `~/.claude/settings.json`.** Copying the scripts to `.claude/hooks/` does nothing on its own - Claude Code only fires them if `settings.json` registers them. Either install both pieces or neither.
+- **Don't install the SessionStart hook (e) without configuring `~/.claude/settings.json`.** Copying the script to `.claude/hooks/` does nothing on its own - Claude Code only fires it if `settings.json` registers it. Either install both pieces or neither.
 
 - **Don't install semantic search (d) without something for it to index.** It's not useless without (c), but it's noticeably less useful - half the value comes from the contact and interaction collections sourced from SQLite. If you skip (c), point `memory_search.py` at your own markdown directories instead, otherwise the index will be sparse.

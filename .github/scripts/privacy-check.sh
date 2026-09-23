@@ -127,8 +127,6 @@ ALLOWLIST_BYLINE=(
   "MODULAR.md"
   "SETUP_PROMPT.md"
   "UPGRADING.md"
-  "docs/AGENT_TEAM_RULE.md"
-  "docs/COMPACT_SETUP.md"
   "docs/GOOGLE_CLOUD_SETUP.md"
   "docs/TELEGRAM_SETUP.md"
   "docs/WHATSAPP_SETUP.md"
