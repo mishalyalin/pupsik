@@ -40,7 +40,7 @@ The rule applies to the **mergeable status** of the PR specifically.
 ## Connection to other rules
 
 - `feedback_never_ignore_own_rules.md` — branch protection + pre-commit are structural enforcement; THIS is the behavioural rule.
-- `feedback_systematic_debugging.md` — when CI is red, treat as a bug to reproduce-isolate-diagnose-fix. Not as an opinion to override.
+- When CI is red, treat it as a bug to reproduce and fix. Not as an opinion to override.
 - Branch protection: structural. Pre-commit hook: structural. Extra privacy passes: structural. This rule: behavioural, fills the gap when human/AI is tempted to bypass structure.
 
 ## Source

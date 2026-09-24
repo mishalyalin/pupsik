@@ -16,7 +16,7 @@ git pull              # fetch latest main
 bash tools/update.sh  # smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `doctor.py`, `enrichment_schema_migrate.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`), hooks, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
+`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `enrichment_schema_migrate.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`, `brand_os.py`), the session-start hook, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
 
 Scheduled-task templates (the optional weekly enrichment cron) are NOT auto-installed - they're opt-in. The install command is in "Per-release one-time steps" below.
 
@@ -48,14 +48,11 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 - **`tools/note.py`** - new file (didn't exist before). Captures a learning, decision, or research note in-flight with one command. Upserts by title - re-capturing the same topic refreshes the existing note instead of creating a duplicate. 2026-05-07 added a `friction` subcommand for capturing repeat-correction patterns (severity-tagged, counter-incremented).
 
-- **`tools/doctor.py`** (new 2026-05-07) - deterministic health-check + safe-auto-fix tool. 14 checks across 3 subcommands (`check`, `fix-safe`, `orphans`). Catches stale lock files, broken symlinks, ChromaDB orphan rows, oversized CLAUDE.md / MEMORY.md, dangling memory pointers. SAFE-ops only - never LLM content rewrites.
-
 - **`tools/enrichment_schema_migrate.py`** (new 2026-05-08, updated 2026-05-27) - idempotent migration adding the 11 enrichment columns to your `contacts.db` (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`, `relationship_context`). Re-runs are safe; only adds missing columns.
 
 - **New mandatory rule: capture-knowledge-in-flight** - installed to `~/.claude/projects/<slug>/memory/feedback_capture_knowledge.md`. Tells Claude to call `note.py` the moment an insight surfaces, not when the topic closes.
 
 - **2026-05-07 feedback rules** added under `memory_templates/`:
-  - `feedback_friction_protocol.md` - operating rule for `note.py friction`
   - 4 cross-cutting Output Rules in `memory_templates/feedback_output_rules.md` (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality)
   - All adapted from gbrain (Garry Tan, MIT). See `THIRD_PARTY_ATTRIBUTIONS.md`.
 
@@ -109,7 +106,20 @@ The installer overwrites a small, known set of files. Each replaced file is back
 
 If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
 
-### 2026-07-06 release: telegram-readonly MCP + dashboard staleness/cache/deploy fixes + verify-ticks template
+### 2026-09-23 release: slimmed for Claude 5-era models
+
+Nothing to do by hand - `bash tools/update.sh` runs a one-time cleanup, on the first run, even if your copy of `update.sh` is older than this release. It:
+
+- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` (a second backup the same day gets `.bak.1`), then removes the PreCompact / PostCompact hook entries that point at `pre-compact.sh` / `post-compact.sh`, the `autoCompactWindow` key and the `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` env var. Your own hooks and settings stay. If `settings.json` is a symlink, the file it points to is edited and the link stays.
+- moves the retired files out of your workspace into `~/.claude/pupsik-removed-<date>/` (the two compact hooks, `context_budget.py`, `claude_md_trim.py`, `doctor.py`, `mcp_profile.py`).
+- replaces `.claude/hooks/session-start-reminder.sh` only if it is the pupsik one (keeps a `.bak`). If you wrote your own, it is left alone and you get a note.
+- prints what it did. Running it again prints "nothing to do".
+
+Your `~/.claude/rules/critical-rules.md` merge is append-only, so old pointer lines (2-agent, compact, doctor, architect) stay until you delete them. Compare with `templates/critical-rules.md.template` and prune by hand if you want the short version.
+
+To get the new session hook (NOW anchor + recent rule changes), add it under `SessionStart` in `~/.claude/settings.json` - `install.sh` prints the snippet.
+
+### 2026-07-06 release: telegram-readonly MCP + dashboard staleness/cache/deploy fixes
 
 All optional; nothing breaks if you skip everything.
 
@@ -123,8 +133,6 @@ bash install.sh --update-only
 If you customised `dashboard/build.py` or `scripts/morning-dashboard.sh`, the new versions land side-by-side as `<file>.new` — diff and merge. To enable the post-deploy smoke test, additionally export `DASHBOARD_VPS_URL` next to your existing `DASHBOARD_VPS_HOST`/`DASHBOARD_VPS_PATH`.
 
 **2. Telegram read-only MCP (opt-in).** Follow `mcp-servers/telegram-readonly/README.md` (venv → api credentials → allowlist → interactive login → re-run `register_mcps.sh`). Nothing is registered until you create the venv.
-
-**3. verify-ticks skill (opt-in, manual-only).** Install per the header comment in `templates/scheduled-tasks/verify-ticks.md.template`. Do NOT wire it to a cron — it is designed to run only when you explicitly ask.
 
 ### 2026-06-12 release: stable-key token store + MCP servers move off iCloud
 
@@ -246,27 +254,11 @@ No breaking changes. All existing flows continue to work.
 
    After backfill, `memory_search.py wake-up` will start including the "Active clusters (last 7d)" block.
 
-### 2026-05-07 release: doctor + friction protocol + Output Rules
+### 2026-05-07 release: Output Rules
 
-After running `bash tools/update.sh` (or `install.sh --update-only`):
+(`doctor.py` from this release was removed in 2026-09-23.)
 
-1. **Verify `doctor.py` installed:**
-
-   ```bash
-   python3 ~/Desktop/claude/tools/doctor.py check
-   ```
-
-   Should print 14 checks with PASS / WARN counts. If any WARN, run `doctor.py fix-safe` to apply safe repairs (broken symlinks, stale locks, ChromaDB orphans).
-
-2. **Verify the friction subcommand:**
-
-   ```bash
-   python3 ~/Desktop/claude/tools/note.py friction --help
-   ```
-
-   Should print usage with `--severity {blocker|error|confused|nit}` and `--phase X --message Y`.
-
-3. **(Optional) Browse the new Output Rules** at `~/.claude/projects/<your-slug>/memory/feedback_output_rules.md`. The 4 new rules (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality) are referenced in `critical-rules.md` after the smart-merge.
+1. **(Optional) Browse the new Output Rules** at `~/.claude/projects/<your-slug>/memory/feedback_output_rules.md`. The 4 new rules (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality) are referenced in `critical-rules.md` after the smart-merge.
 
 ### 2026-05-08 release: contact enrichment cron (3-pass) + ChromaDB dedup fix
 
@@ -341,11 +333,6 @@ After Phase-2 baseline:
 - `python3 ~/Desktop/claude/tools/note.py --help` returns a usage summary (the file exists and is executable).
 - `cat ~/.claude/rules/critical-rules.md | grep capture` returns a one-line pointer to the capture-knowledge rule.
 - `python3 ~/Desktop/claude/tools/contacts_db.py find "<any name you had before>"` still returns that contact. Old data is intact.
-
-After 2026-05-07 release:
-- `python3 ~/Desktop/claude/tools/doctor.py check` runs 14 deterministic health checks.
-- `python3 ~/Desktop/claude/tools/note.py friction --help` shows the friction subcommand.
-- `cat ~/.claude/rules/critical-rules.md | grep friction` returns a pointer to the friction protocol rule.
 
 After 2026-05-08 release:
 - `sqlite3 ~/Desktop/claude/data/contacts.db ".schema contacts" | grep -E "linkedin|relationship_context"` shows the new columns present (10 in the 2026-05-08 release, 11 in 2026-05-09).

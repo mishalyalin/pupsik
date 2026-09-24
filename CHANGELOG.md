@@ -5,6 +5,43 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-09-23] - Slimmed for Claude 5-era models
+
+Current models handle compaction, context budgets and a lot of process discipline natively. The scaffolding I built for older models now costs more attention than it saves, so this release takes it out. Updating removes it from your install automatically, with backups.
+
+### Removed
+
+- **Compaction scaffolding** - `hooks/pre-compact.sh`, `hooks/post-compact.sh`, `docs/COMPACT_SETUP.md`, and the `autoCompactWindow` / PreCompact / PostCompact lines from the settings snippet `install.sh` prints.
+- **Context-budget and health tooling** - `tools/context_budget.py`, `tools/claude_md_trim.py`, `tools/doctor.py`, `tools/mcp_profile.py`.
+- **Heavy process rules** - `agents/` (5 role prompts), `docs/AGENT_TEAM_RULE.md`, the architect-proposals templates (`memory_templates/architect_proposals/`), and the feedback templates `architect_auto_apply`, `architect_proposals_backlog`, `junior_engineer_plan_test`, `systematic_debugging`, `context_hygiene`, `claudemd_size_discipline`, `cheap_models_and_ask_before_big_work`.
+- **`templates/scheduled-tasks/verify-ticks.md.template`**.
+- `note.py friction` still works, it is just no longer advertised in the README.
+
+### Changed
+
+- **`feedback_always_two_agents.md`** - now "One checker for things that ship": one independent check for code going to main, public posts and outbound messages; none for lookups, answers, small edits or local drafts; at most one fix-and-recheck.
+- **`templates/critical-rules.md.template`** - rewritten under 3 KB: facts and preferences only, each with its `feedback_*.md` pointer.
+- **`templates/CLAUDE.md.template`** - short; no 2-agent or compact sections.
+- **`templates/morning_briefing_skill.md.template`** - architect steps and the two-agent pattern removed; the briefing stays local, so no checker.
+- **`hooks/session-start-reminder.sh`** - about 15 lines: NOW anchor plus lines from `~/.claude/RECENT-RULE-CHANGES.md` dated in the last 14 days. `install.sh` now installs it and prints a settings snippet with only the SessionStart hook.
+- **`tools/check-pupsik-upstream.sh`**, `.github/scripts/privacy-check.sh` - removed names dropped from their file lists.
+- README, HOW_IT_WORKS, MODULAR, UPGRADING, SETUP_PROMPT, MARKETING, dashboard README, attributions - references to removed files cleaned up.
+
+### Added
+
+- **`tools/slim_migrate.py`** - the one-time migration below. Clone-side only, called from `install.sh --update-only`.
+
+### Migration (runs on the first `tools/update.sh`, safe to run twice)
+
+- Runs from `install.sh --update-only`, which every `update.sh` (old or new) calls after the pull - so it happens on the first update, even when an older `update.sh` is the one running. `update.sh` also re-runs itself once when the pull changed it (guarded by `PUPSIK_UPDATE_REEXEC=1`, no loop), so later changes to the script take effect straight away.
+- Backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` before changing it. A second backup on the same day gets `.bak.1`, `.bak.2` - an earlier backup is never overwritten.
+- If `settings.json` is a symlink, the target file is edited in place: the link stays, and the file mode is kept.
+- Removes PreCompact / PostCompact hook entries whose command points at `pre-compact.sh` / `post-compact.sh` (your own hooks in those events stay), drops `autoCompactWindow`, and drops `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
+- Copies the retired workspace files (`.claude/hooks/pre-compact.sh`, `.claude/hooks/post-compact.sh`, `tools/context_budget.py`, `tools/claude_md_trim.py`, `tools/doctor.py`, `tools/mcp_profile.py`) into `~/.claude/pupsik-removed-<date>/`, then deletes them.
+- Prints what it did, or "nothing to do" on a second run.
+- **Session hook:** `install.sh` replaces `<workspace>/.claude/hooks/session-start-reminder.sh` only if it is a pupsik-shipped one (it has the `# session-start-reminder.sh` or `# SessionStart hook` header line), keeping a `.bak` copy. A hook without that header is treated as yours and left alone, with a note pointing at the new pupsik version.
+- Not touched: `~/.claude/rules/critical-rules.md` is merged append-only, so old pointer lines stay until you prune them by hand.
+
 ## [2026-08-15] - CLAUDE.md rotation, a start-load budget guard for the generic hook, and a workspace/clone drift probe
 
 `context_budget.py` (2026-08-12) measures the problem; this release adds the tools that act on the measurement, plus two smaller tool files reverse-synced from a workspace that had drifted ahead of this clone.

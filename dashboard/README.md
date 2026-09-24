@@ -8,7 +8,7 @@ A six-tab single-page HTML dashboard for your morning routine. Pulls live state 
 - **02 Projects** — the `## Active Projects` section of `CLAUDE.md`, rendered as a 3-column grid of cards with checkboxes
 - **03 Upcoming** — the `## Upcoming` section of `CLAUDE.md`, same card layout
 - **04 Pulse** — curated industry narrative from `dashboard/pulse-deep.md` if present, falling back to the briefing's `## Pulse` section
-- **05 Architect** — a **"What's new in pupsik"** panel at the top (from `state/pupsik/update-status.json`, written by `tools/check-update.sh`), above `memory/architect_proposals/latest.md` (your open backlog). The panel shows what changed since you installed and copies the one-command update to your clipboard. `build.py` only **reads** the status JSON — it makes no network call; the git-fetch lives in `check-update.sh`. Missing/malformed JSON degrades to a quiet line. See [`docs/UPDATE_PUPSIK.md`](../docs/UPDATE_PUPSIK.md).
+- **05 Architect** - a **"What's new in pupsik"** panel at the top (from `state/pupsik/update-status.json`, written by `tools/check-update.sh`), above `memory/architect_proposals/latest.md` if you keep one (optional; the section degrades to a quiet line without it). The panel shows what changed since you installed and copies the one-command update to your clipboard. `build.py` only **reads** the status JSON - it makes no network call; the git-fetch lives in `check-update.sh`. Missing/malformed JSON degrades to a quiet line. See [`docs/UPDATE_PUPSIK.md`](../docs/UPDATE_PUPSIK.md).
 - **06 Knowledge** — the last 7 days of `memory/decisions/` and `memory/learnings/` entries
 
 The header carries the **pupsik baby** logo mark (a small inline SVG, blue chip `#5BB8E8` with a baby face) immediately left of the **pupsik** wordmark (rounded system font + brand gradient, no external/CDN font), with a quiet byline linking to `github.com/mishalyalin/pupsik`. The same baby is the `favicon.svg` (browser-tab / pinned-tab icon); the `mask-icon` + `theme-color` hex track the favicon's rect fill (`#5BB8E8`). These are byte-checked / hex-checked by `scripts/brand-os-visual-gate.sh` — an opt-in gate that reconciles to a Brand OS spec only when one is present (it SKIPs for pupsik's own repo and generic forks).
@@ -45,7 +45,7 @@ The toolbar at the top of the page also has **export state** — downloads `dash
 
 ### Trust, but verify the ticks
 
-A checkbox records that you *believe* you did the thing — humans mis-remember. `templates/scheduled-tasks/verify-ticks.md.template` is an optional, **manual-only** agent skill that takes the exported closed state and verifies each checked item against your real communications (sent mail + chat read-MCPs), returning per-item verdicts: ✅ verified (with a quoted message as evidence), ⚠️ no evidence found, or ℹ️ not verifiable. It never runs on a schedule and never invents proof.
+A checkbox records that you *believe* you did the thing - humans mis-remember. If it matters, ask Claude to check the exported closed state against your sent mail and chats before you trust it.
 
 ## Pulse — deep research
 

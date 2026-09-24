@@ -14,12 +14,11 @@
 # no-drift path is fast + silent.
 #
 # What this DOES touch (smart-merge - never clobbers your edits):
-#   - tools/{contacts_db,memory_search,note,doctor,
+#   - tools/{contacts_db,memory_search,note,
 #            enrichment_schema_migrate,now,note_graph,
-#            note_graph_schema,rules,brand_os,
-#            context_budget,mcp_profile,claude_md_trim}.py
+#            note_graph_schema,rules,brand_os}.py
 #                                                 in ~/Desktop/claude/tools/
-#   - hooks/{pre,post}-compact.sh                 in ~/Desktop/claude/.claude/hooks/
+#   - hooks/session-start-reminder.sh             in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
 #   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
 #
@@ -40,6 +39,20 @@
 # critical-rules.md is append-only: new rule references from the upstream
 # template are appended under a "## Updates from upstream <date>" header.
 # Your existing file is never replaced.
+#
+# One-time migration (v2026-09, safe to run any number of times) lives in
+# tools/slim_migrate.py and runs from install.sh, so it happens on the first
+# update even when an older copy of this script did the pull:
+#   - backs up ~/.claude/settings.json, then removes PreCompact/PostCompact hook
+#     entries that point at pre-compact.sh / post-compact.sh and the
+#     autoCompactWindow key (plus env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, which
+#     older install.sh snippets added)
+#   - moves the retired workspace files (.claude/hooks/{pre,post}-compact.sh,
+#     tools/{context_budget,claude_md_trim,doctor,mcp_profile}.py) into
+#     ~/.claude/pupsik-removed-<date>/ - copied first, then deleted
+#
+# If the pull changes this script, it re-runs the new copy once
+# (PUPSIK_UPDATE_REEXEC=1 guards against loops).
 #
 # What this does NOT touch:
 #   - your CLAUDE.md, contacts.db, memory/learnings/, memory/decisions/,
@@ -79,7 +92,9 @@ VERSION_FILE="$REPO_ROOT/VERSION"
 
 # Capture PRE_VERSION before the pull. Fallback to state file, else "first-run".
 PRE_VERSION="first-run"
-if [ -f "$VERSION_FILE" ]; then
+if [ -n "${PUPSIK_PRE_VERSION:-}" ]; then
+  PRE_VERSION="$PUPSIK_PRE_VERSION"   # set by the re-exec below
+elif [ -f "$VERSION_FILE" ]; then
   PRE_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || echo first-run)"
 elif [ -f "$STATE_FILE" ]; then
   PRE_VERSION="$(cat "$STATE_FILE" 2>/dev/null || echo first-run)"
@@ -105,7 +120,7 @@ git fetch origin --quiet
 
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
-STASHED=0
+STASHED="${PUPSIK_UPDATE_STASHED:-0}"
 HAS_NEW_COMMITS=0
 
 if [ "$LOCAL" != "$REMOTE" ]; then
@@ -154,6 +169,13 @@ if [ "$LOCAL" != "$REMOTE" ]; then
 
   NEW=$(git rev-parse --short HEAD)
   echo "[pupsik] now at $NEW"
+
+  # ---------- Re-run the new update.sh if the pull changed it ----------
+  if [ "${PUPSIK_UPDATE_REEXEC:-0}" != "1" ] && ! git diff --quiet "$LOCAL" HEAD -- tools/update.sh; then
+    echo "[pupsik] update.sh itself changed - re-running the new version..."
+    export PUPSIK_UPDATE_REEXEC=1 PUPSIK_UPDATE_STASHED="$STASHED" PUPSIK_PRE_VERSION="$PRE_VERSION"
+    exec bash "$REPO_ROOT/tools/update.sh" "$@"
+  fi
 else
   # No new commits, but workspace files may still have drifted (style fixes
   # to tools, freshly added scripts, new feedback rules from a previous

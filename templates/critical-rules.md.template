@@ -1,70 +1,25 @@
-# Critical Rules — loaded every session (user-level, applies to all projects)
+# Critical Rules - loaded every session
 
-Pointer-style summary of the user's MANDATORY feedback rules. Full details in `memory/feedback_*.md` (the project memory directory). Each rule is one line + a file reference. Deviating from these = bug, not stylistic choice.
+Facts and preferences Claude should hold every session. Each line points at a `memory/feedback_*.md` file with the full why and examples. Lives at `~/.claude/rules/critical-rules.md` (auto-loaded).
 
-This file lives at `~/.claude/rules/critical-rules.md` and is auto-loaded by Claude Code at the start of every session.
+## Facts
 
-## 🔴 MANDATORY protocols (highest priority)
+- **Verify before stating** - every number, date, price, name or claim comes from a real source (file, email, chat, DB, web page) checked in this session. No source = say so, don't guess. → `feedback_never_imagine_always_verify.md`
+- **Current date and place** - the SessionStart hook injects a NOW anchor; trust it over any date you remember. Compute weekdays with `date`, never by eye. → `feedback_know_current_datetime.md`
+- **Contact DB before naming people** - check `tools/memory_search.py search` / `tools/contacts_db.py find` before mentioning anyone. → `feedback_contact_db_first.md`
+- **Check what was already sent** - before drafting outbound, search sent mail (all accounts, last 14 days) and chats for an existing message on that topic. → `feedback_check_already_communicated.md`
 
-- **🔴🔴 NEVER IMAGINE, ALWAYS VERIFY** (THE PRIMARY RULE) - any number, date, price, fact, name, or claim in any output must be verified against a real source (file / email / chat / DB / WebFetch) BEFORE stating. Inventing = banned, always. Before any non-trivial outbound: run `python3 ~/Desktop/claude/tools/rules.py search <topic>` to pull relevant verify-* rules and apply them. Sole-loading critical-rules.md is INSUFFICIENT - the pointer summary doesn't carry the verification protocols. 8 operational sub-cases (numbers / project state / public facts / brand patterns / links / people / private intel / dates) → `feedback_never_imagine_always_verify.md`. Recurring rule with multiple precedents.
+## Preferences
 
----
+- **Capture knowledge** - when an insight, decision or research finding comes up, save it with `note.py learning|decision|research` right away. Don't ask. → `feedback_capture_knowledge.md`
+- **All Gmail accounts** - use the `*_all` multi-account tools; never ask which account. → `feedback_all_accounts_always.md`
+- **Save outputs** - files the user will open go to `~/Desktop/claude/outputs/` as `YYYY-MM-DD-<what>-<for-whom>.<ext>`. No `output.pdf`. → `feedback_save_outputs.md`
+- **One checker for things that ship** - code merged to main, public posts and outbound messages get one independent checker before they go out. Lookups, answers and small edits need no checker. → `feedback_always_two_agents.md`
+- **CI red = no merge** - a failing check on a PR means investigate and fix, never merge anyway. → `feedback_ci_red_is_hard_stop.md`
+- **Short dashes** - in the user's voice use "-", never em or en dashes. → `feedback_short_dashes_only.md`
+- **Keep clones off iCloud** - git clones live in `~/code/`. → `feedback_keep_working_files_off_icloud.md`
+- **Fix MCP servers** - a broken MCP gets debugged, not silently replaced by a built-in connector. → `feedback_fix_mcp_proactively.md`
 
-- **Know current datetime + location** - Timezone and location are AUTO-DETECTED from `/etc/localtime` on your laptop, not hard-coded. SessionStart hook injects `⏰ NOW: YYYY-MM-DD (Weekday), HH:MM TZ. Local zone: <IANA> - You are in <city>` anchor - trust it over any date pattern-matched from prior briefings/notes. Re-run `python3 ~/Desktop/claude/tools/now.py --short` (< 50ms) before any "today/yesterday/tomorrow/this week/Tuesday" reference if there's any doubt. NEVER treat the actual current date as future. NEVER assume a fixed location without checking the anchor. → `feedback_know_current_datetime.md`
-- **ALWAYS 2+ AGENTS per task** — worker + independent checker. Sole-agent work is banned for meaningful tasks. More agents for complex work (architect / specialist / reviewer / tester). Ship only after the checker reports `PASS`. → `feedback_always_two_agents.md`
-- **Capture knowledge in-flight** — the MOMENT an insight/decision/research emerges → `note.py learning|decision|research`. **NEVER ask the user "should I capture this?" — just capture.** Default = capture; user deletes if mistake. (Re-run same title to upsert. Use `--body-stdin` or `--body-file` for bodies with apostrophes/quotes.) → `feedback_capture_knowledge.md`
-- **Save email attachments to Drive** — useful attachments (PDFs, docs, certificates, invoices) auto-route to the corresponding `Workspace/<folder>/` on Google Drive. Don't ask, save. Pick folder from email context; propose new folder if ambiguous. → `feedback_email_attachments_to_drive.md`
-- **Verify project state before answering** any status / payment / partner question — fresh email (last 7 days, all accounts) and any relevant chat groups. Update `CLAUDE.md` inline if stale. → `feedback_verify_project_state.md`
-- **Check if the user already sent it before proposing/drafting outbound** — before suggesting OR drafting any email / chat / DM / follow-up to a person, FIRST scan sent mail (all accounts, `in:sent to:<person> <topic> newer_than:14d`) + chat history for an existing message from the user on that topic. If it exists → don't propose the draft; surface what they already sent + track the pending reply. Only draft if nothing matching exists. → `feedback_check_already_communicated.md`
-- **Never ignore own rules** — `CLAUDE.md` and `feedback_*.md` are MANDATORY protocols, not suggestions. → `feedback_never_ignore_own_rules.md`
-- **Contact DB first** — before mentioning any person, check the local contact DB (`tools/memory_search.py search`, `tools/contacts_db.py find`). Don't guess. → `feedback_contact_db_first.md`
-- **All configured accounts always** — when the user has multi-account MCPs (Gmail/Calendar), use the `*_all` variants by default. Never ask "which account?". → `feedback_all_accounts_always.md`
+## How to use
 
-## Communication / voice
-
-- **Short dashes only** — when drafting in the user's voice, use "-", never "—" or "–". Sign-offs follow the same rule. → `feedback_short_dashes_only.md`
-- **Verify before showing** — test links / URLs / commands work before presenting them. → `feedback_verify_before_showing.md`
-
-## Workspace / files
-
-- **Default workspace** — `~/Desktop/claude/`, `auto` permission mode. → `feedback_default_workspace.md`
-- **Save outputs** — generated files go to `~/Desktop/claude/outputs/YYYY-MM-DD-<topic>/`. → `feedback_save_outputs.md`
-- **Keep working files off iCloud (macOS)** — if Desktop & Documents iCloud sync is on, Optimize Storage evicts file contents to dataless placeholders and corrupts git clones (`fatal: bad object HEAD`), node_modules (`MODULE_NOT_FOUND` for a submodule), and MCP runtimes. Keep git clones in `~/code/`; a suspiciously small `node_modules` (< 10% of normal size) = evicted, fix by `rm -rf node_modules && npm install` (not reauth). → `feedback_keep_working_files_off_icloud.md`
-- **Local MCP only** — prefer locally-installed MCP servers (multi-gmail, multi-gcal, whatsapp). Don't silently fall back to built-in connectors. → `feedback_use_local_mcp.md`
-- **Fix MCP proactively** — a broken MCP = debug the source, not "re-run setup reauth". (Exception: if `node_modules` is corrupted/evicted per the iCloud rule above, reinstall IS the fix — the source is fine.) → `feedback_fix_mcp_proactively.md`
-
-## Time / scheduling
-
-- **Compute weekday from ISO date** — use `date -j -f "%Y-%m-%d" "<date>" "+%A"` (macOS) before writing any "Mon/Tue/.." labels. Never pattern-match from a previous brief. → `feedback_compute_weekday_dont_guess.md`
-
-## Deployment
-
-- **Deploy immediately** when work is ready — don't ask "should I deploy?" if the workflow expects ship-after-pass. → `feedback_deploy_immediately.md`
-
-## System self-improvement
-
-- **Architect Lens auto-apply** — proposals from a morning-briefing AI Architect Lens (or any reflective audit step) apply same-turn with a checker pass; just report what shipped. Excludes destructive ops, external posts, and conflicts with MANDATORY rules. → `feedback_architect_auto_apply.md`
-- **Architect proposals backlog** — every Architect-Lens output, ad-hoc architectural insight, and nightly reflection/research finding is persisted to `~/Desktop/claude/memory/architect_proposals/latest.md`. Lifecycle: open → accepted → applied | rejected | obsolete. Morning brief surfaces top-3 open; if you wire a nightly reflection skill, it reviews all open + adds new candidates from external sources of your choice. 90-day re-propose suppression on rejected. Large structural changes NEVER auto-apply. → `feedback_architect_proposals_backlog.md`
-- **End-of-session retro before context dies** — at the end of any non-trivial session (>30 min OR shipped a PR OR meaningful decision), 2-min retro: learned / surprised / encode. Then EXECUTE on the retro — `note.py learning|decision|research`, propose new feedback rule, add architect entry. Default = capture; never ask "should I?". Separate from `feedback_capture_knowledge.md` (moment-of-emergence primary, retro is safety net for fuzzy/buried/meta-pattern insights). → `feedback_session_retro.md`
-- **CLAUDE.md size discipline** — `CLAUDE.md` is re-read every session; bloating it permanently subtracts attention. Soft cap 450 lines, hard cap 600. The nightly reflection (`dream-v2`) trims `## Last Updated` past 7 days to `memory/journal/claude-md-changelog.md` and audits `## Upcoming` for resolved items. The morning briefing's Architect Lens flags `>500` lines. Past ~400k tokens of long-context, attention degrades silently. → `feedback_claudemd_size_discipline.md`
-- **Context hygiene: `/clear` over patching** — when Claude hallucinates / misclassifies / goes off-track TWICE in a row, or autocompact fires ≥2x mid-task, MANDATORY `/clear` + restart with a fresh self-contained prompt. Past ~400k tokens, attention degrades silently — more correction turns add MORE degraded context. Max 3 correction turns before clear. Restart prompt = junior-engineer brief (goal + paths + tried+failed + ask). Anti-pattern: keep arguing through degraded context. → `feedback_context_hygiene.md`
-- **CI red = hard stop on PR merge** — if any CI check on a Claude-authored PR fails or shows yellow-warning-treated-as-FAILURE, the PR does not merge. No exceptions, no pattern-matched justifications, no "let me just retry", no "the linter is being weird". Investigate-and-fix, never merge-anyway. Before `gh pr merge`: `gh pr view <n> --json statusCheckRollup --jq '.statusCheckRollup[].conclusion'` must return all SUCCESS. → `feedback_ci_red_is_hard_stop.md`
-- **PR reuse audit before adding new utility** — before any PR adds a new utility / function / script, `rg "def <name>"` + 2-3 core-purpose keywords across `tools/` + the rest of the repo. If hit looks similar: CONSOLIDATE (refactor existing) OR JUSTIFY (write why must coexist in PR description) OR REJECT (existing already does this). Targets the `tools/` accumulation problem before it becomes irreversible. → `feedback_pr_reuse_audit.md`
-
-## How to use this file
-
-1. The file is loaded unconditionally at the start of each session (Claude Code auto-includes `~/.claude/rules/*.md`).
-2. If a rule appears to apply, open the linked `memory/feedback_*.md` for full context (why + how + examples).
-3. If a rule conflicts with `CLAUDE.md` — **follow this rules file**. `CLAUDE.md` may be older / stale. Flag the conflict for an inline `CLAUDE.md` fix.
-4. If you spot a new pattern that recurs — create a new `feedback_*.md` in `memory/` and add a one-line entry here.
-
-## Add your own rules below
-
-Personalize this file by adding rules that are specific to your work. Keep them as one-liners; full context goes in `memory/feedback_<rulename>.md`. Examples (uncomment / customize):
-
-<!--
-## Project-specific
-
-- **Project X — branch policy** — never push to `main` directly; PRs only. → `feedback_project_x_branch_policy.md`
-- **Vendor Y SLAs** — escalate at 24h not 48h; legal copies all. → `feedback_vendor_y_sla.md`
--->
+If a rule applies, open its `memory/feedback_*.md`. If a rule conflicts with `CLAUDE.md`, follow this file and fix `CLAUDE.md`. When a rule changes, add one dated line (`YYYY-MM-DD | what changed`) to `~/.claude/RECENT-RULE-CHANGES.md` so the next session sees it.

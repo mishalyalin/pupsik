@@ -30,7 +30,7 @@ When you run `bash install.sh`, four things land on disk:
    - `data/chroma/` - ChromaDB index for semantic search.
    - `tools/` - Python scripts that read and write the above.
    - `outputs/` - anywhere you ask Claude to save a generated file.
-   - `.claude/hooks/` - auto-compact hooks (pre-compact, post-compact).
+   - `.claude/hooks/` - the SessionStart hook (current date + recent rule changes).
 2. **MCP servers** installed to `~/code/mcp-servers/multi-gmail/`,
    `~/code/mcp-servers/multi-gcal/`, `~/code/mcp-servers/whatsapp/` (kept
    OUTSIDE iCloud-synced paths so Optimize Storage can't evict their
@@ -212,9 +212,9 @@ don't carry the operational protocol.
 
 Generic rules only - no personal references:
 
-- **`feedback_always_two_agents.md`** - every real task gets a Worker +
-  an independent Checker. Single-agent work is banned for anything
-  non-trivial.
+- **`feedback_always_two_agents.md`** - one independent checker agent for
+  things that ship (code merged to main, public posts, outbound messages).
+  Lookups, answers and small edits need no checker.
 - **`feedback_capture_knowledge.md`** - capture insights at the moment
   they surface via `note.py`, not at the end of the topic.
 - **`feedback_contact_db_first.md`** - before mentioning any person,
@@ -240,53 +240,17 @@ Generic rules only - no personal references:
 - **`feedback_verify_before_showing.md`** - verify links and outputs
   work before presenting them.
 
-## The 2-agent rule, in detail
+## One checker for things that ship
 
-The single most useful piece of discipline this toolkit installs.
+Current models get routine work right on their own, so most tasks run as
+one agent. The exception is anything expensive to take back: code merged
+to main, a public post, a message to another person. Those get one
+independent checker agent that reads the result fresh and reports PASS or
+FAIL with details. One checker, one fix-and-recheck at most, then ship or
+report.
 
-For any task that involves more than a one-shot lookup, Claude spawns at
-least two agents:
-
-- **Worker** - does the work.
-- **Checker** - independently verifies the work and reports PASS or FAIL
-  with details.
-
-The Worker and the Checker run as separate sub-agents - different
-contexts, different instances. The Checker reads the result fresh and
-either approves it or sends it back with specifics.
-
-For complex tasks, more roles can be added: Architect (plans), Specialist
-(domain expertise), Reviewer (style / consistency), Tester (final
-verification). Always at least two; more when the cost of being wrong is
-high.
-
-This catches bugs the single-agent flow would miss. The classic case is
-a Worker writing code, declaring done, and a Checker noticing a
-production edge case the Worker rationalized away. The marginal cost
-of a second agent is small; the marginal value of catching real defects
-is large.
-
-## Compact hooks: persisting state through context compression
-
-Claude Code's auto-compact runs when the conversation context approaches
-the model's limit. It summarizes the older parts of the conversation to
-free up tokens. Without intervention, the assistant loses track of the
-current task at this boundary.
-
-The `PreCompact` hook (`hooks/pre-compact.sh`) runs *before* the compact
-and writes a snapshot to disk: active TODOs, the last user message, key
-files modified this session, decisions made. The `PostCompact` hook
-(`hooks/post-compact.sh`) runs *after* the compact and emits a one-line
-reminder telling Claude to read the snapshot file before continuing.
-
-The recommended setup also sets `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` in
-the `env` block of `~/.claude/settings.json`. That lowers the auto-compact
-threshold from the default (~95% of context) to 50%, so compaction fires
-on a fresher window - the snapshot is cleaner and the post-compact summary
-has more headroom to preserve. See `docs/COMPACT_SETUP.md` for tuning.
-
-Net effect: the conversation gets compacted, but the assistant doesn't
-lose the plot.
+Context compaction is left to Claude Code itself - current models handle
+it natively, so the toolkit no longer ships compaction hooks.
 
 ## Permission mode: `auto` is the default
 
@@ -326,17 +290,12 @@ Here's a concrete walk-through. You sit down at a fresh session in
 7. **Claude calls `note.py decision`** the moment the decision is made.
    The decision is captured before you move on, not at the end of the topic.
 8. **You move on to a real task** - say, drafting a contract review.
-9. **Claude spawns a Worker + a Checker.** Worker drafts, Checker
-   independently reads the contract, lists deviations from your playbook.
-   You review both outputs.
-10. **The conversation gets long.** Claude Code auto-compacts. The
-    `PreCompact` hook saves session state. After the compact, the
-    `PostCompact` hook reminds Claude to restore it. The Worker / Checker
-    cycle continues uninterrupted.
+9. **Claude drafts it, and because the review goes out to a third party,
+   one checker agent reads it fresh** and lists deviations from your
+   playbook before you send it.
 
 That flow is the toolkit's design point. Memory + tools + cross-account
-inbox + rules + 2-agent discipline + compact-resilient state, all in one
-workspace.
+inbox + a short set of rules, all in one workspace.
 
 ## Where to go next
 
