@@ -1,370 +1,113 @@
 # Upgrading
 
-## If you're already on an older version
+You have a `~/Desktop/claude/` workspace from an earlier install: a `CLAUDE.md`, a `contacts.db`, probably rules and outputs of your own. This page covers what an update keeps, what it changes, and the one-time steps per release. Installing for the first time? Go to [`README.md`](README.md).
 
-You have a `~/Desktop/claude/` workspace from a previous install. You have a `CLAUDE.md`, a `memory/` directory, a `contacts.db`, probably some rules and outputs you've added. You want the new stuff without losing what you've built.
-
-This doc covers what gets preserved, what gets replaced, and the one-time steps for each release back to Phase 2. If you're installing for the first time, go to [`README.md`](README.md) instead.
-
-## TL;DR: just run `tools/update.sh`
-
-If you cloned with git:
+## TL;DR: run `tools/update.sh`
 
 ```bash
-cd ~/pupsik           # or wherever you cloned it
-git pull              # fetch latest main
-bash tools/update.sh  # smart-merges everything that should auto-update
+cd ~/code/pupsik      # or wherever you cloned it
+bash tools/update.sh  # pulls, then smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges the toolkit's Python tools (`contacts_db.py`, `memory_search.py`, `note.py`, `enrichment_schema_migrate.py`, `now.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`, `brand_os.py`), the session-start hook, the critical-rules template (append-only), and feedback templates. It will NEVER touch your `CLAUDE.md`, your `contacts.db`, or anything you've written under `memory/`, `briefings/`, or `outputs/`.
+`update.sh` smart-merges `contacts_db.py`, `enrichment_schema_migrate.py`, `now.py`, the session-start hook, the feedback rules in `~/Desktop/claude/rules/` and the critical-rules template (append-only). It never touches your `CLAUDE.md`, `contacts.db`, `memory/`, `outputs/`, Claude's built-in memory folder or your Claude settings.
 
-Scheduled-task templates (the optional weekly enrichment cron) are NOT auto-installed - they're opt-in. The install command is in "Per-release one-time steps" below.
+Didn't clone with git? Download the repo again and run `bash install.sh --update-only`.
 
-If you didn't clone with git, re-download the repo and run `bash install.sh --update-only` for the same smart-merge behaviour without the git pull.
+## What's kept
 
-## What's preserved
+- **`data/contacts.db`** - contacts, interactions, links, custom columns.
+- **`CLAUDE.md`** and everything under `memory/`, `outputs/`, `briefings/`, `research/`.
+- **`~/.claude/rules/critical-rules.md`** - never replaced; new rule lines are appended under a dated header.
+- **Claude's built-in memory** (`~/.claude/projects/<slug>/memory/`) and **`~/.claude/settings.json`** values such as `model`, `autoCompactWindow`, `env` and permissions. Pupsik doesn't change them.
+- **Tools pupsik no longer ships** (see 2026-11-13 below) stay in your workspace and keep working. They just stop getting updates.
 
-Nothing the upgrade touches deletes data. Specifically:
-
-- **`data/contacts.db`** - your SQLite contact graph. Untouched. All contacts, companies, interactions, links, custom columns: kept.
-- **`data/chroma/`** - your existing ChromaDB index. Will be re-indexed once with the new code; the re-index is idempotent (uses `coll.upsert`), so duplicates are not created.
-- **`CLAUDE.md`** - your personalized version. Untouched.
-- **`memory/*.md`** - your existing memory files (people profiles, project notes, learnings, custom feedback rules). Untouched.
-- **`~/.claude/rules/critical-rules.md`** - your existing rules file. The installer will *append* a pointer to the new capture-knowledge rule if it isn't already referenced; it does not overwrite the file.
-- **`~/.claude/projects/<slug>/memory/feedback_*.md`** - your existing feedback rules. Untouched.
-- **`outputs/`, `briefings/`, `journal/`** - anything you've generated. Untouched.
-
-## What gets replaced
-
-The installer overwrites a small, known set of files. Each replaced file is backed up to `<file>.bak.<timestamp>` first, so rollback is one `mv` away.
-
-- **`tools/memory_search.py`** - replaced. Gains:
-  - 5 new ChromaDB collections (briefings, outputs, journal, knowledge, research) on top of the existing 4 (contacts, interactions, memory_files, chat_archives). Total: 9. Note: the `knowledge` collection holds both `memory/learnings/` and `memory/decisions/` files in one searchable index.
-  - `coll.upsert` everywhere - re-indexing is idempotent and safe to re-run.
-  - `index --file <path>` - surgical single-file reindex (~50ms) instead of rebuilding the whole index.
-  - Concurrency-safe lockfile with stale TTL - parallel reindex calls no longer deadlock.
-  - Diff-based stale-chunk pruning - when a file shrinks, old chunks get removed instead of lingering.
-  - 2026-05-08: dedup fix - chat-archive reindex no longer crashes with `DuplicateIDError` on identical filenames in different directories.
-
-- **`tools/note.py`** - new file (didn't exist before). Captures a learning, decision, or research note in-flight with one command. Upserts by title - re-capturing the same topic refreshes the existing note instead of creating a duplicate. 2026-05-07 added a `friction` subcommand for capturing repeat-correction patterns (severity-tagged, counter-incremented).
-
-- **`tools/enrichment_schema_migrate.py`** (new 2026-05-08, updated 2026-05-27) - idempotent migration adding the 11 enrichment columns to your `contacts.db` (`linkedin`, `twitter`, `github`, `website`, `instagram`, `bio`, `enrichment_source`, `enrichment_date`, `enrichment_confidence`, `last_enriched`, `relationship_context`). Re-runs are safe; only adds missing columns.
-
-- **New mandatory rule: capture-knowledge-in-flight** - installed to `~/.claude/projects/<slug>/memory/feedback_capture_knowledge.md`. Tells Claude to call `note.py` the moment an insight surfaces, not when the topic closes.
-
-- **2026-05-07 feedback rules** added under `memory_templates/`:
-  - 4 cross-cutting Output Rules in `memory_templates/feedback_output_rules.md` (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality)
-  - All adapted from gbrain (Garry Tan, MIT). See `THIRD_PARTY_ATTRIBUTIONS.md`.
-
-- **2026-05-08 feedback rule** added: `feedback_contact_enrichment_weekly.md` - operating rule for the optional weekly contact-enrichment cron. 2026-05-09 updated to 4-pass (Pass 4 = email + WhatsApp correspondence scan).
-
-- **`~/.claude/rules/critical-rules.md`** - receives one-line pointers for each new rule, appended at the end of the rules section if not already present (existing pointers are never duplicated).
-
-## One-time migration steps
-
-### Phase-2 baseline (apply first if you haven't already)
-
-1. **Run the installer.** From the unpacked package directory:
-
-   ```bash
-   bash pupsik/install.sh
-   ```
-
-   The installer detects an existing workspace, backs up files it intends to overwrite (`tools/memory_search.py.bak.YYYYMMDD-HHMMSS` and so on), and then writes the new versions.
-
-2. **Run a one-off full reindex** to populate the 5 new ChromaDB collections from your existing markdown directories:
-
-   ```bash
-   python3 ~/Desktop/claude/tools/memory_search.py index
-   ```
-
-   This rebuilds all 9 collections from scratch. It's idempotent thanks to `coll.upsert`, so it's safe to interrupt and re-run. Expect roughly 90 seconds depending on how many files you have.
-
-3. **(Optional) Verify the new memory layer is healthy:**
-
-   ```bash
-   python3 ~/Desktop/claude/tools/memory_search.py wake-up
-   ```
-
-   If it prints sensible context - recent interactions, active topics, contacts gone silent - you're good. If it errors or returns nothing, see Troubleshooting below.
-
-4. **(Optional) Try the new capture rule** to confirm `note.py` is wired correctly:
-
-   ```bash
-   python3 ~/Desktop/claude/tools/note.py learning "Test capture" "verifying note.py installed correctly"
-   ```
-
-   This writes a learning note and surgically reindexes it (~50ms). You can verify it by searching:
-
-   ```bash
-   python3 ~/Desktop/claude/tools/memory_search.py search "test capture"
-   ```
-
-   Then delete the test note from `~/Desktop/claude/memory/learnings/` if you don't want it kept.
+Every file an update replaces is backed up first as `<file>.bak.<timestamp>`; a file you changed gets the new version next to it as `<file>.new` instead.
 
 ## Per-release one-time steps
 
-If you're already on Phase-2 baseline, the steps below get you current with each subsequent release.
+### 2026-11-13 release: slimmed to what Claude can't do itself
+
+Claude now has built-in memory, scheduled tasks, connectors and artifacts, so pupsik stopped shipping:
+
+- the ChromaDB search and note layer: `memory_search.py`, `note.py`, `note_graph.py`, `note_graph_schema.py`, `rules.py`, `templates/wakeup_l0.txt.template`, `memory_templates/{world_knowledge,user_context}/`
+- the dashboard (`dashboard/`, `scripts/morning-dashboard.sh`, `tools/check-update.sh`) and the morning-briefing skill template
+- the Brand OS bridge (`brand_os.py`, `scripts/brand-os-visual-gate.sh`)
+- the rules that depended on those: `feedback_capture_knowledge`, `feedback_marketing_panel_default`, `feedback_briefing_pass3_direct_audit`, `feedback_session_retro`
+
+**Your copies are not deleted.** If you use `memory_search.py` or the dashboard, they keep working from your workspace. Delete them yourself when you're done with them, along with `data/chroma/` and the `chromadb` pip package.
+
+**Rules moved out of Claude's memory folder.** Older versions installed the `feedback_*.md` rules into `~/.claude/projects/<slug>/memory/`, which is Claude's own memory folder. New installs put them in `~/Desktop/claude/rules/`. On update:
+
+- pupsik's backup leftovers in Claude's memory folder (`feedback_*.md.bak.*`, `feedback_*.md.new` for pupsik's rule names only) are moved to `~/.claude/pupsik-removed-<date>/claude-memory/`;
+- your rule files are left where they are, and rule updates are skipped with a note, until you move them:
+
+  ```bash
+  python3 ~/code/pupsik/tools/slim_migrate.py --move-rules "$HOME" "$HOME/Desktop/claude"
+  ```
+
+  This moves only the rule files pupsik ships (your own rules stay in Claude's memory folder) and adds one line to `critical-rules.md` saying where they live now. If a file already exists in `~/Desktop/claude/rules/`, it is left in place and reported, so you can compare the two by hand.
+
+**Claude settings are no longer edited.** The 2026-09 cleanup used to remove `autoCompactWindow` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from `~/.claude/settings.json`. Those are Claude settings you may have set on purpose, so the cleanup now only removes pupsik's own retired compact hooks.
+
+**Session hook.** It no longer starts a background update check (that fed the dashboard). It's replaced automatically if it's the pupsik one.
+
+**`CLAUDE.md`.** Yours is never touched. If it still tells Claude to run `memory_search.py wake-up` at session start, remove that line, or keep it if you still use the tool. `templates/CLAUDE.md.template` shows the short version.
 
 ### 2026-09-23 release: slimmed for Claude 5-era models
 
-Nothing to do by hand - `bash tools/update.sh` runs a one-time cleanup, on the first run, even if your copy of `update.sh` is older than this release. It:
+`bash tools/update.sh` runs a one-time cleanup on the first run, even if your `update.sh` is older than this release. It:
 
-- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak` (a second backup the same day gets `.bak.1`), then removes the PreCompact / PostCompact hook entries that point at `pre-compact.sh` / `post-compact.sh`, the `autoCompactWindow` key and the `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` env var. Your own hooks and settings stay. If `settings.json` is a symlink, the file it points to is edited and the link stays.
-- moves the retired files out of your workspace into `~/.claude/pupsik-removed-<date>/` (the two compact hooks, `context_budget.py`, `claude_md_trim.py`, `doctor.py`, `mcp_profile.py`).
-- replaces `.claude/hooks/session-start-reminder.sh` only if it is the pupsik one (keeps a `.bak`). If you wrote your own, it is left alone and you get a note.
+- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak`, then removes the PreCompact / PostCompact hook entries that point at pupsik's `pre-compact.sh` / `post-compact.sh`. Your own hooks and settings stay. (Up to 2026-11-13 it also removed `autoCompactWindow` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`; it no longer does.)
+- moves the retired files into `~/.claude/pupsik-removed-<date>/` (the two compact hooks, `context_budget.py`, `claude_md_trim.py`, `doctor.py`, `mcp_profile.py`).
+- replaces `.claude/hooks/session-start-reminder.sh` only if it is the pupsik one (keeps a `.bak`).
 - prints what it did. Running it again prints "nothing to do".
 
-Your `~/.claude/rules/critical-rules.md` merge is append-only, so old pointer lines (2-agent, compact, doctor, architect) stay until you delete them. Compare with `templates/critical-rules.md.template` and prune by hand if you want the short version.
+`critical-rules.md` merges are append-only, so old pointer lines stay until you delete them. Compare with `templates/critical-rules.md.template` and prune by hand if you want the short version.
 
-To get the new session hook (NOW anchor + recent rule changes), add it under `SessionStart` in `~/.claude/settings.json` - `install.sh` prints the snippet.
+### Older releases
 
-### 2026-07-06 release: telegram-readonly MCP + dashboard staleness/cache/deploy fixes
+See [`CHANGELOG.md`](CHANGELOG.md). Most of what they added has since been removed; the one opt-in piece still shipped is the contact-enrichment cron below.
 
-All optional; nothing breaks if you skip everything.
+## Opt-in: weekly contact enrichment
 
-**1. Dashboard fixes (stale-briefing note, asset cache-buster) + morning-dashboard smoke test.** Re-run the smart-merge to pick them up:
+Scheduled-task templates are never installed automatically.
 
-```bash
-cd ~/pupsik && git pull
-bash install.sh --update-only
-```
-
-If you customised `dashboard/build.py` or `scripts/morning-dashboard.sh`, the new versions land side-by-side as `<file>.new` — diff and merge. To enable the post-deploy smoke test, additionally export `DASHBOARD_VPS_URL` next to your existing `DASHBOARD_VPS_HOST`/`DASHBOARD_VPS_PATH`.
-
-**2. Telegram read-only MCP (opt-in).** Follow `mcp-servers/telegram-readonly/README.md` (venv → api credentials → allowlist → interactive login → re-run `register_mcps.sh`). Nothing is registered until you create the venv.
-
-### 2026-06-12 release: stable-key token store + MCP servers move off iCloud
-
-Two reliability fixes for existing installs. New installs get both automatically.
-
-**1. Move your MCP servers out of the iCloud-synced workspace.** The new default install location is `~/code/mcp-servers` (outside `~/Desktop` / `~/Documents`, so iCloud Optimize Storage can't evict `node_modules` and randomly break the servers). Migrate an existing install with rsync + swap — NOT a bare `mv`, which Finder/fileproviderd can cancel out of an iCloud-synced dir with "Operation canceled":
-
-```bash
-mkdir -p ~/code
-rsync -a ~/Desktop/claude/mcp-servers/ ~/code/mcp-servers/   # carries over your .env files
-rm -rf ~/Desktop/claude/mcp-servers
-ln -s ~/code/mcp-servers ~/Desktop/claude/mcp-servers        # compatibility symlink
-```
-
-Then rebuild on the latest source and re-point Claude's MCP config at the new real path:
-
-```bash
-cd ~/pupsik && git pull
-bash install_mcps.sh      # rebuilds in ~/code/mcp-servers (override: MCP_INSTALL_DIR)
-bash register_mcps.sh     # re-registers using the real (non-symlink) path
-```
-
-Non-default layouts: set `MCP_INSTALL_DIR=/your/path` before running both scripts.
-
-**2. Gmail tokens migrate automatically — usually.** The multi-gmail token store no longer derives its encryption key from the hostname (which changes when the laptop moves between WiFi networks, silently breaking decryption). On first read after the upgrade, the server tries the new stable key, falls back to the old hostname-derived key, and if that still works it re-encrypts the store under the stable key in place (you'll see one `migrated tokens.enc` line on stderr). **No action needed — IF your hostname hasn't changed since the tokens were last written.** If it has (you'll see a loud `tokens.enc could not be decrypted` message on stderr instead of a silent empty account list), re-add your accounts once:
-
-```bash
-cd ~/code/mcp-servers/multi-gmail
-source .env && export GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET
-npm run setup add <label>     # repeat per account
-```
-
-From then on the key lives in `~/.multi-gmail-mcp/key` (mode 0600) and survives any network/hostname change.
-
-### 2026-05-19 release: PRIMARY rule (verify-don't-imagine) + rules.py retrieval tool + 4 new feedback rules
-
-This release adds a NEW top-priority rule ("NEVER IMAGINE, ALWAYS VERIFY") that sits above every other MANDATORY protocol, plus a tool (`rules.py`) for pulling full rule content into a session on demand, plus 4 supporting rules (check-model-first, verify-don't-imagine-external-brand, marketing-panel-default, no-jargon).
-
-No breaking changes. All existing flows continue to work. No new pip dependencies.
-
-1. **Run the smart-merge update** (picks up `rules.py`, the 5 new feedback templates, and the updated `critical-rules.md` template):
-
-   ```bash
-   bash tools/update.sh
-   ```
-
-2. **Confirm the PRIMARY rule now appears at the top of `~/.claude/rules/critical-rules.md`.** Open the file and look for the first bullet under "MANDATORY protocols" - it should read "NEVER IMAGINE, ALWAYS VERIFY" with a horizontal-rule separator below it. If your existing `critical-rules.md` was already customised, the smart-merge appends new pointers without overwriting your edits; you may need to manually move the new bullet to the top if you want the visual priority.
-
-3. **Try the new retrieval tool:**
-
-   ```bash
-   python3 ~/Desktop/claude/tools/rules.py list                          # list all available rules
-   python3 ~/Desktop/claude/tools/rules.py search "outbound email"        # see what gets pulled
-   python3 ~/Desktop/claude/tools/rules.py read never_imagine_always_verify
-   ```
-
-4. **(Optional) Create an alias manifest** to boost retrieval on keywords your rule files don't explicitly mention:
-
-   ```bash
-   mkdir -p ~/Desktop/claude/data
-   cat > ~/Desktop/claude/data/rules-aliases.json <<'EOF'
-   {
-     "feedback_never_imagine_always_verify": ["imagine", "verify", "fabricate", "fact check"],
-     "feedback_check_model_first": ["model", "numbers", "revenue", "cac", "burn"]
-   }
-   EOF
-   ```
-
-   Aliases are optional - `rules.py` works on pure semantic search without one.
-
-### 2026-05-14 release: date-aware session anchor + connection-aware memory graph
-
-This release adds two big things: a date/timezone anchor injected at session start (kills the "Claude thinks today is six months ago" failure mode) and a connection-aware memory graph that surfaces clusters of related notes in `wake-up`. It also introduces the `VERSION` file + `update.sh` notification flow, so future upgrades show you a summary of what changed instead of just rsync output.
-
-No breaking changes. All existing flows continue to work.
-
-1. **Install the `networkx` dependency** (new, for the graph layer):
-
-   ```bash
-   pip3 install --user networkx
-   ```
-
-2. **Run the smart-merge update** (picks up `now.py`, `note_graph.py`, `note_graph_schema.py`, the new feedback rule, the updated `note.py` / `memory_search.py` / `update.sh`, and the new `session-start-reminder.sh` hook):
-
-   ```bash
-   bash tools/update.sh
-   ```
-
-   The schema migration (`note_graph_schema.py`) is idempotent and auto-runs on first `note.py` invocation after the upgrade. No manual step needed.
-
-3. **Wire the SessionStart hook into `~/.claude/settings.json`.** Open `~/.claude/settings.json` and merge this into the `hooks` block (replace `<HOME>` with your actual home path):
-
-   ```json
-   {
-     "hooks": {
-       "SessionStart": [
-         {
-           "matcher": "*",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "<HOME>/Desktop/claude/.claude/hooks/session-start-reminder.sh",
-               "timeout": 5
-             }
-           ]
-         }
-       ]
-     }
-   }
-   ```
-
-   The hook is OPT-IN: nothing breaks if you skip it, but the date anchor only fires if you wire it.
-
-4. **(Optional) Backfill the graph from your existing notes.** One-time pass that indexes everything you've written so far (takes 30-60 seconds depending on note count):
-
-   ```bash
-   python3 ~/Desktop/claude/tools/note_graph.py backfill
-   ```
-
-   After backfill, `memory_search.py wake-up` will start including the "Active clusters (last 7d)" block.
-
-### 2026-05-07 release: Output Rules
-
-(`doctor.py` from this release was removed in 2026-09-23.)
-
-1. **(Optional) Browse the new Output Rules** at `~/.claude/projects/<your-slug>/memory/feedback_output_rules.md`. The 4 new rules (Deterministic Links, No Slop, Exact Phrasing Preservation, Title Quality) are referenced in `critical-rules.md` after the smart-merge.
-
-### 2026-05-08 release: contact enrichment cron (3-pass) + ChromaDB dedup fix
-
-The dedup fix in `memory_search.py` is automatic via the smart-merge - no action needed.
-
-The contact-enrichment cron is opt-in. To enable:
-
-1. **Migrate your contacts.db schema** (idempotent):
+1. Add the enrichment columns to your contact DB (idempotent, safe to re-run):
 
    ```bash
    python3 ~/Desktop/claude/tools/enrichment_schema_migrate.py
    ```
 
-   Adds the 10 enrichment columns (linkedin / twitter / github / website / instagram / bio / enrichment_source / enrichment_date / enrichment_confidence / last_enriched). Reports already-present if the columns exist.
-
-2. **Install the cron template:**
+2. Install or refresh the task:
 
    ```bash
    mkdir -p ~/.claude/scheduled-tasks/contact-enrichment-weekly
-   cp ~/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template \
+   # back up your copy first if you edited it
+   cp ~/code/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template \
       ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md
    ```
 
-3. **Register the cron** via Claude Code's scheduled-tasks MCP (cron `0 6 * * 0` = Sunday 06:00 local).
+3. Register it with Claude Code's scheduled tasks. The operating rule is `feedback_contact_enrichment_weekly.md`.
 
-4. **(Optional) Run once manually** to populate `relationship_context` (Pass 4) and bio/social fields (Passes 1-3) for existing contacts:
-
-   Just paste the contents of `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md` into a fresh Claude session. The session will run the 4-pass enrichment on rows where `last_enriched IS NULL`.
-
-### 2026-05-09 release: Pass 4 correspondence scan
-
-The 2026-05-09 release adds Pass 4 to the contact-enrichment cron. If you ran the 2026-05-08 schema migrate, the columns were 10. The 2026-05-09 migrate adds 1 more (`relationship_context`).
-
-If you're a fresh installer post-2026-05-09, you only run the migrate once (it adds all 11 in one go).
-
-For existing 2026-05-08 installers, the same migrate command is idempotent:
-
-```bash
-python3 ~/Desktop/claude/tools/enrichment_schema_migrate.py
-# Output: "+ relationship_context", "= linkedin" ... etc
-```
-
-The cron template at `~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md` is NOT smart-merged automatically (templates under `templates/scheduled-tasks/` are opt-in cron tasks). To pick up the Pass 4 changes:
-
-```bash
-# Backup your existing SKILL.md if you made local edits
-cp ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md \
-   ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md.bak.$(date +%Y%m%d)
-
-# Copy the latest template
-cp ~/pupsik/templates/scheduled-tasks/contact-enrichment-weekly.md.template \
-   ~/.claude/scheduled-tasks/contact-enrichment-weekly/SKILL.md
-```
-
-The next scheduled cron run will re-evaluate any rows where `last_enriched IS NULL` OR `< date('now', '-90 days')` and synthesize a private `relationship_context` summary into the local DB. The `relationship_context` column NEVER leaves your local DB - not in run summaries, not in briefings, not in any export. Telegram is NEVER auto-read; if you want TG history factored in for a contact, paste it into an ad-hoc prompt manually.
-
-### Backfill an existing enrichment
-
-If you already had Passes 1-3 done (you ran the 2026-05-08 cron before the 2026-05-09 update) and want to backfill `relationship_context` for those rows without waiting for the next 90-day refresh:
-
-```bash
-sqlite3 ~/Desktop/claude/data/contacts.db \
-  "SELECT COUNT(*) FROM contacts WHERE relationship_context IS NULL AND last_enriched IS NOT NULL"
-```
-
-If the count is non-zero, paste the cron `SKILL.md` into a fresh Claude session and ask it to "run Pass 4 only on the rows where `relationship_context IS NULL` and `last_enriched IS NOT NULL`". The session will execute the email + WhatsApp scan + synthesis without re-running Passes 1-3.
-
-## What you should see post-upgrade
-
-After Phase-2 baseline:
-- `python3 ~/Desktop/claude/tools/memory_search.py stats` reports **9 collections** (was 4).
-- `python3 ~/Desktop/claude/tools/note.py --help` returns a usage summary (the file exists and is executable).
-- `cat ~/.claude/rules/critical-rules.md | grep capture` returns a one-line pointer to the capture-knowledge rule.
-- `python3 ~/Desktop/claude/tools/contacts_db.py find "<any name you had before>"` still returns that contact. Old data is intact.
-
-After 2026-05-08 release:
-- `sqlite3 ~/Desktop/claude/data/contacts.db ".schema contacts" | grep -E "linkedin|relationship_context"` shows the new columns present (10 in the 2026-05-08 release, 11 in 2026-05-09).
-- `ls ~/.claude/scheduled-tasks/contact-enrichment-weekly/` shows the cron `SKILL.md` if you opted in.
-- ChromaDB reindex no longer crashes with `DuplicateIDError` (the 2026-05-08 dedup fix).
-
-After 2026-05-09 release:
-- `sqlite3 ~/Desktop/claude/data/contacts.db "PRAGMA table_info(contacts)" | grep -E "relationship_context"` shows the new column.
+The `relationship_context` column never leaves your local DB - not in run summaries, briefings or any export. Telegram is never read automatically.
 
 ## Rollback
 
-Every file the installer replaces gets backed up first. To restore a previous version:
-
 ```bash
-ls ~/Desktop/claude/tools/*.bak.*
-# pick the timestamp you want, then:
-mv ~/Desktop/claude/tools/memory_search.py.bak.YYYYMMDD-HHMMSS \
-   ~/Desktop/claude/tools/memory_search.py
+ls ~/Desktop/claude/tools/*.bak.* ~/Desktop/claude/rules/*.bak.*
+# pick the timestamp you want, then for example:
+mv ~/Desktop/claude/tools/contacts_db.py.bak.YYYYMMDD-HHMMSS ~/Desktop/claude/tools/contacts_db.py
+mv ~/.claude/rules/critical-rules.md.bak.YYYYMMDD-HHMMSS ~/.claude/rules/critical-rules.md
 ```
 
-If you want a clean rollback of the rule file too:
+Anything a migration moved is in `~/.claude/pupsik-removed-<date>/`; move it back to undo. Rules moved with `--move-rules` go back with:
 
 ```bash
-mv ~/.claude/rules/critical-rules.md.bak.YYYYMMDD-HHMMSS \
-   ~/.claude/rules/critical-rules.md
+mv ~/Desktop/claude/rules/feedback_*.md ~/.claude/projects/<slug>/memory/
 ```
-
-The new ChromaDB collections (briefings, outputs, journal, knowledge, research) will simply sit unused - they don't break the old `memory_search.py`. To remove them too, delete `~/Desktop/claude/data/chroma/` and re-run the old indexer.
 
 ## Troubleshooting
 
-- **`memory_search.py stats` still shows 4 collections** - the new file didn't get installed. Check `ls -la ~/Desktop/claude/tools/memory_search.py*` for a `.bak` file and a fresh `memory_search.py`. If only the `.bak` is there, re-run `install.sh`.
-- **`note.py` not found** - same deal: re-run `install.sh` and confirm `~/Desktop/claude/tools/note.py` is present and executable (`chmod +x`).
-- **Reindex hangs or errors with "lockfile stale"** - the new lockfile has a TTL and self-recovers. If it doesn't, delete `~/Desktop/claude/data/chroma/.lock` manually and re-run `index`.
-- **`wake-up` returns empty** - your `CLAUDE.md` may have moved or your memory directory is empty. The wake-up command depends on having indexed content; run a full `index` first.
+- **"Your pupsik rules are in Claude's memory folder"** on update - expected after the 2026-11-13 release. Run the `--move-rules` command above, or ignore it and keep your rules where they are (they just won't get updates).
+- **Claude doesn't know your rules** - check `~/.claude/rules/critical-rules.md` exists and the files it points at are in `~/Desktop/claude/rules/` (or, if you didn't move them, Claude's memory folder).
+- **`update.sh` refuses to run** - you have uncommitted edits in the clone. Commit or stash them, or run `bash tools/update.sh --force`.

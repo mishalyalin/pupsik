@@ -5,6 +5,26 @@ All notable changes to this toolkit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026-11-13] - Slimmed to what Claude can't do itself
+
+Claude now has built-in memory, scheduled tasks, connectors and artifacts. This release keeps what it still can't do (multi-account Gmail and Calendar, WhatsApp and Telegram read access, the contact graph, the rules) and stops shipping the rest. Pupsik also stops writing into Claude's own memory folder and stops editing Claude settings. Updating does not delete files you already have.
+
+### Removed (no longer shipped or updated; existing copies in your workspace are kept)
+
+- **ChromaDB search and notes** - `tools/memory_search.py`, `tools/note.py`, `tools/note_graph.py`, `tools/note_graph_schema.py`, `tools/rules.py`, `templates/wakeup_l0.txt.template`, `memory_templates/world_knowledge/`, `memory_templates/user_context/`, and the `chromadb` pip install.
+- **Dashboard** - `dashboard/`, `scripts/morning-dashboard.sh`, the `dash` shortcut, `tools/check-update.sh`, and the background update check in the session hook.
+- **Brand OS bridge** - `tools/brand_os.py`, `scripts/brand-os-visual-gate.sh`, `.brand-os-credentials.example`.
+- **Templates and rules that depended on them** - `templates/morning_briefing_skill.md.template`, `feedback_capture_knowledge`, `feedback_marketing_panel_default`, `feedback_briefing_pass3_direct_audit`, `feedback_session_retro`.
+- **Docs** - `HOW_IT_WORKS.md`, `MODULAR.md`, `MARKETING.md` (the README covers the slim version).
+
+### Changed
+
+- **Rules live in the workspace.** `install.sh` installs `memory_templates/feedback_*.md` into `<workspace>/rules/` instead of Claude's memory folder (`~/.claude/projects/<slug>/memory/`). If an older install's rules are still in Claude's memory folder, updates skip the rules with a note instead of writing there.
+- **`tools/slim_migrate.py`** - no longer removes `autoCompactWindow` or `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from `~/.claude/settings.json` (only pupsik's own retired compact hooks). New: moves pupsik's `.bak.*` / `.new` leftovers for pupsik rule names out of Claude's memory folder into `~/.claude/pupsik-removed-<date>/claude-memory/`; `--move-rules` moves pupsik's rule files to `<workspace>/rules/` (your own rules stay) and adds a location line to `critical-rules.md`.
+- **Templates** - `CLAUDE.md.template` is shorter and has no wake-up step; `critical-rules.md.template` points at `<workspace>/rules/` and drops the capture-knowledge line; `feedback_email_nstd` no longer depends on a Brand OS; contact rules use `contacts_db.py` only; the enrichment cron no longer reindexes ChromaDB.
+- **`tools/contacts_db.py`** - usage text no longer lists `add`, `link` and `interactions`, which never existed; `sql` is the way to add rows.
+- **README, UPGRADING, SETUP_PROMPT, docs/UPDATE_PUPSIK.md** rewritten for the slim version.
+
 ## [2026-09-23] - Slimmed for Claude 5-era models
 
 Current models handle compaction, context budgets and a lot of process discipline natively. The scaffolding I built for older models now costs more attention than it saves, so this release takes it out. Updating removes it from your install automatically, with backups.

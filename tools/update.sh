@@ -14,13 +14,12 @@
 # no-drift path is fast + silent.
 #
 # What this DOES touch (smart-merge - never clobbers your edits):
-#   - tools/{contacts_db,memory_search,note,
-#            enrichment_schema_migrate,now,note_graph,
-#            note_graph_schema,rules,brand_os}.py
+#   - tools/{contacts_db,enrichment_schema_migrate,now}.py
 #                                                 in ~/Desktop/claude/tools/
 #   - hooks/session-start-reminder.sh             in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
-#   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
+#   - memory_templates/feedback_*.md              in ~/Desktop/claude/rules/
+#     (never in Claude's own memory folder ~/.claude/projects/<slug>/memory/)
 #
 # Scheduled-task templates (templates/scheduled-tasks/*.md.template) are NOT
 # auto-installed — they are opt-in cron tasks. To enable one, copy the

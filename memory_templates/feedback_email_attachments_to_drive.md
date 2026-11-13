@@ -80,7 +80,6 @@ Use existing folders by default. **Don't silently `mkdir` deep paths.** If no ob
 4. **Download** via `gmail_download_attachment` with the right `account` + `messageId` + `attachmentId`. Save to a temp path first (`/tmp/`).
 5. **Move/copy to Drive folder** via `cp` (not `mv`) so the temp file remains for retry if Drive sync hiccups.
 6. **Filename convention** (see below).
-7. **Log** via `note.py learning` so the file is later semantically searchable.
 8. **Update memory** if the file is genuinely substantive (signed contract, gov registration, financial milestone) — bump `CLAUDE.md` `## Last Updated` and the relevant `memory/project_*.md`.
 
 ## Filename convention
@@ -111,6 +110,5 @@ When any of these match — save first, mention in passing. Don't ask the user.
 
 ## Cross-rule notes
 
-- Combines with `feedback_capture_knowledge.md` — every save logs a `note.py learning` so the file is semantically searchable via `memory_search.py search` later.
 - Combines with `feedback_briefing_update_memory.md` — substantive saves trigger `CLAUDE.md ## Last Updated` bump.
 - Combines with `feedback_verify_project_state.md` — when verifying a project status, attachments found during the verify pass should be saved as part of the verification, not flagged as "TODO".

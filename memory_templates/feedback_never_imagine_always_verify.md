@@ -11,7 +11,7 @@ Before stating ANY of these, verify the source:
 3. **Public facts** (company website, public registry record, industry register, certification listing) -> WebFetch or check the public source. (See your own version of a `feedback_check_public_first.md` if you keep one.)
 4. **Brand patterns** (competitor brand A / competitor brand B visual / copy / pricing / funnel) -> WebFetch the brand page OR your screenshots OR mark `[INFERRED]` explicitly. NEVER synthesize from memory. See `feedback_verify_dont_imagine_external_brand.md`.
 5. **Links / URLs** -> test that they actually work and point where you say before presenting. See `feedback_verify_before_showing.md`.
-6. **People** (who, where, when last contacted, relationship) -> contacts DB via `memory_search.py search` or `contacts_db.py find`. See `feedback_contact_db_first.md`.
+6. **People** (who, where, when last contacted, relationship) -> contacts DB via `contacts_db.py find`. See `feedback_contact_db_first.md`.
 7. **Private intel** (someone said X via Telegram / WhatsApp / phone) -> memory ONLY, NEVER WebSearch the rumor as if it were public. (See your own `feedback_private_intel_no_web_search.md` if you keep one.)
 8. **Dates / day-of-week / "today" / "tomorrow"** -> `tools/now.py --short` (sub-50ms). See `feedback_know_current_datetime.md`.
 
@@ -54,7 +54,7 @@ Before drafting any outbound (email / DM / brief / decision note / recommendatio
 3. If verified -> cite the source in the output (e.g. "Base scenario Y1 figure per integrity-verdict YYYY-MM-DD").
 4. If you cannot verify within your time budget -> flag the unverified claim explicitly and either skip it or ask the user.
 
-Tool: `python3 ~/Desktop/claude/tools/rules.py search <topic>` returns the FULL content of relevant feedback rules so you can apply them. Use it before any non-trivial outbound. Sole-loading `critical-rules.md` (pointer summary) is INSUFFICIENT for verification discipline - the pointer doesn't carry the actual verification protocols.
+Open the full `feedback_*.md` for each rule that applies (they live in `~/Desktop/claude/rules/`). The one-line pointer in `critical-rules.md` does not carry the verification steps.
 
 ## Cross-references (the operational sub-rules)
 

@@ -26,7 +26,7 @@ Write the plan. Input: the discovery manifest + the `pupsik/` README. Output: `.
 
 ### Phase 3 - Install base (tools, CLAUDE.md, memory)
 - Run `bash pupsik/install.sh`.
-- Check independently: Python deps installed, `tools/contacts_db.py init` ran, `CLAUDE.md` rendered, `memory/` populated with the `feedback_*.md` files, `~/.claude/rules/critical-rules.md` installed, `hooks/` installed in `~/Desktop/claude/.claude/hooks/` and chmod +x.
+- Check independently: `tools/contacts_db.py init` ran, `CLAUDE.md` rendered, `~/Desktop/claude/rules/` populated with the `feedback_*.md` files (and nothing written into Claude's own memory folder `~/.claude/projects/*/memory/`), `~/.claude/rules/critical-rules.md` installed, `hooks/` installed in `~/Desktop/claude/.claude/hooks/` and chmod +x.
 - Write the result to `.check-report.md`. On FAIL → fix → check once more.
 
 ### Phase 4 - Install MCP servers
@@ -47,14 +47,12 @@ Walk me through `docs/GOOGLE_CLOUD_SETUP.md` - I do the Google Cloud steps, you 
 
 ### Phase 8 - Final smoke test
 Run these checks:
-- [ ] `python3 ~/Desktop/claude/tools/memory_search.py wake-up` returns content
 - [ ] `python3 ~/Desktop/claude/tools/contacts_db.py stats` returns a row count
 - [ ] `claude mcp list` shows all three MCPs
 - [ ] A test Gmail query (`gmail_search_all` for "test") completes without auth errors
 - [ ] `~/Desktop/claude/.claude/hooks/session-start-reminder.sh` prints JSON with the NOW anchor
 - [ ] A new session reads `CLAUDE.md` and lists the critical rules when asked
-- [ ] `python3 ~/Desktop/claude/tools/rules.py list` prints the installed feedback rules
-- [ ] `python3 ~/Desktop/claude/tools/rules.py search "outbound email"` returns at least one matched rule with full text. `rules.py search "<topic>"` is the canonical way for the agent to pull the full verification protocol before any non-trivial outbound work.
+- [ ] `ls ~/Desktop/claude/rules/feedback_*.md` lists the installed rules, and nothing new was written into `~/.claude/projects/*/memory/`
 
 Report PASS / FAIL with everything itemized. Any FAIL = we fix before declaring done.
 

@@ -24,57 +24,33 @@ This is the highest-priority gate. Skip it and the rest of the framework is wors
 
 This is Voss canon translated to email: *"no deal is better than a bad deal"* -> **"no email is better than a needless email."**
 
-### Step 1 - canon source: Brand OS first (API > local CLI > inline fallback)
+### Step 1 - canon source
 
-A Brand OS is a versioned repo holding your brand voice, positioning canon, persuasion tactics, anti-patterns, evidence library, and templates - PLUS a retrieval surface (Python CLI, HTTP API, or both). See the pupsik README for a reference implementation.
-
-The helper picks the best available mode:
-
-- **API mode** (preferred) - hit one server-side canon copy over HTTPS so every session shares the same canon. Configured via `~/.brand-os-credentials` (mode 600, gitignored) or env vars `BRAND_OS_API_URL` + `BRAND_OS_API_USER` + `BRAND_OS_API_PASS`. Template: `.brand-os-credentials.example` in the pupsik repo.
-- **Local CLI mode** (fallback) - `git clone` the repo locally; helper invokes the local Python CLI. Used when no API credentials are configured or when the API is unreachable.
-
-Probe:
-
-```bash
-python3 tools/brand_os.py status
-python3 tools/brand_os.py is-configured
-```
-
-**If a Brand OS is configured**, pull the tactic stack from it before drafting:
-
-```bash
-python3 tools/brand_os.py invoke search "<situation, e.g. 'cart abandon subject line' or 'supplier pricing chase silent 9 days'>"
-python3 tools/brand_os.py invoke explain "<question, e.g. 'how do we re-engage a counterparty after 14 days silent'>"
-python3 tools/brand_os.py invoke tactic "<NSTD tactic, e.g. 'Accusation Audit'>"
-```
-
-The brain's output supersedes the inline canon below for any conflict. The inline canon is the fallback for capabilities the Brand OS does not yet cover, not the override.
-
-**If no Brand OS is configured**, apply the inline canon below directly.
+If you keep a brand voice or playbook file (for example `memory/reference_nstd_playbook.md`), read it before drafting; it wins over the inline canon below. Otherwise use the inline canon in Step 3.
 
 ### Step 2 - two-version output, every time
 
-After Step 0 passes (email is genuinely needed) and Step 1 has pulled tactics (from Brand OS if configured, from inline canon otherwise), produce BOTH:
+After Step 0 passes (email is genuinely needed) and Step 1 has picked the tactics, produce BOTH:
 
 - **Clean send-version** (paste-ready, no annotations)
 - **Annotated review-version** (same body + `[T: <tactic>. Effect: <one short clause>]` footnotes under tactical sentences)
 
 Show both inline in chat. The user pastes the clean one; the annotations are for the user's learning. Inline is the default - never replace with "see file X for details".
 
-### Step 3 - inline canon (fallback, only if no Brand OS)
+### Step 3 - inline canon
 
 Tactic identification source of truth:
 - `memory/reference_nstd_playbook.md` (full 21-tactic playbook if you keep one)
 - `memory/reference_nstd_email_adapter.md` (voice -> email translations + email anatomy + annotation convention)
 
-**Hard formatting constraints** (always apply, regardless of Brand OS):
+**Hard formatting constraints** (always apply):
 - **SHORT HYPHENS only** ("-"), never em-dash ("—") or en-dash ("–"). Sweep every line before showing. Per `feedback_short_dashes_only.md`.
 - **Sign-off** matches the user's voice (e.g. lowercase first-name initial for warm B2B, full formal name + title for government / legal / regulator correspondence).
 - **<120 words** target for warm B2B drafts; formal can be longer if substance demands.
 - **No "I hope this email finds you well"**, no "just circling back", no excessive softeners.
 - **NEVER fabricate facts**. No competing offers the user does not have, no deadlines that do not exist in CLAUDE.md, no market intel without verifiable source. If a tactic requires info not in context, flag `[REQUIRES USER INPUT: <what is needed>]` rather than invent.
 
-**Default tactic stacks by channel/context** (use when no Brand OS or when the brain returns no specific match):
+**Default tactic stacks by channel/context** (use when your own playbook has no specific match):
 - **Email cold/B2B re-engagement**: Accusation Audit opener + Label + Calibrated What/How question + No-oriented close
 - **WhatsApp / SMS (warm relationship)**: Mirror (strongest in WA) + Calibrated What + Tactical Empathy
 - **Government / bureaucracy**: Accusation Audit + Label + Calibrated "what would be most helpful from our side?" question + formal sign-off
@@ -106,15 +82,9 @@ When the user forwards a reply to Claude:
 - Run **F-word scan**: "fair / reasonable / market-standard / industry-norm / what we are entitled to" all flag weaponisation
 - Run **Bargaining Style Triad** classification: Analyst / Accommodator / Assertive - adapt next draft accordingly
 
-If a Brand OS is configured, these analyses can also be queried via:
-```bash
-python3 tools/brand_os.py invoke explain "what tactic is the counterparty using when they say X?"
-python3 tools/brand_os.py invoke tactic "f-word counter"
-```
 
 ## Cross-references
 
-- `feedback_marketing_panel_default.md` - parent rule for all customer comms; same Brand OS opt-in pattern
 - `feedback_verify_dont_imagine_external_brand.md` - direct-evidence-only for external brand claims
 - `feedback_short_dashes_only.md` - hyphen / dash formatting constraint
 - `feedback_inline_summary_default.md` - inline-in-chat is the default delivery format

@@ -119,7 +119,6 @@ PASS_NAMES=()
 ALLOWLIST_BYLINE=(
   "LICENSE"
   "README.md"
-  "MARKETING.md"
   "MEDIA.md"
   "CHANGELOG.md"
   "CONTRIBUTING.md"
@@ -137,9 +136,6 @@ ALLOWLIST_BYLINE=(
   ".github/scripts/privacy-check.sh"
   ".github/workflows/privacy-check.yml"
   "tools/publish_pupsik.sh"  # not in repo, but listed for completeness if ever copied in
-  "dashboard/build.py"       # pupsik masthead byline + repo link (2026-07-13 whats-new panel)
-  "dashboard/README.md"      # documents the masthead byline/link
-  "tools/check-update.sh"    # RAW_BASE github URL for the update-check raw fallback
 )
 
 # What ack pattern is "ok" inside an allowlisted file? (For pass 1 — avoid the byline.)

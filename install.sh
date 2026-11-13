@@ -3,17 +3,15 @@
 #
 # What this does:
 #   1. Checks dependencies (Python 3.10+, Node 18+, claude CLI)
-#   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,.claude/hooks}
+#   2. Creates ~/Desktop/claude/{tools,data,outputs,memory,rules,.claude/hooks}
 #   3. Copies tools/ → ~/Desktop/claude/tools/
-#      (contacts_db.py, memory_search.py, note.py, now.py, rules.py,
-#       note_graph*.py, brand_os.py, enrichment_schema_migrate.py)
+#      (contacts_db.py, enrichment_schema_migrate.py, now.py)
 #   4. Renders templates/CLAUDE.md.template → ~/Desktop/claude/CLAUDE.md (prompts for placeholders)
-#   5. Renders templates/wakeup_l0.txt.template → ~/Desktop/claude/memory/wakeup_l0.txt (prompts for placeholders)
-#   6. Copies memory_templates/feedback_*.md → project memory dir
+#   6. Copies memory_templates/feedback_*.md → ~/Desktop/claude/rules/
+#      (never into Claude's own memory folder ~/.claude/projects/*/memory/)
 #   6.5 Installs critical-rules.md to ~/.claude/rules/ (auto-loaded each session)
 #   7. Installs the SessionStart hook to ~/Desktop/claude/.claude/hooks/
 #   8. Prints JSON snippet to add to ~/.claude/settings.json to register the hook
-#   9. Installs Python deps (chromadb) via pip
 #  10. Initializes the contacts DB
 #
 # Does NOT:
@@ -45,8 +43,6 @@ Modes:
                    Skips first-time-only steps:
                      - CLAUDE.md scaffold (kept if it already exists)
                      - contacts.db init (kept if it already exists)
-                     - wakeup_l0.txt scaffold (kept if it already exists)
-                     - chromadb pip install (only if missing)
                    Existing tool files are backed up before overwrite.
                    Existing feedback rules are LEFT ALONE (you may have edits).
 
@@ -70,7 +66,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="${POSITIONAL_ARGS[0]:-$HOME/Desktop/claude}"
 PROJECT_SLUG="$(echo "$WORKSPACE" | sed 's|/|-|g')"
+# Claude's built-in memory folder for this workspace. Pupsik only READS it
+# (to detect where an older install put the rules); it never writes there.
 PROJECT_MEMORY_DIR="$HOME/.claude/projects/$PROJECT_SLUG/memory"
+RULES_HOME="$WORKSPACE/rules"
 
 # ---------- Helpers ----------
 say()  { printf "\033[1;36m[setup]\033[0m %s\n" "$*"; }
@@ -120,7 +119,7 @@ log_smart() {
 # pristine, ASSUME pristine, save current dst as .bak.<ts>.force-resync
 # (so the user can recover if it was actually their edit), then overwrite.
 # This is the right behaviour for files the user shouldn't be editing
-# directly — tools/, dashboard/, hooks/, _PROTOCOL.md schemas — where a
+# directly — tools/, hooks/ — where a
 # missing .bak is almost always a pre-state-file-infra install, not a
 # legitimate customization. update.sh sets this when calling install.sh
 # in update-only mode. The default behaviour (no env var) stays
@@ -201,7 +200,7 @@ ask() {
 # ---------- Step 0: announce mode ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
   printf "\033[1;36m[setup]\033[0m Running in --update-only mode.\n"
-  printf "\033[1;36m[setup]\033[0m First-time-only steps (CLAUDE.md scaffold, DB init, wakeup_l0) will be skipped.\n"
+  printf "\033[1;36m[setup]\033[0m First-time-only steps (CLAUDE.md scaffold, DB init) will be skipped.\n"
 fi
 
 # ---------- Step 1: dependency check ----------
@@ -236,10 +235,6 @@ fi
 # ---------- Step 2: create workspace ----------
 say "Creating workspace at $WORKSPACE..."
 mkdir -p "$WORKSPACE"/{tools,data,outputs,memory,.claude/hooks}
-# Phase 1/2 dirs for the 9-collection ChromaDB indexer + note.py captures
-mkdir -p "$WORKSPACE"/memory/{learnings,decisions,journal,people,projects}
-mkdir -p "$WORKSPACE"/{briefings,research}
-mkdir -p "$PROJECT_MEMORY_DIR"
 
 # ---------- Step 3: copy tools (smart-merge, template-class) ----------
 # tools/ files are templates - users shouldn't edit them directly. If there's
@@ -248,57 +243,12 @@ mkdir -p "$PROJECT_MEMORY_DIR"
 # so anything customized is recoverable.
 say "Copying tools..."
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/contacts_db.py"             "$WORKSPACE/tools/contacts_db.py"             "tools/contacts_db.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/memory_search.py"           "$WORKSPACE/tools/memory_search.py"           "tools/memory_search.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note.py"                    "$WORKSPACE/tools/note.py"                    "tools/note.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/enrichment_schema_migrate.py" "$WORKSPACE/tools/enrichment_schema_migrate.py" "tools/enrichment_schema_migrate.py"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/now.py"                     "$WORKSPACE/tools/now.py"                     "tools/now.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph.py"              "$WORKSPACE/tools/note_graph.py"              "tools/note_graph.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/note_graph_schema.py"       "$WORKSPACE/tools/note_graph_schema.py"       "tools/note_graph_schema.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/rules.py"                   "$WORKSPACE/tools/rules.py"                   "tools/rules.py"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/tools/brand_os.py"                "$WORKSPACE/tools/brand_os.py"                "tools/brand_os.py"
 
-# Dashboard module (BRAND-OVERRIDABLE — NOT template-class)
-#
-# Dashboard files (build.py, styles.css, favicon.svg, morning-dashboard.sh)
-# are legitimately customized in workspace: favicon.svg is governed by the
-# Brand OS visual spec (per-adopter), build.py/styles.css carry brand-flavored
-# docstrings, and morning-dashboard.sh often gets adopter-specific VPS config
-# (token file, hardcoded host, etc — pupsik template uses generic env vars).
-#
-# Force-resync would silently overwrite this layer. Use the conservative
-# default (sidecar on drift) so adopters can review pupsik upstream changes
-# and merge selectively. The brand-os-visual-gate.sh handles favicon/theme
-# drift between workspace and Brand OS canonical at morning-dashboard time -
-# that's the right tool for that job, not install.sh.
-#
-# brand-os-visual-gate.sh + install-git-hooks.sh ARE template-class (the user
-# shouldn't be editing those — they're our enforcement scripts). Force-resync
-# stays on for those two only.
-say ""
-say "Step 3.5: Copy dashboard module..."
-mkdir -p "$WORKSPACE/dashboard" "$WORKSPACE/scripts" "$WORKSPACE/state/dashboard/archive"
-smart_merge_file "$SCRIPT_DIR/dashboard/build.py"   "$WORKSPACE/dashboard/build.py"   "dashboard/build.py"
-smart_merge_file "$SCRIPT_DIR/dashboard/styles.css" "$WORKSPACE/dashboard/styles.css" "dashboard/styles.css"
-smart_merge_file "$SCRIPT_DIR/dashboard/favicon.svg" "$WORKSPACE/dashboard/favicon.svg" "dashboard/favicon.svg"
-smart_merge_file "$SCRIPT_DIR/dashboard/NOTICE.md"  "$WORKSPACE/dashboard/NOTICE.md"  "dashboard/NOTICE.md"
-smart_merge_file "$SCRIPT_DIR/dashboard/README.md"  "$WORKSPACE/dashboard/README.md"  "dashboard/README.md"
-MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/morning-dashboard.sh" "$WORKSPACE/scripts/morning-dashboard.sh" "scripts/morning-dashboard.sh"
-PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/brand-os-visual-gate.sh" "$WORKSPACE/scripts/brand-os-visual-gate.sh" "scripts/brand-os-visual-gate.sh"
+# Enforcement script for the opt-in privacy pre-commit hook (template-class).
+mkdir -p "$WORKSPACE/scripts"
 PUPSIK_FORCE_RESYNC=1 MAKE_EXECUTABLE=1 smart_merge_file "$SCRIPT_DIR/scripts/install-git-hooks.sh" "$WORKSPACE/scripts/install-git-hooks.sh" "scripts/install-git-hooks.sh"
-
-# Optional dash shortcut on PATH (~/.local/bin/dash)
-if [ -d "$HOME/.local/bin" ]; then
-  DASH_BIN="$HOME/.local/bin/dash"
-  if [ ! -e "$DASH_BIN" ]; then
-    cat > "$DASH_BIN" <<DASH_EOF
-#!/usr/bin/env bash
-# dash - morning dashboard launcher (rebuild + open in browser)
-exec bash "$WORKSPACE/scripts/morning-dashboard.sh" "\$@"
-DASH_EOF
-    chmod +x "$DASH_BIN"
-    say "  created dash shortcut at $DASH_BIN"
-  fi
-fi
 
 # ---------- Step 4 + 5: render templates ----------
 render_template() {
@@ -373,45 +323,33 @@ if [ "$NEED_VALUES" = "y" ]; then
   mv "$TMP" "$WORKSPACE/CLAUDE.md"
   say "  Wrote $WORKSPACE/CLAUDE.md"
 
-  # wakeup_l0.txt — use same values
-  TMP=$(mktemp)
-  cp "$SCRIPT_DIR/templates/wakeup_l0.txt.template" "$TMP"
-  CONTEXT=$(ask "  One-line context for wake-up (e.g. 'grad student, NYC')" "$ROLE")
-  EXTRA=$(ask "  One more identity line (optional)" "")
-  sed -i '' "s|{{OWNER_FIRST_NAME}}|${OWNER_FIRST_NAME}|g" "$TMP"
-  sed -i '' "s|{{OWNER_LAST_NAME}}|${OWNER_LAST_NAME}|g" "$TMP"
-  sed -i '' "s|{{ROLE}}|${ROLE}|g" "$TMP"
-  sed -i '' "s|{{CONTEXT_ONE_LINER}}|${CONTEXT}|g" "$TMP"
-  sed -i '' "s|{{LOCATION}}|${LOCATION}|g" "$TMP"
-  sed -i '' "s|{{PRIMARY_EMAIL}}|${PRIMARY_EMAIL}|g" "$TMP"
-  sed -i '' "s|{{EXTRA_IDENTITY_LINE}}|${EXTRA}|g" "$TMP"
-  mv "$TMP" "$WORKSPACE/memory/wakeup_l0.txt"
-  say "  Wrote $WORKSPACE/memory/wakeup_l0.txt"
 fi
 
-# ---------- Step 6: memory feedback rules (smart-merge) ----------
-say "Installing memory feedback rules..."
-for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
-  name=$(basename "$f")
-  target="$PROJECT_MEMORY_DIR/$name"
-  smart_merge_file "$f" "$target" "$name"
-done
-
-# ---------- Step 6.2: world_knowledge + user_context (bootstrap) ----------
-# Two ChromaDB knowledge sub-collections cherry-picked from obra/superpowers
-# private-journal-mcp (Jesse Vincent, MIT). Each directory lives under the
-# WORKSPACE memory dir alongside learnings/ and decisions/.
-#
-# We smart-merge _PROTOCOL.md every run so the schema can evolve across
-# upgrades. We do NOT bootstrap any seed notes - the user creates entries
-# via `note.py world_knowledge` / `note.py user_context` as facts arise.
-say "Bootstrapping world_knowledge + user_context directories..."
-for kind in world_knowledge user_context; do
-  KIND_DIR="$WORKSPACE/memory/$kind"
-  mkdir -p "$KIND_DIR"
-  # _PROTOCOL.md is schema, not user config → force-resync on drift.
-  PUPSIK_FORCE_RESYNC=1 smart_merge_file "$SCRIPT_DIR/memory_templates/$kind/_PROTOCOL.md" "$KIND_DIR/_PROTOCOL.md" "$kind/_PROTOCOL.md"
-done
+# ---------- Step 6: feedback rules (smart-merge into the workspace) ----------
+# Rules go to $RULES_HOME (<workspace>/rules/). Older pupsik versions put them
+# in Claude's built-in memory folder; Claude manages that folder itself, so
+# pupsik no longer writes there. If an older install's rules are still there
+# and $RULES_HOME does not exist yet, we leave them where they are and say how
+# to move them (python3 tools/slim_migrate.py --move-rules ...).
+LEGACY_RULES=0
+if [ ! -d "$RULES_HOME" ]; then
+  for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
+    if [ -f "$PROJECT_MEMORY_DIR/$(basename "$f")" ]; then LEGACY_RULES=1; break; fi
+  done
+fi
+if [ "$LEGACY_RULES" = "1" ]; then
+  warn "Your pupsik rules are in Claude's memory folder ($PROJECT_MEMORY_DIR)."
+  warn "  Pupsik no longer writes there, so rule updates are skipped this run."
+  warn "  To move them to $RULES_HOME (and get updates again):"
+  warn "    python3 $SCRIPT_DIR/tools/slim_migrate.py --move-rules \"$HOME\" \"$WORKSPACE\""
+else
+  say "Installing feedback rules into $RULES_HOME..."
+  mkdir -p "$RULES_HOME"
+  for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
+    name=$(basename "$f")
+    smart_merge_file "$f" "$RULES_HOME/$name" "rules/$name"
+  done
+fi
 
 # ---------- Step 6.5: critical-rules.md (smart append-only merge) ----------
 say "Installing critical-rules.md..."
@@ -488,7 +426,7 @@ else
   warn "  $RULES_SRC missing, skipping"
 fi
 
-# ---------- Step 6.9: one-time slim migration (v2026-09, idempotent) ----------
+# ---------- Step 6.9: one-time slim migrations (v2026-09 + v2026-11, idempotent) ----------
 # Runs here, not only in update.sh, so an older update.sh that pulled this
 # release still triggers it on the first run.
 python3 "$SCRIPT_DIR/tools/slim_migrate.py" "$HOME" "$WORKSPACE" || warn "  slim migration hit an error - see message above"
@@ -544,27 +482,6 @@ last 14 days. Compaction is left to Claude Code's built-in behaviour.
 EOF
 fi
 
-# ---------- Step 9: Python deps ----------
-if [ "$UPDATE_ONLY" = "1" ]; then
-  if python3 -c "import chromadb" 2>/dev/null; then
-    say "  --update-only: chromadb already importable, skipping pip install."
-  else
-    say "Installing Python packages (chromadb)..."
-    if command -v pip3 >/dev/null 2>&1; then
-      pip3 install --user --quiet chromadb || warn "pip3 install chromadb failed — install manually with: pip3 install --user chromadb"
-    else
-      warn "pip3 not found. Install chromadb manually: python3 -m pip install --user chromadb"
-    fi
-  fi
-else
-  say "Installing Python packages (chromadb)..."
-  if command -v pip3 >/dev/null 2>&1; then
-    pip3 install --user --quiet chromadb || warn "pip3 install chromadb failed — install manually with: pip3 install --user chromadb"
-  else
-    warn "pip3 not found. Install chromadb manually: python3 -m pip install --user chromadb"
-  fi
-fi
-
 # ---------- Step 10: init contacts DB ----------
 if [ "$UPDATE_ONLY" = "1" ]; then
   if [ -f "$WORKSPACE/data/contacts.db" ]; then
@@ -593,10 +510,10 @@ fi
 #     instead of letting update.sh spam the user with the entire history.
 PUPSIK_STATE_DIR="$HOME/.pupsik-state"
 PUPSIK_STATE_FILE="$PUPSIK_STATE_DIR/last-applied-version"
-# Workspace-side markers used by the dashboard "What's new" panel + check-update.sh:
+# Workspace-side markers:
 #   installed-version.txt — the VERSION this workspace is running.
-#   clone-path.txt        — where this pupsik clone lives, so the session-start
-#                           hook can find tools/check-update.sh to run.
+#   clone-path.txt        — where this pupsik clone lives (used by the
+#                           update-pupsik skill).
 # update.sh reaches this via `install.sh --update-only`, so both paths record it.
 WS_PUPSIK_STATE_DIR="$WORKSPACE/state/pupsik"
 if [ -f "$SCRIPT_DIR/VERSION" ]; then
@@ -679,26 +596,6 @@ $NON_DEFAULT_NOTE
   7. Start a fresh Claude Code session in $WORKSPACE and verify the
      rules are loaded:
         > What are my critical rules?
-
-  Knowledge capture (Phase 1 + Phase 2)
-  -------------------------------------
-  Your ChromaDB index now spans 9 collections — contacts, interactions,
-  memory_files, chat_archives plus briefings, outputs, journal, knowledge
-  (learnings + decisions), and research. New dirs were created under
-  memory/ and at the workspace root.
-
-  Capture atomic knowledge in-flight via tools/note.py — the MOMENT an
-  insight, decision, or research finding emerges (don't wait for the
-  topic to close):
-
-    python3 $WORKSPACE/tools/note.py learning  "Title" "Body" --tags "..."
-    python3 $WORKSPACE/tools/note.py decision  "Title" "Body" --rationale "..."
-    python3 $WORKSPACE/tools/note.py research  "Title" "Body" --sources "url"
-
-  Re-run with the same title to upsert the existing note. Each capture
-  triggers a surgical single-file reindex (~50ms); a full reindex (~90s)
-  runs only when you explicitly call \`memory_search.py index\`. See
-  docs/HOW_IT_WORKS.md for the full capture protocol.
 
 ===============================================================================
 

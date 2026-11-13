@@ -170,7 +170,7 @@ Length cap: 400 chars. Source confidence: high if both email + WA matched, mediu
 - Do NOT include this column in any export to your workspace `outputs/`, `briefings/`, or any file the operator might publish.
 - Do NOT mention it in Telegram notifications (Step 8).
 - Do NOT push it to any public repo or template.
-- The morning briefing MAY read it via `memory_search.py search` for grounded context, but NEVER quotes it verbatim - briefings reformulate.
+- A briefing MAY read it for grounded context, but NEVER quotes it verbatim - briefings reformulate.
 
 ## Step 5 - Apply updates with COALESCE guards (idempotent)
 
@@ -259,7 +259,7 @@ source: original
 Generated <ISO> - 0 candidates needed enrichment this week. All non-personal contacts with email are either freshly enriched or already at the 90-day floor.
 ```
 
-Archive with the same content. Skip Step 8 (Telegram). Skip Step 9 (ChromaDB reindex unnecessary if 0 changes). Exit clean.
+Archive with the same content. Skip Step 8 (Telegram). Exit clean.
 
 ## Step 8 - Telegram notification (best-effort)
 
@@ -275,17 +275,7 @@ Read full summary: cat ~/Desktop/claude/memory/contact_enrichment/latest.md
 
 Use SHORT hyphens only (-). NO em-dashes or en-dashes. If the chat_id is unknown to this session OR the reply tool errors, SKIP silently. The `latest.md` file is the canonical surfaced state; briefings will catch it on the next morning run. Do not block the task on Telegram.
 
-## Step 9 - Reindex ChromaDB
-
-If `contacts_touched > 0`, reindex semantic search:
-
-```bash
-python3 ~/Desktop/claude/tools/memory_search.py index
-```
-
-This rebuilds the ChromaDB embeddings so `memory_search.py search` returns the new bio/role text. If the script errors, log it and continue - the next dream-v2 audit will re-flag if the index is stale.
-
-## Step 10 - Exit cleanly
+## Step 9 - Exit cleanly
 
 End with a short text summary in the session log:
 
@@ -316,7 +306,6 @@ The user or their Claude session can run this same logic ad-hoc. The `update_sch
 - READ: gmail (via gmail_search_all all configured accounts), WhatsApp local DB (via mcp__whatsapp__whatsapp_search + whatsapp_messages_with), `~/Desktop/claude/data/contacts.db`, `~/Desktop/claude/CLAUDE.md`
 - WRITE: `~/Desktop/claude/data/contacts.db` (UPDATE statements with COALESCE, including `relationship_context`), `~/Desktop/claude/memory/contact_enrichment/latest.md`, `~/Desktop/claude/memory/contact_enrichment/archive/<date>-enrichment.md`
 - MAY SEND: Telegram message to your private bot (substantial-change threshold only; never includes `relationship_context` content)
-- MAY RUN: `python3 ~/Desktop/claude/tools/memory_search.py index` (ChromaDB reindex)
 - DOES NOT TOUCH: Telegram correspondence (manual-paste only per `feedback_telegram_manual.md`), any public repo path, any `outputs/` path that is shared externally.
 
 End of task prompt.

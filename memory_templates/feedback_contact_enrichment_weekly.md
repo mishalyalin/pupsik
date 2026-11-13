@@ -91,9 +91,8 @@ id = ?` then re-run Pass 4 for that one row.
 - `relationship_context` NEVER leaves the local DB. Not in
   `latest.md`, not in archive runs, not in briefings (briefings
   reformulate, never quote), not in public repos or templates, not in
-  Telegram notifications. The morning briefing MAY query it via
-  `memory_search.py search` for grounded context but reformulates the
-  output before printing.
+  Telegram notifications. A briefing MAY read it for grounded context
+  but reformulates the output before printing.
 
 ## How to manually trigger
 
@@ -117,9 +116,9 @@ Three options:
    # Then ad-hoc Pass 1-3 against that one row only.
    ```
 
-## How morning briefings should read latest.md
+## How briefings should read latest.md
 
-If you also use the morning-briefing pattern, after the CEO Lens
+If you run a daily briefing, after the CEO Lens
 section (or wherever your briefing's people-section lives), run:
 
 ```bash
@@ -164,8 +163,7 @@ touching the others.
 - Run summary: `~/Desktop/claude/memory/contact_enrichment/latest.md`
 - Run archive: `~/Desktop/claude/memory/contact_enrichment/archive/<date>-enrichment.md`
 - DB: `~/Desktop/claude/data/contacts.db`
-- Tools: `tools/contacts_db.py`, `tools/memory_search.py`,
-  `tools/note.py`
+- Tools: `tools/contacts_db.py`
 
 ## Provenance
 

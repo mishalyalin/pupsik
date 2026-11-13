@@ -1,17 +1,16 @@
 # Critical Rules - loaded every session
 
-Facts and preferences Claude should hold every session. Each line points at a `memory/feedback_*.md` file with the full why and examples. Lives at `~/.claude/rules/critical-rules.md` (auto-loaded).
+Facts and preferences Claude should hold every session. Each line points at a `feedback_*.md` file in `~/Desktop/claude/rules/` with the full why and examples. Lives at `~/.claude/rules/critical-rules.md` (auto-loaded).
 
 ## Facts
 
 - **Verify before stating** - every number, date, price, name or claim comes from a real source (file, email, chat, DB, web page) checked in this session. No source = say so, don't guess. → `feedback_never_imagine_always_verify.md`
 - **Current date and place** - the SessionStart hook injects a NOW anchor; trust it over any date you remember. Compute weekdays with `date`, never by eye. → `feedback_know_current_datetime.md`
-- **Contact DB before naming people** - check `tools/memory_search.py search` / `tools/contacts_db.py find` before mentioning anyone. → `feedback_contact_db_first.md`
+- **Contact DB before naming people** - check `tools/contacts_db.py find` before mentioning anyone. → `feedback_contact_db_first.md`
 - **Check what was already sent** - before drafting outbound, search sent mail (all accounts, last 14 days) and chats for an existing message on that topic. → `feedback_check_already_communicated.md`
 
 ## Preferences
 
-- **Capture knowledge** - when an insight, decision or research finding comes up, save it with `note.py learning|decision|research` right away. Don't ask. → `feedback_capture_knowledge.md`
 - **All Gmail accounts** - use the `*_all` multi-account tools; never ask which account. → `feedback_all_accounts_always.md`
 - **Save outputs** - files the user will open go to `~/Desktop/claude/outputs/` as `YYYY-MM-DD-<what>-<for-whom>.<ext>`. No `output.pdf`. → `feedback_save_outputs.md`
 - **One checker for things that ship** - code merged to main, public posts and outbound messages get one independent checker before they go out. Lookups, answers and small edits need no checker. → `feedback_always_two_agents.md`
@@ -22,4 +21,4 @@ Facts and preferences Claude should hold every session. Each line points at a `m
 
 ## How to use
 
-If a rule applies, open its `memory/feedback_*.md`. If a rule conflicts with `CLAUDE.md`, follow this file and fix `CLAUDE.md`. When a rule changes, add one dated line (`YYYY-MM-DD | what changed`) to `~/.claude/RECENT-RULE-CHANGES.md` so the next session sees it.
+If a rule applies, open its file in `~/Desktop/claude/rules/`. If a rule conflicts with `CLAUDE.md`, follow this file and fix `CLAUDE.md`. When a rule changes, add one dated line (`YYYY-MM-DD | what changed`) to `~/.claude/RECENT-RULE-CHANGES.md` so the next session sees it. Claude's built-in memory (`~/.claude/projects/*/memory/`) is Claude's own - pupsik never writes there.
