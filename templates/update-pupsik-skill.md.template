@@ -40,7 +40,7 @@ It reuses pupsik's existing, battle-tested updater - do **not** hand-roll git co
    cd "$PUPSIK_CLONE" && git pull && bash tools/update.sh
    ```
 
-   - `tools/update.sh` fast-forwards, then smart-merges tools / hooks / rules / feedback templates into the workspace. It **never** overwrites your edits (drops `<file>.new` sidecars instead) and **never** touches `CLAUDE.md`, `contacts.db`, `memory/`, `outputs/`, and puts nothing in Claude's own memory folder (`~/.claude/projects/*/memory/`); it only moves pupsik's old leftovers out of it.
+   - `tools/update.sh` fast-forwards, then smart-merges tools / hooks / rules / feedback templates into the workspace. Rules you edited are never overwritten (it drops `<file>.new` sidecars instead); tools and the session hook are replaced, with your old copy kept as `.bak` and **never** touches `CLAUDE.md`, `contacts.db`, `memory/`, `outputs/`, and puts nothing in Claude's own memory folder (`~/.claude/projects/*/memory/`); it only moves pupsik's old leftovers out of it.
    - If it refuses because of uncommitted local edits, tell the user and offer `bash tools/update.sh --force` (stashes, updates, restores) - but only with their OK.
 
 3. **Report what changed.** Summarise the update.sh output for the user:

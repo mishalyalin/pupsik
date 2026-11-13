@@ -181,6 +181,7 @@ def main():
 
     if move_rules and os.path.isdir(memory_dir):
         rules_home = os.path.join(ws, "rules")
+        have_git = os.path.isdir(os.path.join(HERE, "..", ".git"))
         for name in sorted(current):
             src = os.path.join(memory_dir, name)
             dst = os.path.join(rules_home, name)
@@ -199,8 +200,10 @@ def main():
                 stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                 shutil.copy2(dst, f"{dst}.bak.{stamp}")
                 done.append(f"moved memory/{name} to {dst} (unchanged pupsik text, will update)")
-            else:
+            elif have_git:
                 done.append(f"moved memory/{name} to {dst} (you edited it - next update leaves a .new to merge)")
+            else:
+                done.append(f"moved memory/{name} to {dst} (no git history here to check it - next update leaves a .new to merge)")
         crit = os.path.join(home, ".claude", "rules", "critical-rules.md")
         if os.path.isfile(crit):
             with open(crit, encoding="utf-8") as f:
