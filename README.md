@@ -26,7 +26,7 @@ MIT. macOS-friendly. Local. No telemetry, no cloud sync, no SaaS dashboard.
 
 ### What pupsik leaves to Claude
 
-Pupsik doesn't write into Claude's own folders. It never touches Claude's built-in memory (`~/.claude/projects/*/memory/`) or your Claude settings (model, compaction, permissions). Rules go to `~/.claude/rules/` and `~/Desktop/claude/rules/`, tools to `~/Desktop/claude/tools/`. Memory, briefings, dashboards and scheduled jobs are Claude's built-in features now, so use those.
+Pupsik doesn't write into Claude's own folders. It puts nothing in Claude's built-in memory (`~/.claude/projects/*/memory/`) and doesn't change your Claude settings (model, compaction, permissions). The one exception is cleanup of its own old files: an update moves pupsik's leftover backups out of Claude's memory folder and removes hooks that ran pupsik's retired compact scripts, with a backup of each. Rules go to `~/.claude/rules/` and `~/Desktop/claude/rules/`, tools to `~/Desktop/claude/tools/`. Memory, briefings, dashboards and scheduled jobs are Claude's built-in features now, so use those.
 
 ## Quick start
 
@@ -84,14 +84,13 @@ It fetches `origin/main`, shows what changed, refuses to run over uncommitted lo
 ### What it never touches
 
 - Your `CLAUDE.md`, `data/contacts.db`, `memory/`, `outputs/`
-- Claude's built-in memory folder and your Claude settings
+- Claude's built-in memory and your Claude settings (apart from cleaning up pupsik's own old leftovers and hooks, with backups - see `UPGRADING.md`)
 - Scheduled-task templates (opt-in - see `UPGRADING.md`)
 
 ### If you customised a file
 
-- **Identical to upstream** - nothing happens.
-- **Not modified since the last install** - updated; your old copy is kept as `<file>.bak.<timestamp>`.
-- **Modified by you** - the new version lands next to it as `<file>.new`. Yours stays. Diff and merge by hand.
+- **Rules (`rules/feedback_*.md`)** - if you edited one, the new version lands next to it as `<file>.new` and yours stays. Unchanged ones are updated, with the old copy kept as `<file>.bak.<timestamp>`.
+- **Tools and the session hook** - these are replaced with the new version. Your old copy is kept as `<file>.bak.<timestamp>` (or `.bak.<timestamp>.force-resync`), so a local edit can be recovered, but it is not merged for you.
 
 ### Privacy-checked at the source
 

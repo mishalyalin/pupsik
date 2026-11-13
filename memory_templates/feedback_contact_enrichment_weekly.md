@@ -118,8 +118,7 @@ Three options:
 
 ## How briefings should read latest.md
 
-If you run a daily briefing, after the CEO Lens
-section (or wherever your briefing's people-section lives), run:
+If you run a daily briefing, in its people section run:
 
 ```bash
 test -f ~/Desktop/claude/memory/contact_enrichment/latest.md && \

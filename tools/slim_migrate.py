@@ -7,7 +7,8 @@ v2026-09:
 - Removes PreCompact/PostCompact hook entries that point at pupsik's old
   pre-compact.sh / post-compact.sh from <home>/.claude/settings.json. Backs the
   file up first. If settings.json is a symlink, the target is edited in place
-  (the link stays) and its mode is kept. Claude's own settings (autoCompactWindow,
+  (the link stays) and its mode is kept. Only commands that run
+  <...>/.claude/hooks/pre-compact.sh or post-compact.sh match. Claude's own settings (autoCompactWindow,
   env, model and the rest) are never touched.
 - Moves the retired workspace files into <home>/.claude/pupsik-removed-<date>/.
 
@@ -17,7 +18,9 @@ v2026-11:
   the same backup folder. Only files named after a pupsik rule are touched.
 - With --move-rules: moves pupsik's feedback_*.md rule files from Claude's
   memory folder to <workspace>/rules/, so pupsik can update them again without
-  writing into Claude's folder. Your own rule files stay where they are. Adds
+  writing into Claude's folder. A file still identical to a version pupsik
+  shipped gets a .bak baseline, so the next update replaces it; a file you
+  edited gets a .new to merge by hand. Your own rule files stay where they are. Adds
   one line to <home>/.claude/rules/critical-rules.md saying where they are now.
 
 Never overwrites an earlier backup: a second backup on the same day gets a .1,
@@ -30,7 +33,9 @@ import datetime
 import glob
 import json
 import os
+import shlex
 import shutil
+import subprocess
 import sys
 
 RETIRED = [
@@ -63,6 +68,32 @@ def free_path(path):
     return f"{path}.{n}"
 
 
+def is_pupsik_compact_hook(command):
+    """True only for commands that run pupsik's own <somewhere>/.claude/hooks/{pre,post}-compact.sh."""
+    try:
+        parts = shlex.split(str(command or ""))
+    except ValueError:
+        parts = str(command or "").split()
+    return any(os.path.basename(t) in COMPACT_SCRIPTS and "/.claude/hooks/" in t for t in parts)
+
+
+def shipped_versions(name):
+    """Every version of memory_templates/<name> in this clone's git history (empty without git)."""
+    rel = f"memory_templates/{name}"
+    try:
+        revs = subprocess.run(["git", "-C", os.path.join(HERE, ".."), "log", "--format=%H", "--", rel],
+                              capture_output=True, text=True, timeout=30).stdout.split()
+        out = set()
+        for r in revs:
+            show = subprocess.run(["git", "-C", os.path.join(HERE, ".."), "show", f"{r}:{rel}"],
+                                  capture_output=True, timeout=30)
+            if show.returncode == 0:
+                out.add(show.stdout)
+        return out
+    except (OSError, subprocess.SubprocessError):
+        return set()
+
+
 def clean_settings(data, done):
     """Drop only hook entries that run pupsik's retired compact scripts."""
     changed = False
@@ -78,8 +109,7 @@ def clean_settings(data, done):
                 if not isinstance(inner, list):
                     kept_groups.append(g)
                     continue
-                kept = [h for h in inner
-                        if not (isinstance(h, dict) and any(n in str(h.get("command", "")) for n in COMPACT_SCRIPTS))]
+                kept = [h for h in inner if not (isinstance(h, dict) and is_pupsik_compact_hook(h.get("command")))]
                 if len(kept) != len(inner):
                     changed = True
                     done.append(f"removed {len(inner) - len(kept)} {event} hook(s) from settings.json")
@@ -109,7 +139,7 @@ def main():
     if len(args) != 2:
         print(__doc__.strip().splitlines()[2])
         return 2
-    home, ws = args[0], os.path.abspath(args[1])
+    home, ws = args[0], os.path.abspath(os.path.expanduser(args[1]))
     backup_dir = os.path.join(home, ".claude", "pupsik-removed-" + datetime.date.today().isoformat())
     memory_dir = os.path.join(home, ".claude", "projects", ws.replace("/", "-"), "memory")
     done = []
@@ -160,8 +190,17 @@ def main():
                 done.append(f"kept memory/{name} - {dst} already exists, compare them by hand")
                 continue
             os.makedirs(rules_home, exist_ok=True)
+            with open(src, "rb") as f:
+                content = f.read()
             shutil.move(src, dst)
-            done.append(f"moved memory/{name} to {dst}")
+            if content in shipped_versions(name):
+                # Unchanged pupsik text: give smart-merge a baseline so the next
+                # update replaces it instead of leaving a .new next to it.
+                stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                shutil.copy2(dst, f"{dst}.bak.{stamp}")
+                done.append(f"moved memory/{name} to {dst} (unchanged pupsik text, will update)")
+            else:
+                done.append(f"moved memory/{name} to {dst} (you edited it - next update leaves a .new to merge)")
         crit = os.path.join(home, ".claude", "rules", "critical-rules.md")
         if os.path.isfile(crit):
             with open(crit, encoding="utf-8") as f:

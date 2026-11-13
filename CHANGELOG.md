@@ -7,7 +7,7 @@ and this project loosely follows [Semantic Versioning](https://semver.org/spec/v
 
 ## [2026-11-13] - Slimmed to what Claude can't do itself
 
-Claude now has built-in memory, scheduled tasks, connectors and artifacts. This release keeps what it still can't do (multi-account Gmail and Calendar, WhatsApp and Telegram read access, the contact graph, the rules) and stops shipping the rest. Pupsik also stops writing into Claude's own memory folder and stops editing Claude settings. Updating does not delete files you already have.
+Claude now has built-in memory, scheduled tasks, connectors and artifacts. This release keeps what it still can't do (multi-account Gmail and Calendar, WhatsApp and Telegram read access, the contact graph, the rules) and stops shipping the rest. Pupsik also stops installing into Claude's own memory folder, and its cleanup no longer removes Claude settings - it only moves pupsik's own leftovers and hooks, with backups. Updating does not delete files you already have.
 
 ### Removed (no longer shipped or updated; existing copies in your workspace are kept)
 
@@ -20,7 +20,7 @@ Claude now has built-in memory, scheduled tasks, connectors and artifacts. This 
 ### Changed
 
 - **Rules live in the workspace.** `install.sh` installs `memory_templates/feedback_*.md` into `<workspace>/rules/` instead of Claude's memory folder (`~/.claude/projects/<slug>/memory/`). If an older install's rules are still in Claude's memory folder, updates skip the rules with a note instead of writing there.
-- **`tools/slim_migrate.py`** - no longer removes `autoCompactWindow` or `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from `~/.claude/settings.json` (only pupsik's own retired compact hooks). New: moves pupsik's `.bak.*` / `.new` leftovers for pupsik rule names out of Claude's memory folder into `~/.claude/pupsik-removed-<date>/claude-memory/`; `--move-rules` moves pupsik's rule files to `<workspace>/rules/` (your own rules stay) and adds a location line to `critical-rules.md`.
+- **`tools/slim_migrate.py`** - no longer removes `autoCompactWindow` or `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from `~/.claude/settings.json`, and only removes hooks whose command runs `.claude/hooks/pre-compact.sh` / `post-compact.sh` (it used to match any command containing those names). New: moves pupsik's `.bak.*` / `.new` leftovers for pupsik rule names out of Claude's memory folder into `~/.claude/pupsik-removed-<date>/claude-memory/`; `--move-rules` moves pupsik's rule files to `<workspace>/rules/` (your own rules stay) and adds a location line to `critical-rules.md`; moved files still identical to a shipped version get a `.bak` baseline so the next update replaces them.
 - **Templates** - `CLAUDE.md.template` is shorter and has no wake-up step; `critical-rules.md.template` points at `<workspace>/rules/` and drops the capture-knowledge line; `feedback_email_nstd` no longer depends on a Brand OS; contact rules use `contacts_db.py` only; the enrichment cron no longer reindexes ChromaDB.
 - **`tools/contacts_db.py`** - usage text no longer lists `add`, `link` and `interactions`, which never existed; `sql` is the way to add rows.
 - **README, UPGRADING, SETUP_PROMPT, docs/UPDATE_PUPSIK.md** rewritten for the slim version.

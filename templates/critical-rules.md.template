@@ -21,4 +21,4 @@ Facts and preferences Claude should hold every session. Each line points at a `f
 
 ## How to use
 
-If a rule applies, open its file in `~/Desktop/claude/rules/`. If a rule conflicts with `CLAUDE.md`, follow this file and fix `CLAUDE.md`. When a rule changes, add one dated line (`YYYY-MM-DD | what changed`) to `~/.claude/RECENT-RULE-CHANGES.md` so the next session sees it. Claude's built-in memory (`~/.claude/projects/*/memory/`) is Claude's own - pupsik never writes there.
+If a rule applies, open its file in `~/Desktop/claude/rules/`. If a rule conflicts with `CLAUDE.md`, follow this file and fix `CLAUDE.md`. When a rule changes, add one dated line (`YYYY-MM-DD | what changed`) to `~/.claude/RECENT-RULE-CHANGES.md` so the next session sees it. Claude's built-in memory (`~/.claude/projects/*/memory/`) is Claude's own - pupsik installs nothing there.

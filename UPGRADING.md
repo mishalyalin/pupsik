@@ -9,7 +9,7 @@ cd ~/code/pupsik      # or wherever you cloned it
 bash tools/update.sh  # pulls, then smart-merges everything that should auto-update
 ```
 
-`update.sh` smart-merges `contacts_db.py`, `enrichment_schema_migrate.py`, `now.py`, the session-start hook, the feedback rules in `~/Desktop/claude/rules/` and the critical-rules template (append-only). It never touches your `CLAUDE.md`, `contacts.db`, `memory/`, `outputs/`, Claude's built-in memory folder or your Claude settings.
+`update.sh` smart-merges `contacts_db.py`, `enrichment_schema_migrate.py`, `now.py`, the session-start hook, the feedback rules in `~/Desktop/claude/rules/` and the critical-rules template (append-only). It never touches your `CLAUDE.md`, `contacts.db`, `memory/` or `outputs/`. In Claude's built-in memory folder and `~/.claude/settings.json` it only cleans up pupsik's own old leftovers and hooks, with backups (see the release notes below).
 
 Didn't clone with git? Download the repo again and run `bash install.sh --update-only`.
 
@@ -18,10 +18,11 @@ Didn't clone with git? Download the repo again and run `bash install.sh --update
 - **`data/contacts.db`** - contacts, interactions, links, custom columns.
 - **`CLAUDE.md`** and everything under `memory/`, `outputs/`, `briefings/`, `research/`.
 - **`~/.claude/rules/critical-rules.md`** - never replaced; new rule lines are appended under a dated header.
-- **Claude's built-in memory** (`~/.claude/projects/<slug>/memory/`) and **`~/.claude/settings.json`** values such as `model`, `autoCompactWindow`, `env` and permissions. Pupsik doesn't change them.
+- **Claude's built-in memory** (`~/.claude/projects/<slug>/memory/`) - your memory files and `MEMORY.md`. Pupsik only moves its own `feedback_*.md.bak.*` / `.new` leftovers out.
+- **`~/.claude/settings.json`** values such as `model`, `autoCompactWindow`, `env` and permissions. Pupsik only removes hook entries that run its own retired `.claude/hooks/pre-compact.sh` / `post-compact.sh`, after a backup.
 - **Tools pupsik no longer ships** (see 2026-11-13 below) stay in your workspace and keep working. They just stop getting updates.
 
-Every file an update replaces is backed up first as `<file>.bak.<timestamp>`; a file you changed gets the new version next to it as `<file>.new` instead.
+Every file an update replaces is backed up first as `<file>.bak.<timestamp>`. Rules you edited get the new version next to them as `<file>.new` instead; tools and the session hook are replaced (your copy stays in the `.bak`).
 
 ## Per-release one-time steps
 
@@ -45,7 +46,9 @@ Claude now has built-in memory, scheduled tasks, connectors and artifacts, so pu
   python3 ~/code/pupsik/tools/slim_migrate.py --move-rules "$HOME" "$HOME/Desktop/claude"
   ```
 
-  This moves only the rule files pupsik ships (your own rules stay in Claude's memory folder) and adds one line to `critical-rules.md` saying where they live now. If a file already exists in `~/Desktop/claude/rules/`, it is left in place and reported, so you can compare the two by hand.
+  This moves only the rule files pupsik ships (your own rules stay in Claude's memory folder) and adds one line to `critical-rules.md` saying where they live now. A moved file that is still exactly a version pupsik shipped gets updated on the next run. One you edited gets the new version next to it as `<file>.new` to merge by hand - most of these rules changed in this release, so expect a few. If a file already exists in `~/Desktop/claude/rules/`, it is left in place and reported, so you can compare the two by hand.
+
+The four rules pupsik no longer ships (`feedback_capture_knowledge`, `feedback_marketing_panel_default`, `feedback_briefing_pass3_direct_audit`, `feedback_session_retro`) are not moved or deleted. Delete them from wherever they are if you don't use them.
 
 **Claude settings are no longer edited.** The 2026-09 cleanup used to remove `autoCompactWindow` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` from `~/.claude/settings.json`. Those are Claude settings you may have set on purpose, so the cleanup now only removes pupsik's own retired compact hooks.
 
@@ -57,7 +60,7 @@ Claude now has built-in memory, scheduled tasks, connectors and artifacts, so pu
 
 `bash tools/update.sh` runs a one-time cleanup on the first run, even if your `update.sh` is older than this release. It:
 
-- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak`, then removes the PreCompact / PostCompact hook entries that point at pupsik's `pre-compact.sh` / `post-compact.sh`. Your own hooks and settings stay. (Up to 2026-11-13 it also removed `autoCompactWindow` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`; it no longer does.)
+- backs up `~/.claude/settings.json` to `~/.claude/pupsik-removed-<date>/settings.json.bak`, then removes the PreCompact / PostCompact hook entries that run pupsik's `.claude/hooks/pre-compact.sh` / `post-compact.sh` (before 2026-11-13 it matched any command containing those file names). Your own hooks and settings stay. (Up to 2026-11-13 it also removed `autoCompactWindow` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`; it no longer does.)
 - moves the retired files into `~/.claude/pupsik-removed-<date>/` (the two compact hooks, `context_budget.py`, `claude_md_trim.py`, `doctor.py`, `mcp_profile.py`).
 - replaces `.claude/hooks/session-start-reminder.sh` only if it is the pupsik one (keeps a `.bak`).
 - prints what it did. Running it again prints "nothing to do".
@@ -104,6 +107,7 @@ Anything a migration moved is in `~/.claude/pupsik-removed-<date>/`; move it bac
 
 ```bash
 mv ~/Desktop/claude/rules/feedback_*.md ~/.claude/projects/<slug>/memory/
+rm -r ~/Desktop/claude/rules   # otherwise the next update reinstalls all rules there
 ```
 
 ## Troubleshooting

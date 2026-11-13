@@ -10,7 +10,7 @@ From inside your clone:
 bash tools/update.sh
 ```
 
-It fetches `origin/main`, shows the new commits, refuses to run over uncommitted local edits (`--force` stashes and restores them), fast-forwards, then re-runs `install.sh --update-only`. Files you changed are never overwritten - the new version lands next to yours as `<file>.new`.
+It fetches `origin/main`, shows the new commits, refuses to run over uncommitted local edits (`--force` stashes and restores them), fast-forwards, then re-runs `install.sh --update-only`. Rules you edited are never overwritten - the new version lands next to yours as `<file>.new`. Tools and the session hook are replaced, with your old copy kept as `.bak.<timestamp>`.
 
 ## By asking Claude
 

@@ -34,7 +34,7 @@ Process:
 
 ### 🔴 Final sent re-scan invariant (для long-running compose flows)
 
-Если ты генеришь briefing / status report / любой output, который занимает >5 минут от data-gather до compose — **обязательно re-scan `in:sent newer_than:6h` ПРЯМО перед публикацией**.
+Если ты генеришь briefing / status report / любой output, который занимает >5 минут от data-gather до compose - **обязательно re-scan `in:sent newer_than:6h` ПРЯМО перед публикацией**.
 
 Diff против initial gather:
 - Любой новый message = пользователь отправил пока ты compose-ил

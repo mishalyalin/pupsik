@@ -65,6 +65,8 @@ done
 # ---------- Paths ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="${POSITIONAL_ARGS[0]:-$HOME/Desktop/claude}"
+# Normalise (absolute, no trailing slash) so the slug below matches slim_migrate.py.
+WORKSPACE="$(python3 -c 'import os,sys; print(os.path.abspath(os.path.expanduser(sys.argv[1])))' "$WORKSPACE")"
 PROJECT_SLUG="$(echo "$WORKSPACE" | sed 's|/|-|g')"
 # Claude's built-in memory folder for this workspace. Pupsik only READS it
 # (to detect where an older install put the rules); it never writes there.
@@ -119,7 +121,7 @@ log_smart() {
 # pristine, ASSUME pristine, save current dst as .bak.<ts>.force-resync
 # (so the user can recover if it was actually their edit), then overwrite.
 # This is the right behaviour for files the user shouldn't be editing
-# directly — tools/, hooks/ — where a
+# directly - tools/, hooks/ - where a
 # missing .bak is almost always a pre-state-file-infra install, not a
 # legitimate customization. update.sh sets this when calling install.sh
 # in update-only mode. The default behaviour (no env var) stays
@@ -329,19 +331,24 @@ fi
 # Rules go to $RULES_HOME (<workspace>/rules/). Older pupsik versions put them
 # in Claude's built-in memory folder; Claude manages that folder itself, so
 # pupsik no longer writes there. If an older install's rules are still there
-# and $RULES_HOME does not exist yet, we leave them where they are and say how
+# and $RULES_HOME has none of them, we leave them where they are and say how
 # to move them (python3 tools/slim_migrate.py --move-rules ...).
+# Legacy = pupsik rule files in Claude's memory folder and none in $RULES_HOME
+# (a rules/ folder you made yourself doesn't count).
 LEGACY_RULES=0
-if [ ! -d "$RULES_HOME" ]; then
-  for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
-    if [ -f "$PROJECT_MEMORY_DIR/$(basename "$f")" ]; then LEGACY_RULES=1; break; fi
-  done
-fi
+IN_MEMORY=0
+IN_RULES=0
+for f in "$SCRIPT_DIR"/memory_templates/feedback_*.md; do
+  n=$(basename "$f")
+  [ -f "$PROJECT_MEMORY_DIR/$n" ] && IN_MEMORY=1
+  [ -f "$RULES_HOME/$n" ] && IN_RULES=1
+done
+[ "$IN_MEMORY" = "1" ] && [ "$IN_RULES" = "0" ] && LEGACY_RULES=1
 if [ "$LEGACY_RULES" = "1" ]; then
   warn "Your pupsik rules are in Claude's memory folder ($PROJECT_MEMORY_DIR)."
   warn "  Pupsik no longer writes there, so rule updates are skipped this run."
-  warn "  To move them to $RULES_HOME (and get updates again):"
-  warn "    python3 $SCRIPT_DIR/tools/slim_migrate.py --move-rules \"$HOME\" \"$WORKSPACE\""
+  warn "  To move them to $RULES_HOME (unchanged ones then update; edited ones get a .new to merge):"
+  warn "    python3 \"$SCRIPT_DIR/tools/slim_migrate.py\" --move-rules \"$HOME\" \"$WORKSPACE\""
 else
   say "Installing feedback rules into $RULES_HOME..."
   mkdir -p "$RULES_HOME"
@@ -512,7 +519,7 @@ PUPSIK_STATE_DIR="$HOME/.pupsik-state"
 PUPSIK_STATE_FILE="$PUPSIK_STATE_DIR/last-applied-version"
 # Workspace-side markers:
 #   installed-version.txt — the VERSION this workspace is running.
-#   clone-path.txt        — where this pupsik clone lives (used by the
+#   clone-path.txt        - where this pupsik clone lives (used by the
 #                           update-pupsik skill).
 # update.sh reaches this via `install.sh --update-only`, so both paths record it.
 WS_PUPSIK_STATE_DIR="$WORKSPACE/state/pupsik"
