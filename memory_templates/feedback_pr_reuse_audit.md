@@ -28,7 +28,7 @@ If any hit looks like the same purpose:
 
 Anti-pattern observed: agent-generated PRs add new utilities without checking what's already there. Over time, `tools/` accumulates near-duplicates that all do similar things but slightly differently - bug-fix surface multiplies, mental model fragments, and the next Claude session pattern-matches to the wrong one.
 
-The typical `tools/` directory in a Claude-driven workspace already shows accumulation pressure: `memory_search.py` + `contacts_db.py find/sql` + `note_graph.py entity` + `rules.py search` are all overlapping retrieval entry points. Multiple time-anchoring patterns across `now.py` callsites. Hook scripts in `~/Desktop/claude/.claude/hooks/` + project-level hooks + repo `.githooks/` - different layers, easy to add a fourth without realising.
+The typical `tools/` directory in a Claude-driven workspace already shows accumulation pressure: a search tool + `contacts_db.py find/sql` + a graph tool + a rules lookup are all overlapping retrieval entry points. Multiple time-anchoring patterns across `now.py` callsites. Hook scripts in `~/Desktop/claude/.claude/hooks/` + project-level hooks + repo `.githooks/` - different layers, easy to add a fourth without realising.
 
 The next utility added without audit risks creating a 5th similar-but-different entry point.
 

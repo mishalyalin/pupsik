@@ -5,18 +5,15 @@ SQLite-based contact relationship manager with graph query capabilities.
 
 Usage:
     python3 contacts_db.py init                    # Initialize/reset database
-    python3 contacts_db.py add "Name" --email x    # Add contact
     python3 contacts_db.py find "query"             # Search contacts
-    python3 contacts_db.py link "A" "B" --type "introduced_by"  # Add relationship
     python3 contacts_db.py graph "Name"             # Show relationship graph for person
     python3 contacts_db.py chain "A" "B"            # Find connection chain A→B
-    python3 contacts_db.py interactions "Name"      # Show interaction history
     python3 contacts_db.py stale [days]             # Contacts with no interaction in N days
     python3 contacts_db.py stats                    # Database statistics
     python3 contacts_db.py export                   # Export as JSON
     python3 contacts_db.py dot                      # Export as DOT graph
     python3 contacts_db.py html                     # Generate interactive HTML graph
-    python3 contacts_db.py sql "query"              # Raw SQL query
+    python3 contacts_db.py sql "query"              # Raw SQL (also how you add contacts and links)
 """
 
 import sqlite3

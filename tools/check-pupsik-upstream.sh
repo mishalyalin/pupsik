@@ -2,8 +2,8 @@
 # check-pupsik-upstream.sh — per-file drift probe between the pupsik CLONE and
 # the WORKSPACE copies smart-merge installs from it.
 #
-# This is a DIFFERENT question from tools/check-update.sh (which asks "is my
-# clone behind origin/main on GitHub?"). This script asks "for each tracked
+# This is a DIFFERENT question from "is my clone behind origin/main on
+# GitHub?" (git fetch answers that). This script asks "for each tracked
 # tool file, do the clone and the workspace already agree, and if not, which
 # side moved more recently?" - useful after you've hand-edited a tool in the
 # workspace (a common way local fixes get made) and want to know whether that
@@ -12,7 +12,7 @@
 #   bash tools/check-pupsik-upstream.sh              # human-readable table
 #   bash tools/check-pupsik-upstream.sh --json        # machine-readable
 #
-# CLONE_PATH resolution mirrors check-update.sh: PUPSIK_CLONE env var → this
+# CLONE_PATH resolution: PUPSIK_CLONE env var → this
 # script's own repo root (natural when run from inside the clone) →
 # <workspace>/state/pupsik/clone-path.txt written by install.sh.
 # WORKSPACE resolution: CLAUDE_WORKSPACE or WORKSPACE env var, else
@@ -86,14 +86,8 @@ fi
 # Keep in sync with install.sh by hand.
 TRACKED_TOOLS=(
   "tools/contacts_db.py"
-  "tools/memory_search.py"
-  "tools/note.py"
   "tools/enrichment_schema_migrate.py"
   "tools/now.py"
-  "tools/note_graph.py"
-  "tools/note_graph_schema.py"
-  "tools/rules.py"
-  "tools/brand_os.py"
 )
 
 # Every tracked file keeps the same relative path in the clone and the

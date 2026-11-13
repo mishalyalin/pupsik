@@ -48,7 +48,6 @@ yarn-error.log
 brand-os-credentials
 brand-os-credentials.local
 # ... but DO ship the documented template
-!.brand-os-credentials.example
 
 # Backups
 *.bak

@@ -5,9 +5,9 @@
 #    A project-scoped location also works:
 #    <workspace>/.claude/skills/update-pupsik/SKILL.md
 # 2. Set {{PUPSIK_CLONE}} below to wherever you cloned pupsik
-#    (e.g. ~/code/pupsik). The dashboard also records this at
+#    (e.g. ~/code/pupsik). install.sh also records this at
 #    <workspace>/state/pupsik/clone-path.txt.
-# 3. That's it — say "update pupsik" in any Claude Code session.
+# 3. That's it - say "update pupsik" in any Claude Code session.
 #
 # This is the "one button for Claude": it just runs the SAME update flow you'd
 # run by hand (git pull + tools/update.sh). It does not invent a new updater.
@@ -15,14 +15,14 @@
 
 ---
 name: update-pupsik
-description: Update the pupsik toolkit to the latest version. Runs `git pull` + `tools/update.sh` in the pupsik clone (smart-merge; never touches your data) and reports what changed. Use when the user says "update pupsik", "pull the latest pupsik", "обнови pupsik", or clicks "Update pupsik" on the dashboard.
+description: Update the pupsik toolkit to the latest version. Runs `git pull` + `tools/update.sh` in the pupsik clone (smart-merge; never touches your data) and reports what changed. Use when the user says "update pupsik", "pull the latest pupsik", "обнови pupsik".
 ---
 
-# update-pupsik — pull the best pupsik and report what changed
+# update-pupsik - pull the best pupsik and report what changed
 
 Trigger phrases: **"update pupsik"**, "pull latest pupsik", "get the newest pupsik", "обнови pupsik".
 
-This is the one-command path the dashboard's "What's new in pupsik" panel points at. It reuses pupsik's existing, battle-tested updater — do **not** hand-roll git commands beyond what's below.
+It reuses pupsik's existing, battle-tested updater - do **not** hand-roll git commands beyond what's below.
 
 ## Steps
 
@@ -40,8 +40,8 @@ This is the one-command path the dashboard's "What's new in pupsik" panel points
    cd "$PUPSIK_CLONE" && git pull && bash tools/update.sh
    ```
 
-   - `tools/update.sh` fast-forwards, then smart-merges tools / hooks / rules / feedback templates into the workspace. It **never** overwrites your edits (drops `<file>.new` sidecars instead) and **never** touches `CLAUDE.md`, `contacts.db`, `memory/`, `briefings/`, `outputs/`, `research/`.
-   - If it refuses because of uncommitted local edits, tell the user and offer `bash tools/update.sh --force` (stashes, updates, restores) — but only with their OK.
+   - `tools/update.sh` fast-forwards, then smart-merges tools / hooks / rules / feedback templates into the workspace. Rules you edited are never overwritten (it drops `<file>.new` sidecars instead); tools and the session hook are replaced, with your old copy kept as `.bak` and **never** touches `CLAUDE.md`, `contacts.db`, `memory/`, `outputs/`, and puts nothing in Claude's own memory folder (`~/.claude/projects/*/memory/`); it only moves pupsik's old leftovers out of it.
+   - If it refuses because of uncommitted local edits, tell the user and offer `bash tools/update.sh --force` (stashes, updates, restores) - but only with their OK.
 
 3. **Report what changed.** Summarise the update.sh output for the user:
    - old version → new version (from the `Pupsik updated:` banner),
@@ -49,14 +49,8 @@ This is the one-command path the dashboard's "What's new in pupsik" panel points
    - any `.new` sidecar files awaiting manual merge,
    - the reminder to open a fresh Claude Code session so new rules load.
 
-4. **Refresh the dashboard panel** so "What's new" reflects the new state:
-
-   ```bash
-   bash "$PUPSIK_CLONE/tools/check-update.sh" && python3 ~/Desktop/claude/dashboard/build.py
-   ```
-
 ## Guardrails
 
-- **Never** run this on a schedule or silently — it changes files. Run only when the user asks.
+- **Never** run this on a schedule or silently - it changes files. Run only when the user asks.
 - **Never** force-push, hard-reset, or delete anything. `update.sh` is fast-forward-only by design.
-- If `update.sh` exits non-zero, surface the exact message and stop — don't paper over it.
+- If `update.sh` exits non-zero, surface the exact message and stop - don't paper over it.

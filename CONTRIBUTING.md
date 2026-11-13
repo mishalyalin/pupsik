@@ -42,7 +42,7 @@ A good issue has:
 
 1. Fork. Topic branch off `main`.
 2. Keep the change focused. One logical change per PR is easier to review and merge.
-3. If you change behaviour, update the relevant doc (`README.md`, `HOW_IT_WORKS.md`, `UPGRADING.md`, `MODULAR.md`, or `CHANGELOG.md`).
+3. If you change behaviour, update the relevant doc (`README.md`, `UPGRADING.md` or `CHANGELOG.md`).
 4. New feedback rule? Drop the template in `memory_templates/` and add a one-line pointer in `templates/critical-rules.md.template`.
 5. Privacy grep before opening (see above).
 6. Short PR description: what changed, why, any caveats.

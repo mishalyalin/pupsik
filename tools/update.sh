@@ -14,13 +14,12 @@
 # no-drift path is fast + silent.
 #
 # What this DOES touch (smart-merge - never clobbers your edits):
-#   - tools/{contacts_db,memory_search,note,
-#            enrichment_schema_migrate,now,note_graph,
-#            note_graph_schema,rules,brand_os}.py
+#   - tools/{contacts_db,enrichment_schema_migrate,now}.py
 #                                                 in ~/Desktop/claude/tools/
 #   - hooks/session-start-reminder.sh             in ~/Desktop/claude/.claude/hooks/
 #   - templates/critical-rules.md.template        in ~/.claude/rules/critical-rules.md (append-only)
-#   - memory_templates/feedback_*.md              in ~/.claude/projects/<slug>/memory/
+#   - memory_templates/feedback_*.md              in ~/Desktop/claude/rules/
+#     (never in Claude's own memory folder ~/.claude/projects/<slug>/memory/)
 #
 # Scheduled-task templates (templates/scheduled-tasks/*.md.template) are NOT
 # auto-installed — they are opt-in cron tasks. To enable one, copy the
@@ -40,23 +39,24 @@
 # template are appended under a "## Updates from upstream <date>" header.
 # Your existing file is never replaced.
 #
-# One-time migration (v2026-09, safe to run any number of times) lives in
-# tools/slim_migrate.py and runs from install.sh, so it happens on the first
+# One-time migrations (safe to run any number of times) live in
+# tools/slim_migrate.py and run from install.sh, so they happen on the first
 # update even when an older copy of this script did the pull:
-#   - backs up ~/.claude/settings.json, then removes PreCompact/PostCompact hook
-#     entries that point at pre-compact.sh / post-compact.sh and the
-#     autoCompactWindow key (plus env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, which
-#     older install.sh snippets added)
-#   - moves the retired workspace files (.claude/hooks/{pre,post}-compact.sh,
+#   - v2026-09: backs up ~/.claude/settings.json, then removes only hook entries
+#     that run pupsik's own .claude/hooks/{pre,post}-compact.sh. Claude settings
+#     such as autoCompactWindow and env are left alone.
+#   - v2026-09: moves the retired workspace files (.claude/hooks/{pre,post}-compact.sh,
 #     tools/{context_budget,claude_md_trim,doctor,mcp_profile}.py) into
 #     ~/.claude/pupsik-removed-<date>/ - copied first, then deleted
+#   - v2026-11: moves pupsik's own .bak/.new leftovers (pupsik rule names only)
+#     out of Claude's memory folder into the same backup folder
 #
 # If the pull changes this script, it re-runs the new copy once
 # (PUPSIK_UPDATE_REEXEC=1 guards against loops).
 #
 # What this does NOT touch:
-#   - your CLAUDE.md, contacts.db, memory/learnings/, memory/decisions/,
-#     memory/journal/, briefings/, outputs/, research/.
+#   - your CLAUDE.md, contacts.db, memory/, outputs/, your own rule files,
+#     and Claude settings other than pupsik's own retired hooks.
 #
 # Exit codes:
 #   0  up to date or update succeeded

@@ -11,7 +11,7 @@
 #
 # Allowlist:
 #   - "Misha Lyalin" / "mishalyalin" (the author byline) is allowed in:
-#       LICENSE, README.md, MARKETING.md, MEDIA.md, .github/scripts/privacy-check.sh
+#       LICENSE, README.md, MEDIA.md, .github/scripts/privacy-check.sh
 #     and ONLY in those files. Any other file containing these strings = fail.
 #   - Generic illustrative placeholder emails (alice@example.com, john@gmail.com,
 #     personal@gmail.com, work@company.com, kids@gmail.com, your.email@gmail.com,
@@ -119,12 +119,9 @@ PASS_NAMES=()
 ALLOWLIST_BYLINE=(
   "LICENSE"
   "README.md"
-  "MARKETING.md"
   "MEDIA.md"
   "CHANGELOG.md"
   "CONTRIBUTING.md"
-  "HOW_IT_WORKS.md"
-  "MODULAR.md"
   "SETUP_PROMPT.md"
   "UPGRADING.md"
   "docs/GOOGLE_CLOUD_SETUP.md"
@@ -137,9 +134,6 @@ ALLOWLIST_BYLINE=(
   ".github/scripts/privacy-check.sh"
   ".github/workflows/privacy-check.yml"
   "tools/publish_pupsik.sh"  # not in repo, but listed for completeness if ever copied in
-  "dashboard/build.py"       # pupsik masthead byline + repo link (2026-07-13 whats-new panel)
-  "dashboard/README.md"      # documents the masthead byline/link
-  "tools/check-update.sh"    # RAW_BASE github URL for the update-check raw fallback
 )
 
 # What ack pattern is "ok" inside an allowlisted file? (For pass 1 — avoid the byline.)
@@ -267,7 +261,7 @@ run_pass() {
 #   - Full names of OTHER people in the maintainer's network (suppliers,
 #     investors, family) — those identify relationships and should not leak.
 #   - The maintainer's full name "Misha Lyalin" outside the byline-allowed
-#     files (LICENSE, README, MARKETING) — the byline files are intentional.
+#     files (LICENSE, README) — the byline files are intentional.
 #   - Bare first names like "Misha" alone are NOT flagged here. Author
 #     attribution is a feature, not a leak. Process leaks (specific dates,
 #     verbatim quotes, supplier deals) are caught by Pass 6 and adjacent

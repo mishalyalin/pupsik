@@ -4,7 +4,7 @@ description: Briefings/scheduling MUST derive weekday from current date programm
 type: feedback
 originSessionId: afe4e8b0-027c-486c-93b2-51ad76f5b3d8
 ---
-When generating any morning briefing, calendar table, or "this week" view:
+When generating any briefing, calendar table, or "this week" view:
 - The system gives an absolute date (e.g. "Today's date is 2026-04-26"). **Compute the day-of-week from that date** before writing any "Sat/Sun/Mon" labels.
 - Never pattern-match from previous briefing or from the file name. Last brief's day ≠ today's day.
 

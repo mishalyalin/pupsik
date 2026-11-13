@@ -10,7 +10,4 @@ CHANGES=""
 [ -f "$CHANGES_FILE" ] && CHANGES=$(awk -v c="$CUTOFF" '/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ && substr($0,1,10) >= c' "$CHANGES_FILE")
 CTX="⏰ $NOW - trust this over any date you remember."
 [ -n "$CHANGES" ] && CTX="$CTX"$'\n\n'"Rule changes in the last 14 days (these supersede anything read earlier):"$'\n'"$CHANGES"
-# Refresh the dashboard "What's new in pupsik" data in the background (throttled, opt out with PUPSIK_NO_UPDATE_CHECK=1).
-CLONE="$(cat "$WORKSPACE/state/pupsik/clone-path.txt" 2>/dev/null)"
-[ "${PUPSIK_NO_UPDATE_CHECK:-0}" != "1" ] && [ -x "$CLONE/tools/check-update.sh" ] && ( CLAUDE_WORKSPACE="$WORKSPACE" bash "$CLONE/tools/check-update.sh" >/dev/null 2>&1 & )
 printf '%s' "$CTX" | python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":sys.stdin.read()}}))'
